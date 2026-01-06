@@ -16,12 +16,6 @@ const navigation = [
   { name: "Início", href: "/" },
   { name: "Acesso Rápido", href: "/acesso-rapido" },
   { name: "Treinamentos", href: "/treinamentos" },
-  { name: "Equipe", href: "/equipe" },
-  { name: "Links", href: "/links" },
-  { name: "Senhas", href: "/senhas" },
-  { name: "Reuniões", href: "/reunioes" },
-  { name: "Funis", href: "/funis" },
-  { name: "Metas", href: "/metas" },
 ];
 
 interface HeaderProps {
