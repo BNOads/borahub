@@ -31,7 +31,6 @@ interface HeaderProps {
 }
 
 export function Header({ isDark, toggleTheme }: HeaderProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
   const notificationCount = 3;
 
@@ -44,7 +43,7 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent">
               <span className="text-xl font-bold text-accent-foreground">B</span>
             </div>
-            <span className="text-xl font-bold tracking-tight">
+            <span className="text-xl font-bold tracking-tight hidden sm:block">
               BORA<span className="text-accent">na</span>OBRA
             </span>
           </Link>
@@ -75,7 +74,6 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
             variant="ghost"
             size="icon"
             onClick={toggleTheme}
-            className="hidden sm:flex"
           >
             {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
           </Button>
@@ -131,7 +129,7 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
                   <span className="text-sm font-semibold text-accent-foreground">JS</span>
                 </div>
                 <span className="hidden sm:block text-sm font-medium">João Silva</span>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -155,51 +153,8 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {/* Mobile menu button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </Button>
         </div>
       </nav>
-
-      {/* Mobile menu */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden border-t border-border animate-fade-in">
-          <div className="space-y-1 px-4 py-4">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={cn(
-                  "block px-4 py-3 text-base font-medium rounded-lg transition-colors",
-                  location.pathname === item.href
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                )}
-              >
-                {item.name}
-              </Link>
-            ))}
-            <button
-              onClick={() => {
-                toggleTheme();
-                setMobileMenuOpen(false);
-              }}
-              className="flex w-full items-center gap-2 px-4 py-3 text-base font-medium rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
-            >
-              {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              {isDark ? "Modo Claro" : "Modo Escuro"}
-            </button>
-          </div>
-        </div>
-      )}
     </header>
   );
 }
