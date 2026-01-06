@@ -1,11 +1,29 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { WelcomeSection } from "@/components/dashboard/WelcomeSection";
+import { QuickAccess } from "@/components/dashboard/QuickAccess";
+import { ActiveLaunches } from "@/components/dashboard/ActiveLaunches";
+import { TodaysTasks } from "@/components/dashboard/TodaysTasks";
+import { UpcomingEvents } from "@/components/dashboard/UpcomingEvents";
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="space-y-8">
+      <WelcomeSection />
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Sidebar - Quick Access */}
+        <div className="lg:col-span-3">
+          <QuickAccess />
+        </div>
+
+        {/* Main Content */}
+        <div className="lg:col-span-9 space-y-6">
+          <ActiveLaunches />
+          
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <TodaysTasks />
+            <UpcomingEvents />
+          </div>
+        </div>
       </div>
     </div>
   );
