@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { Header } from "./Header";
+import { BottomNav } from "./BottomNav";
 
 export function MainLayout() {
   const [isDark, setIsDark] = useState(() => {
@@ -25,9 +26,10 @@ export function MainLayout() {
   return (
     <div className="min-h-screen bg-background">
       <Header isDark={isDark} toggleTheme={toggleTheme} />
-      <main className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+      <main className="mx-auto max-w-7xl px-4 py-8 lg:px-8 pb-32 lg:pb-8">
         <Outlet />
       </main>
+      <BottomNav />
     </div>
   );
 }
