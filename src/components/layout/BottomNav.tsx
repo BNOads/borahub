@@ -1,22 +1,17 @@
 import { Link, useLocation } from "react-router-dom";
 import { 
   Home, 
-  BookOpen, 
+  LayoutGrid,
   Users, 
-  Link as LinkIcon, 
   Calendar,
   Target,
-  TrendingUp,
-  FileText,
-  Key,
-  BookMarked
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { name: "Início", href: "/", icon: Home },
+  { name: "Acesso", href: "/acesso-rapido", icon: LayoutGrid },
   { name: "Equipe", href: "/equipe", icon: Users },
-  { name: "Links", href: "/links", icon: LinkIcon },
   { name: "Reuniões", href: "/reunioes", icon: Calendar },
   { name: "Metas", href: "/metas", icon: Target },
 ];
