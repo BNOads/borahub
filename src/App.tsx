@@ -7,6 +7,7 @@ import { MainLayout } from "@/components/layout/MainLayout";
 import Index from "./pages/Index";
 import Equipe from "./pages/Equipe";
 import Links from "./pages/Links";
+import AcessoRapido from "./pages/AcessoRapido";
 import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound";
 
@@ -21,6 +22,7 @@ const App = () => (
         <Routes>
           <Route element={<MainLayout />}>
             <Route path="/" element={<Index />} />
+            <Route path="/acesso-rapido" element={<AcessoRapido />} />
             <Route path="/treinamentos" element={<Placeholder />} />
             <Route path="/equipe" element={<Equipe />} />
             <Route path="/guia" element={<Placeholder />} />
@@ -30,6 +32,8 @@ const App = () => (
             <Route path="/reunioes" element={<Placeholder />} />
             <Route path="/funis" element={<Placeholder />} />
             <Route path="/metas" element={<Placeholder />} />
+            <Route path="/desafio" element={<Placeholder />} />
+            <Route path="/assistente" element={<Placeholder />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
