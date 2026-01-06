@@ -3,7 +3,11 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { MainLayout } from "@/components/layout/MainLayout";
 import Index from "./pages/Index";
+import Equipe from "./pages/Equipe";
+import Links from "./pages/Links";
+import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -15,8 +19,18 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<Index />} />
+            <Route path="/treinamentos" element={<Placeholder />} />
+            <Route path="/equipe" element={<Equipe />} />
+            <Route path="/guia" element={<Placeholder />} />
+            <Route path="/links" element={<Links />} />
+            <Route path="/senhas" element={<Placeholder />} />
+            <Route path="/conteudo" element={<Placeholder />} />
+            <Route path="/reunioes" element={<Placeholder />} />
+            <Route path="/funis" element={<Placeholder />} />
+            <Route path="/metas" element={<Placeholder />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
