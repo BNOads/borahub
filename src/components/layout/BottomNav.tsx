@@ -1,19 +1,15 @@
 import { Link, useLocation } from "react-router-dom";
 import { 
   Home, 
-  LayoutGrid,
-  Users, 
-  Calendar,
-  Target,
+  GraduationCap,
+  Wrench,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { name: "Início", href: "/", icon: Home },
-  { name: "Acesso", href: "/acesso-rapido", icon: LayoutGrid },
-  { name: "Equipe", href: "/equipe", icon: Users },
-  { name: "Reuniões", href: "/reunioes", icon: Calendar },
-  { name: "Metas", href: "/metas", icon: Target },
+  { name: "Treinamentos", href: "/treinamentos", icon: GraduationCap },
+  { name: "Ferramentas", href: "/acesso-rapido", icon: Wrench },
 ];
 
 export function BottomNav() {
