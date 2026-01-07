@@ -44,11 +44,11 @@ export function ActiveLaunches() {
         </Link>
       </div>
 
-      <div className="space-y-4">
+      <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
         {launches.map((launch) => (
           <div
             key={launch.id}
-            className="p-4 rounded-lg border border-border hover:border-accent/50 transition-all hover:shadow-sm"
+            className="min-w-[280px] flex-shrink-0 p-4 rounded-lg border border-border hover:border-accent/50 transition-all hover:shadow-sm"
           >
             <div className="flex items-start justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -60,43 +60,42 @@ export function ActiveLaunches() {
                   <p className="text-sm text-muted-foreground">{launch.date}</p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Badge
-                  variant="outline"
-                  className={
-                    launch.status === "Ativo"
-                      ? "border-success text-success"
-                      : "border-warning text-warning"
-                  }
-                >
-                  {launch.status}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className={
-                    launch.priority === "Alta"
-                      ? "border-destructive text-destructive"
-                      : "border-muted-foreground text-muted-foreground"
-                  }
-                >
-                  {launch.priority}
-                </Badge>
-              </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1 text-accent font-semibold">
-                  <TrendingUp className="h-4 w-4" />
-                  {launch.value}
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  por {launch.owner}
-                </span>
+            <div className="flex gap-2 mb-3">
+              <Badge
+                variant="outline"
+                className={
+                  launch.status === "Ativo"
+                    ? "border-success text-success"
+                    : "border-warning text-warning"
+                }
+              >
+                {launch.status}
+              </Badge>
+              <Badge
+                variant="outline"
+                className={
+                  launch.priority === "Alta"
+                    ? "border-destructive text-destructive"
+                    : "border-muted-foreground text-muted-foreground"
+                }
+              >
+                {launch.priority}
+              </Badge>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-1 text-accent font-semibold">
+                <TrendingUp className="h-4 w-4" />
+                {launch.value}
               </div>
+              <span className="text-sm text-muted-foreground">
+                por {launch.owner}
+              </span>
               
-              <div className="flex items-center gap-2">
-                <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+              <div className="flex items-center gap-2 pt-2">
+                <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                   <div
                     className="h-full bg-accent rounded-full transition-all"
                     style={{ width: `${launch.progress}%` }}
