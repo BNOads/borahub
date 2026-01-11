@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
     Calendar,
     LayoutGrid,
@@ -113,6 +113,7 @@ interface SocialPost {
     updated_at: string;
     profiles?: SocialProfile;
     comments_count?: number;
+    history_count?: number;
 }
 
 export default function ConteudoView() {
@@ -134,6 +135,20 @@ export default function ConteudoView() {
 
     const daysOfWeek = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
+    // Sort profiles by post count (descending)
+    const sortedProfiles = useMemo(() => {
+        const postCountByProfile = posts.reduce((acc, post) => {
+            acc[post.profile_id] = (acc[post.profile_id] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+
+        return [...profiles].sort((a, b) => {
+            const countA = postCountByProfile[a.id] || 0;
+            const countB = postCountByProfile[b.id] || 0;
+            return countB - countA;
+        });
+    }, [profiles, posts]);
+
     useEffect(() => {
         fetchInitialData();
     }, [currentWeekStart]);
@@ -147,7 +162,8 @@ export default function ConteudoView() {
                     .select(`
                         *,
                         profiles:social_profiles(*),
-                        comments:post_comments(count)
+                        post_comments(id),
+                        post_history(id)
                     `)
                     .gte("scheduled_date", format(currentWeekStart, 'yyyy-MM-dd'))
                     .lte("scheduled_date", format(addDays(currentWeekStart, 6), 'yyyy-MM-dd'))
@@ -159,7 +175,8 @@ export default function ConteudoView() {
             setProfiles(profilesRes.data || []);
             const formattedPosts = (postsRes.data || []).map((p: any) => ({
                 ...p,
-                comments_count: p.comments?.[0]?.count || 0
+                comments_count: p.post_comments?.length || 0,
+                history_count: p.post_history?.length || 0
             }));
             setPosts(formattedPosts);
         } catch (error: any) {
@@ -337,7 +354,7 @@ export default function ConteudoView() {
                         view === "grid" ? (
                             <WeeklyGridView
                                 days={daysOfWeek}
-                                profiles={profiles}
+                                profiles={sortedProfiles}
                                 posts={posts.filter(p => !searchQuery || p.theme?.toLowerCase().includes(searchQuery.toLowerCase()))}
                                 getPosts={getPostsForDayAndProfile}
                                 onOpenPost={handleOpenPost}
@@ -659,17 +676,37 @@ function PostKanbanCard({ post, onClick }: { post: SocialPost, onClick: () => vo
             </p>
             <div className="flex items-center justify-between pt-2 border-t border-border/30">
                 <div className="flex items-center gap-2">
-                    <div className="h-7 w-7 rounded-lg bg-accent shadow-sm flex items-center justify-center text-accent-foreground">
-                        <User className="h-3.5 w-3.5" />
+                    {post.profiles?.icon?.startsWith('http') ? (
+                        <img
+                            src={post.profiles.icon}
+                            alt={post.profiles.name}
+                            className="h-7 w-7 rounded-lg object-cover shadow-sm"
+                        />
+                    ) : (
+                        <div
+                            className="h-7 w-7 rounded-lg shadow-sm flex items-center justify-center text-sm"
+                            style={{ backgroundColor: post.profiles?.color || '#D4AF37' }}
+                        >
+                            {post.profiles?.icon || '👤'}
+                        </div>
+                    )}
+                    <div className="flex flex-col">
+                        <span className="text-[9px] font-bold text-foreground leading-tight truncate max-w-[80px]">
+                            {post.profiles?.name || 'Sem perfil'}
+                        </span>
+                        <span className="text-[8px] text-muted-foreground">
+                            {post.scheduled_date ? format(parseISO(post.scheduled_date), 'dd/MM') : '--/--'}
+                        </span>
                     </div>
-                    <span className="text-[9px] font-bold text-muted-foreground">
-                        {post.scheduled_date ? format(parseISO(post.scheduled_date), 'dd/MM') : '--/--'}
-                    </span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 text-[9px] font-black text-muted-foreground/50">
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 text-[9px] font-black text-muted-foreground/50" title="Comentários">
                         <MessageSquare className="h-3 w-3" />
                         <span>{post.comments_count || 0}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-[9px] font-black text-muted-foreground/50" title="Rastros/Histórico">
+                        <History className="h-3 w-3" />
+                        <span>{post.history_count || 0}</span>
                     </div>
                 </div>
             </div>
