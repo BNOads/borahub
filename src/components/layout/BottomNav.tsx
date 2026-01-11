@@ -16,9 +16,9 @@ export function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden pb-safe">
       {/* Glassmorphism background */}
-      <div className="mx-4 mb-4 rounded-2xl bg-foreground/95 backdrop-blur-xl border border-border/10 shadow-2xl">
+      <div className="mx-3 mb-2 rounded-2xl bg-foreground/95 backdrop-blur-xl border border-border/10 shadow-2xl">
         <div className="flex items-center justify-around px-2 py-3">
           {tabs.map((tab) => {
             const isActive = location.pathname === tab.href;
