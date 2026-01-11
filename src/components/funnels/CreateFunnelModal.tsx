@@ -35,13 +35,40 @@ const CATEGORIES = [
     "low-ticket",
     "Lançamento",
     "Meteórico",
-    "Reabertura"
+    "Reabertura",
+    "Evento presencial"
 ];
 
 export function CreateFunnelModal({ onFunnelCreated }: CreateFunnelModalProps) {
     const [open, setOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const { register, handleSubmit, reset, control, formState: { errors } } = useForm<FormData>();
+    const [displayInvestment, setDisplayInvestment] = useState("");
+
+    const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<FormData>();
+
+    const formatCurrency = (value: string) => {
+        // Remove non-numeric characters
+        const numericValue = value.replace(/\D/g, "");
+        if (!numericValue) return "";
+
+        // Format as BRL
+        const amount = parseFloat(numericValue) / 100;
+        return new Intl.NumberFormat("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+        }).format(amount);
+    };
+
+    const handleInvestmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const rawValue = e.target.value;
+        const formattedValue = formatCurrency(rawValue);
+        setDisplayInvestment(formattedValue);
+
+        // Convert to number for database (parseFloat of raw numeric string / 100)
+        const numericStr = rawValue.replace(/\D/g, "");
+        const numericValue = numericStr ? parseFloat(numericStr) / 100 : 0;
+        setValue("predicted_investment", numericValue);
+    };
 
     const onSubmit = async (data: FormData) => {
         setIsLoading(true);
@@ -79,6 +106,7 @@ export function CreateFunnelModal({ onFunnelCreated }: CreateFunnelModalProps) {
             toast.success("Funil criado com sucesso!");
             setOpen(false);
             reset();
+            setDisplayInvestment("");
             onFunnelCreated();
         } catch (error: any) {
             console.error("Error creating funnel:", error);
@@ -138,13 +166,14 @@ export function CreateFunnelModal({ onFunnelCreated }: CreateFunnelModalProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="predicted_investment">Investimento Previsto (R$)</Label>
+                        <Label htmlFor="display_investment">Investimento Previsto</Label>
                         <Input
-                            id="predicted_investment"
-                            type="number"
-                            step="0.01"
-                            {...register("predicted_investment")}
+                            id="display_investment"
+                            placeholder="R$ 0,00"
+                            value={displayInvestment}
+                            onChange={handleInvestmentChange}
                         />
+                        <input type="hidden" {...register("predicted_investment")} />
                     </div>
 
                     <div className="space-y-2">

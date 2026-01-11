@@ -26,7 +26,8 @@ const CATEGORIES = [
     "low-ticket",
     "Lançamento",
     "Meteórico",
-    "Reabertura"
+    "Reabertura",
+    "Evento presencial"
 ];
 
 export default function FunnelDetails() {
@@ -38,6 +39,21 @@ export default function FunnelDetails() {
 
     // Form state
     const [formData, setFormData] = useState<Partial<Funnel>>({});
+    const [displayInvestment, setDisplayInvestment] = useState("");
+
+    const formatCurrency = (value: number | string) => {
+        if (value === undefined || value === null) return "";
+        const numericValue = typeof value === "number"
+            ? Math.round(value * 100).toString()
+            : value.replace(/\D/g, "");
+
+        if (!numericValue) return "";
+        const amount = parseFloat(numericValue) / 100;
+        return new Intl.NumberFormat("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+        }).format(amount);
+    };
 
     useEffect(() => {
         const fetchFunnel = async () => {
@@ -52,6 +68,9 @@ export default function FunnelDetails() {
                 if (error) throw error;
                 setFunnel(data);
                 setFormData(data);
+                if (data.predicted_investment) {
+                    setDisplayInvestment(formatCurrency(data.predicted_investment));
+                }
             } catch (error) {
                 console.error("Error fetching funnel:", error);
                 toast.error("Erro ao carregar funil");
@@ -149,9 +168,17 @@ export default function FunnelDetails() {
                         <div className="space-y-2">
                             <Label>Investimento Previsto</Label>
                             <Input
-                                type="number"
-                                value={formData.predicted_investment || 0}
-                                onChange={(e) => setFormData({ ...formData, predicted_investment: Number(e.target.value) })}
+                                placeholder="R$ 0,00"
+                                value={displayInvestment}
+                                onChange={(e) => {
+                                    const rawValue = e.target.value;
+                                    const formatted = formatCurrency(rawValue);
+                                    setDisplayInvestment(formatted);
+
+                                    const numericStr = rawValue.replace(/\D/g, "");
+                                    const numericValue = numericStr ? parseFloat(numericStr) / 100 : 0;
+                                    setFormData({ ...formData, predicted_investment: numericValue });
+                                }}
                             />
                         </div>
                         <div className="space-y-2">
