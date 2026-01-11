@@ -29,13 +29,29 @@ import {
     AlertTriangle,
     FileText,
     Calendar,
-    Check
+    Calendar,
+    Check,
+    Trash2,
+    Edit3,
+    Monitor,
+    Video,
+    Layers,
+    Smartphone,
+    Image as ImageIcon
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+const POST_TYPES = {
+    'Reels': { icon: Video, color: 'text-purple-500' },
+    'Carrossel': { icon: Layers, color: 'text-blue-500' },
+    'Imagem': { icon: ImageIcon, color: 'text-emerald-500' },
+    'Vídeo': { icon: Monitor, color: 'text-rose-500' },
+    'Stories': { icon: Smartphone, color: 'text-orange-500' },
+};
 
 interface PostDetailsModalProps {
     isOpen: boolean;
@@ -69,9 +85,12 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
     const [newComment, setNewComment] = useState("");
     const [isAdjustment, setIsAdjustment] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [isEditingTheme, setIsEditingTheme] = useState(false);
+    const [editedTheme, setEditedTheme] = useState("");
 
     useEffect(() => {
         if (post && isOpen) {
+            setEditedTheme(post.theme);
             fetchComments();
             fetchHistory();
         }
@@ -113,8 +132,6 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
                 .from("social_posts")
                 .update({
                     status: newStatus,
-                    // Automically suggest and change assignee based on status if needed
-                    // current_assignee_id: suggested // This would need actual UUIDs if in production
                 })
                 .eq("id", post.id);
 
@@ -132,6 +149,105 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
             onUpdate();
         } catch (error: any) {
             toast.error("Erro ao atualizar: " + error.message);
+        }
+    }
+
+    async function handleUpdateDate(newDate: string) {
+        try {
+            const { error } = await supabase
+                .from("social_posts")
+                .update({
+                    scheduled_date: newDate
+                })
+                .eq("id", post.id);
+
+            if (error) throw error;
+
+            await supabase.from("post_history").insert({
+                post_id: post.id,
+                action: "Data alterada",
+                field_changed: "scheduled_date",
+                old_value: post.scheduled_date,
+                new_value: newDate
+            });
+
+            toast.success("Data atualizada!");
+            onUpdate();
+        } catch (error: any) {
+            toast.error("Erro ao atualizar data: " + error.message);
+        }
+    }
+
+    async function handleUpdateTheme() {
+        if (!editedTheme.trim() || editedTheme === post.theme) {
+            setIsEditingTheme(false);
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from("social_posts")
+                .update({ theme: editedTheme })
+                .eq("id", post.id);
+
+            if (error) throw error;
+
+            await supabase.from("post_history").insert({
+                post_id: post.id,
+                action: "Tema alterado",
+                field_changed: "theme",
+                old_value: post.theme,
+                new_value: editedTheme
+            });
+
+            toast.success("Tema atualizado!");
+            setIsEditingTheme(false);
+            onUpdate();
+        } catch (error: any) {
+            toast.error("Erro ao atualizar tema: " + error.message);
+        }
+    }
+
+    async function handleUpdateType(newType: string) {
+        try {
+            const { error } = await supabase
+                .from("social_posts")
+                .update({ post_type: newType })
+                .eq("id", post.id);
+
+            if (error) throw error;
+
+            await supabase.from("post_history").insert({
+                post_id: post.id,
+                action: "Tipo alterado",
+                field_changed: "post_type",
+                old_value: post.post_type,
+                new_value: newType
+            });
+
+            toast.success("Tipo de post atualizado!");
+            onUpdate();
+        } catch (error: any) {
+            toast.error("Erro ao atualizar tipo: " + error.message);
+        }
+    }
+
+    async function handleDelete() {
+        if (!confirm("Tem certeza que deseja excluir este post? Esta ação não pode ser desfeita.")) return;
+
+        try {
+            const { error } = await supabase
+                .from("social_posts")
+                .delete()
+                .eq("id", post.id);
+
+            if (error) throw error;
+
+            toast.success("Post excluído com sucesso!");
+            onClose();
+            onUpdate();
+        } catch (error: any) {
+            toast.error("Erro ao excluir post: " + error.message);
         }
     }
 
@@ -167,19 +283,53 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
                     <div className="flex-1 p-10 flex flex-col gap-8 overflow-y-auto border-r border-border bg-card/10 backdrop-blur-3xl">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <Badge variant="outline" className="rounded-full bg-accent/5 text-accent border-accent/20 px-3 py-1 font-black uppercase text-[10px] tracking-widest">
-                                    {post.post_type}
-                                </Badge>
+                                <Select defaultValue={post.post_type} onValueChange={handleUpdateType}>
+                                    <SelectTrigger className="w-fit h-7 rounded-full bg-accent/5 text-accent border-accent/20 px-3 py-1 font-black uppercase text-[10px] tracking-widest border">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-2xl border-accent/10 z-[100]">
+                                        {Object.keys(POST_TYPES).map(type => (
+                                            <SelectItem key={type} value={type} className="font-bold text-[10px] uppercase">{type}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                                 <Badge variant="outline" className="rounded-full bg-blue-500/5 text-blue-500 border-blue-500/20 px-3 py-1 font-black uppercase text-[10px] tracking-widest">
                                     {post.profiles?.name}
                                 </Badge>
                             </div>
-                            <span className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter opacity-30">ID: {post.id.slice(0, 8)}</span>
+                            <div className="flex items-center gap-4">
+                                <span className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter opacity-30">ID: {post.id.slice(0, 8)}</span>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={handleDelete}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
                         </div>
 
-                        <h2 className="text-4xl font-black tracking-tighter leading-[1.1]">
-                            {post.theme}
-                        </h2>
+                        <div className="group/theme relative">
+                            {isEditingTheme ? (
+                                <Input
+                                    autoFocus
+                                    value={editedTheme}
+                                    onChange={(e) => setEditedTheme(e.target.value)}
+                                    onBlur={handleUpdateTheme}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleUpdateTheme()}
+                                    className="text-4xl font-black tracking-tighter leading-[1.1] h-auto p-0 border-none bg-transparent focus-visible:ring-0"
+                                />
+                            ) : (
+                                <h2
+                                    className="text-4xl font-black tracking-tighter leading-[1.1] cursor-pointer hover:text-accent transition-colors flex items-center gap-3"
+                                    onClick={() => setIsEditingTheme(true)}
+                                >
+                                    {post.theme}
+                                    <Edit3 className="h-6 w-6 opacity-0 group-hover/theme:opacity-100 transition-opacity" />
+                                </h2>
+                            )}
+                        </div>
 
                         <div className="grid grid-cols-2 gap-6">
                             <div className="bg-background/80 p-5 rounded-3xl border border-border shadow-inner">
@@ -217,11 +367,14 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
 
                             <div className="bg-background/80 p-5 rounded-3xl border border-border shadow-inner">
                                 <span className="text-[10px] uppercase font-black text-accent block mb-3 tracking-[0.2em] pl-1">Data Prevista</span>
-                                <div className="flex items-center gap-3 px-4 h-12 rounded-2xl bg-muted/30 font-black">
-                                    <Calendar className="h-5 w-5 text-accent" />
-                                    <span className="text-sm">
-                                        {format(parseISO(post.scheduled_date), "dd 'de' MMMM, yyyy", { locale: ptBR })}
-                                    </span>
+                                <div className="relative group">
+                                    <Input
+                                        type="date"
+                                        defaultValue={post.scheduled_date}
+                                        onChange={(e) => handleUpdateDate(e.target.value)}
+                                        className="h-12 rounded-2xl bg-muted/30 border-none font-black shadow-md pl-12 pr-4 peer"
+                                    />
+                                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-accent pointer-events-none" />
                                 </div>
                             </div>
 

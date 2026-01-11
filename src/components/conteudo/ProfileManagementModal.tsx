@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Plus, Trash2, Edit2, Check, X, ShieldCheck } from "lucide-react";
+import { Loader2, Plus, Trash2, Edit2, Check, X, ShieldCheck, Upload, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Profile {
@@ -38,6 +38,7 @@ export function ProfileManagementModal({ isOpen, onClose, onSuccess }: ProfileMa
     const [icon, setIcon] = useState("👤");
     const [color, setColor] = useState("#D4AF37");
     const [isCreating, setIsCreating] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -113,6 +114,35 @@ export function ProfileManagementModal({ isOpen, onClose, onSuccess }: ProfileMa
         setIsCreating(false);
     };
 
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setUploading(true);
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError, data } = await supabase.storage
+                .from('profile_icons')
+                .upload(filePath, file);
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('profile_icons')
+                .getPublicUrl(filePath);
+
+            setIcon(publicUrl);
+            toast.success("Ícone carregado!");
+        } catch (error: any) {
+            toast.error("Erro no upload: " + error.message);
+        } finally {
+            setUploading(false);
+        }
+    };
+
     const resetForm = () => {
         setName("");
         setIcon("👤");
@@ -154,20 +184,53 @@ export function ProfileManagementModal({ isOpen, onClose, onSuccess }: ProfileMa
                                     />
                                 </div>
                                 <div className="space-y-3">
-                                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Ícone</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {PRESET_ICONS.map(i => (
-                                            <button
-                                                key={i}
-                                                onClick={() => setIcon(i)}
-                                                className={cn(
-                                                    "h-10 w-10 flex items-center justify-center rounded-xl transition-all",
-                                                    icon === i ? "bg-accent text-accent-foreground scale-110 shadow-lg" : "bg-muted/50 hover:bg-muted"
+                                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">Ícone ou Imagem</Label>
+                                    <div className="flex flex-col gap-4">
+                                        <div className="flex flex-wrap gap-2">
+                                            {PRESET_ICONS.map(i => (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => setIcon(i)}
+                                                    className={cn(
+                                                        "h-10 w-10 flex items-center justify-center rounded-xl transition-all",
+                                                        icon === i ? "bg-accent text-accent-foreground scale-110 shadow-lg" : "bg-muted/50 hover:bg-muted"
+                                                    )}
+                                                >
+                                                    {i}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <div className="flex items-center gap-4">
+                                            <div className="relative group/upload h-16 w-16 rounded-2xl bg-muted overflow-hidden flex items-center justify-center border-2 border-dashed border-accent/20">
+                                                {icon?.startsWith('http') ? (
+                                                    <img src={icon} alt="Preview" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <span className="text-2xl">{icon}</span>
                                                 )}
-                                            >
-                                                {i}
-                                            </button>
-                                        ))}
+                                                {uploading && (
+                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                                        <Loader2 className="h-4 w-4 text-white animate-spin" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <Label htmlFor="icon-upload" className="cursor-pointer">
+                                                    <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-accent hover:opacity-80 transition-opacity">
+                                                        <Upload className="h-3 w-3" /> Fazer Upload
+                                                    </div>
+                                                </Label>
+                                                <Input
+                                                    id="icon-upload"
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={handleFileUpload}
+                                                    disabled={uploading}
+                                                />
+                                                <p className="text-[9px] text-muted-foreground mt-1">PNG ou JPG até 2MB</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -230,10 +293,14 @@ export function ProfileManagementModal({ isOpen, onClose, onSuccess }: ProfileMa
                                         >
                                             <div className="flex items-center gap-6">
                                                 <div
-                                                    className="h-14 w-14 rounded-2xl flex items-center justify-center text-3xl shadow-lg"
+                                                    className="h-14 w-14 rounded-2xl flex items-center justify-center text-3xl shadow-lg shrink-0 overflow-hidden"
                                                     style={{ backgroundColor: profile.color + '20', color: profile.color }}
                                                 >
-                                                    {profile.icon}
+                                                    {profile.icon?.startsWith('http') ? (
+                                                        <img src={profile.icon} alt={profile.name} className="h-full w-full object-cover" />
+                                                    ) : (
+                                                        profile.icon
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <h4 className="font-black text-xl tracking-tight">{profile.name}</h4>
@@ -277,6 +344,6 @@ export function ProfileManagementModal({ isOpen, onClose, onSuccess }: ProfileMa
                     )}
                 </div>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }
