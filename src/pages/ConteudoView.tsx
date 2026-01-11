@@ -348,7 +348,6 @@ export default function ConteudoView() {
                                 posts={posts.filter(p => !searchQuery || p.theme?.toLowerCase().includes(searchQuery.toLowerCase()))}
                                 onOpenPost={handleOpenPost}
                                 onAddPost={handleAddNewPost}
-                                getPosts={getPostsForDayAndProfile}
                             />
                         )
                     }
@@ -372,7 +371,6 @@ export default function ConteudoView() {
                 onClose={() => setIsDetailsOpen(false)}
                 post={selectedPost}
                 onUpdate={fetchInitialData}
-                users={[]}
             />
 
             <EditorialLineModal
@@ -627,7 +625,6 @@ function PostKanbanCard({ post, onClick }: { post: SocialPost, onClick: () => vo
     return (
         <div
             ref={setNodeRef}
-            style={style}
             onClick={onClick}
             className={cn(
                 "bg-card p-3 rounded-2xl border border-border/50 shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer group/kcard border-l-4",
@@ -678,8 +675,4 @@ function PostKanbanCard({ post, onClick }: { post: SocialPost, onClick: () => vo
             </div>
         </div>
     );
-}
-
-function parseISO(date: string) {
-    return new Date(date + "T00:00:00");
 }

@@ -300,67 +300,140 @@ export function TaskDetailDialog({
 
               <div className="overflow-y-auto flex-1 pt-4">
                 <TabsContent value="details" className="mt-0 space-y-4">
-                  {task.description && (
-                    <div>
-                      <h4 className="text-sm font-medium mb-2">Descricao</h4>
-                      <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                        {task.description}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    {task.assignee && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="text-muted-foreground text-xs">
-                            Responsavel
-                          </p>
-                          <p className="font-medium">{task.assignee}</p>
-                        </div>
-                      </div>
-                    )}
-
-                    {task.due_date && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Calendar
-                          className={cn(
-                            "h-4 w-4",
-                            isOverdue(task.due_date, task.completed)
-                              ? "text-destructive"
-                              : "text-muted-foreground"
-                          )}
+                  {isEditing ? (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">
+                          Descricao
+                        </label>
+                        <Textarea
+                          value={formData.description}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              description: e.target.value,
+                            }))
+                          }
+                          placeholder="Descricao da tarefa"
+                          rows={3}
                         />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-muted-foreground text-xs">
-                            Data de entrega
-                          </p>
-                          <p
-                            className={cn(
-                              "font-medium",
-                              isOverdue(task.due_date, task.completed) &&
-                                "text-destructive"
-                            )}
-                          >
-                            {formatDate(task.due_date)}
-                            {isOverdue(task.due_date, task.completed) && (
-                              <span className="text-xs ml-1">(Atrasada)</span>
-                            )}
-                          </p>
+                          <label className="text-sm font-medium mb-2 block">
+                            Responsavel *
+                          </label>
+                          <Input
+                            value={formData.assignee}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                assignee: e.target.value,
+                              }))
+                            }
+                            placeholder="Nome do responsavel"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">
+                            Data de entrega *
+                          </label>
+                          <Input
+                            type="date"
+                            value={formData.dueDate}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                dueDate: e.target.value,
+                              }))
+                            }
+                          />
                         </div>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="pt-4 border-t">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="h-3 w-3" />
-                      <span>
-                        Criada em {formatDate(task.created_at)}
-                      </span>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">
+                          Categoria
+                        </label>
+                        <Input
+                          value={formData.category}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              category: e.target.value,
+                            }))
+                          }
+                          placeholder="Ex: Marketing, Desenvolvimento"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      {task.description && (
+                        <div>
+                          <h4 className="text-sm font-medium mb-2">Descricao</h4>
+                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                            {task.description}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-4">
+                        {task.assignee && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <User className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="text-muted-foreground text-xs">
+                                Responsavel
+                              </p>
+                              <p className="font-medium">{task.assignee}</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {task.due_date && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar
+                              className={cn(
+                                "h-4 w-4",
+                                isOverdue(task.due_date, task.completed)
+                                  ? "text-destructive"
+                                  : "text-muted-foreground"
+                              )}
+                            />
+                            <div>
+                              <p className="text-muted-foreground text-xs">
+                                Data de entrega
+                              </p>
+                              <p
+                                className={cn(
+                                  "font-medium",
+                                  isOverdue(task.due_date, task.completed) &&
+                                    "text-destructive"
+                                )}
+                              >
+                                {formatDate(task.due_date)}
+                                {isOverdue(task.due_date, task.completed) && (
+                                  <span className="text-xs ml-1">(Atrasada)</span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-4 border-t">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          <span>
+                            Criada em {formatDate(task.created_at)}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="subtasks" className="mt-0">
