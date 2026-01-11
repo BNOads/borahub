@@ -61,11 +61,7 @@ export function CreatePasswordModal({ onSuccess, editData, open: externalOpen, s
         setIsLoading(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
-
-            if (!user) {
-                toast.error("Você precisa estar logado para salvar acessos.");
-                return;
-            }
+            const userId = user?.id;
 
             if (editData) {
                 const { error } = await supabase
@@ -93,7 +89,7 @@ export function CreatePasswordModal({ onSuccess, editData, open: externalOpen, s
                         senha_criptografada: data.senha_criptografada,
                         link_acesso: data.link_acesso || null,
                         notas_adicionais: data.notas_adicionais || null,
-                        created_by: user.id
+                        created_by: userId
                     });
 
                 if (error) throw error;
