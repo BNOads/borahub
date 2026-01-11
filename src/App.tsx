@@ -19,6 +19,8 @@ import CursoDetalhes from "./pages/CursoDetalhes";
 import AulaView from "./pages/AulaView";
 import FunisView from "./pages/FunisView";
 import FunnelDetails from "./pages/FunnelDetails";
+import GuiaView from "./pages/GuiaView";
+import PublicDocView from "./pages/PublicDocView";
 
 const queryClient = new QueryClient();
 
@@ -38,13 +40,14 @@ const App = () => (
             <Route path="/treinamentos/:courseId" element={<CursoDetalhes />} />
             <Route path="/treinamentos/:courseId/aula/:lessonId" element={<AulaView />} />
             <Route path="/equipe" element={<Equipe />} />
-            <Route path="/guia" element={<Placeholder />} />
+            <Route path="/guia" element={<GuiaView />} />
             <Route path="/links" element={<Links />} />
             <Route path="/senhas" element={<Senhas />} />
             <Route path="/conteudo" element={<Placeholder />} />
             <Route path="/reunioes" element={<Placeholder />} />
             <Route path="/funis" element={<FunisView />} />
             <Route path="/funis/:id" element={<FunnelDetails />} />
+            <Route path="/p/:slug" element={<PublicDocView />} />
             <Route path="/metas" element={<Placeholder />} />
             <Route path="/desafio" element={<Placeholder />} />
             <Route path="/assistente" element={<Placeholder />} />

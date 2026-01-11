@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useTodaysTasks, useToggleTaskComplete } from "@/hooks/useTasks";
+import { useTasks, useToggleTaskComplete } from "@/hooks/useTasks";
 import { useToast } from "@/hooks/use-toast";
 import type { TaskWithSubtasks, TaskStatus } from "@/types/tasks";
 
@@ -23,7 +23,7 @@ const priorityLabels = {
 
 export function TodaysTasks() {
   const { toast } = useToast();
-  const { data: tasks = [], isLoading } = useTodaysTasks();
+  const { data: tasks = [], isLoading } = useTasks();
   const toggleComplete = useToggleTaskComplete();
 
   const getTaskStatus = (task: TaskWithSubtasks): TaskStatus => {
@@ -55,6 +55,7 @@ export function TodaysTasks() {
       (t) => !t.completed && getTaskStatus(t) === "overdue"
     ),
     today: tasks.filter((t) => !t.completed && getTaskStatus(t) === "today"),
+    upcoming: tasks.filter((t) => !t.completed && getTaskStatus(t) === "upcoming"),
     "no-date": tasks.filter(
       (t) => !t.completed && getTaskStatus(t) === "no-date"
     ),
@@ -74,7 +75,7 @@ export function TodaysTasks() {
         <div>
           <h2 className="text-lg font-semibold">Minhas Tarefas</h2>
           <p className="text-sm text-muted-foreground">
-            {completedCount} de {totalCount} concluidas hoje
+            {completedCount} de {totalCount} tarefas concluídas
           </p>
         </div>
         <Button variant="gold" size="sm" asChild>
@@ -88,7 +89,7 @@ export function TodaysTasks() {
       {/* Progress bar */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium">Progresso do dia</span>
+          <span className="text-sm font-medium">Progresso geral</span>
           <span className="text-sm text-accent font-semibold">
             {progressPercentage}%
           </span>
@@ -142,6 +143,27 @@ export function TodaysTasks() {
               </div>
               <div className="space-y-2">
                 {groupedTasks.today.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    onToggle={handleToggle}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Upcoming tasks */}
+          {groupedTasks.upcoming.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-4 w-4 text-blue-500" />
+                <span className="text-sm font-medium">
+                  Próximas ({groupedTasks.upcoming.length})
+                </span>
+              </div>
+              <div className="space-y-2">
+                {groupedTasks.upcoming.map((task) => (
                   <TaskItem
                     key={task.id}
                     task={task}
