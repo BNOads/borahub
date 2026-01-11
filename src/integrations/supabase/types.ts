@@ -14,6 +14,523 @@ export type Database = {
   }
   public: {
     Tables: {
+      acessos_logins: {
+        Row: {
+          ativo: boolean
+          categoria: string
+          created_at: string
+          created_by: string
+          id: string
+          link_acesso: string | null
+          login_usuario: string | null
+          nome_acesso: string
+          notas_adicionais: string | null
+          senha_criptografada: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria: string
+          created_at?: string
+          created_by: string
+          id?: string
+          link_acesso?: string | null
+          login_usuario?: string | null
+          nome_acesso: string
+          notas_adicionais?: string | null
+          senha_criptografada?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          link_acesso?: string | null
+          login_usuario?: string | null
+          nome_acesso?: string
+          notas_adicionais?: string | null
+          senha_criptografada?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      alerts: {
+        Row: {
+          created_at: string
+          data: Json | null
+          first_seen_at: string
+          id: string
+          lancamento_id: string | null
+          last_seen_at: string
+          message: string
+          rule: string
+          severity: Database["public"]["Enums"]["alert_severity"]
+          status: Database["public"]["Enums"]["alert_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          first_seen_at?: string
+          id?: string
+          lancamento_id?: string | null
+          last_seen_at?: string
+          message: string
+          rule: string
+          severity: Database["public"]["Enums"]["alert_severity"]
+          status?: Database["public"]["Enums"]["alert_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          first_seen_at?: string
+          id?: string
+          lancamento_id?: string | null
+          last_seen_at?: string
+          message?: string
+          rule?: string
+          severity?: Database["public"]["Enums"]["alert_severity"]
+          status?: Database["public"]["Enums"]["alert_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      avisos: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          mensagem: string
+          recipients: string[] | null
+          titulo: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mensagem: string
+          recipients?: string[] | null
+          titulo: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mensagem?: string
+          recipients?: string[] | null
+          titulo?: string
+        }
+        Relationships: []
+      }
+      clientes: {
+        Row: {
+          ativo: boolean
+          avatar_url: string | null
+          created_at: string
+          email: string | null
+          id: string
+          instagram: string | null
+          nome: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          instagram?: string | null
+          nome: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          avatar_url?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          instagram?: string | null
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      colaboradores: {
+        Row: {
+          ativo: boolean
+          cargo: string | null
+          created_at: string
+          data_nascimento: string | null
+          email: string
+          id: string
+          nome: string
+          telefone: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          ativo?: boolean
+          cargo?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          email: string
+          id?: string
+          nome: string
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          ativo?: boolean
+          cargo?: string | null
+          created_at?: string
+          data_nascimento?: string | null
+          email?: string
+          id?: string
+          nome?: string
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      creatives: {
+        Row: {
+          activated_at: string | null
+          created_at: string
+          custom_fields: Json | null
+          description: string | null
+          destination_page: string | null
+          id: string
+          is_active: boolean | null
+          lancamento_id: string | null
+          name: string
+          nomenclatura: string | null
+          status: string | null
+          type: string | null
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          activated_at?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          description?: string | null
+          destination_page?: string | null
+          id?: string
+          is_active?: boolean | null
+          lancamento_id?: string | null
+          name: string
+          nomenclatura?: string | null
+          status?: string | null
+          type?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          activated_at?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          description?: string | null
+          destination_page?: string | null
+          id?: string
+          is_active?: boolean | null
+          lancamento_id?: string | null
+          name?: string
+          nomenclatura?: string | null
+          status?: string | null
+          type?: string | null
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creatives_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documentos_reuniao: {
+        Row: {
+          agenda: string | null
+          atuou_como: string | null
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          data_reuniao: string | null
+          decisoes: string | null
+          id: string
+          notas: string | null
+          participantes: string[] | null
+          status: Database["public"]["Enums"]["status_documento_reuniao"]
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          agenda?: string | null
+          atuou_como?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_reuniao?: string | null
+          decisoes?: string | null
+          id?: string
+          notas?: string | null
+          participantes?: string[] | null
+          status?: Database["public"]["Enums"]["status_documento_reuniao"]
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          agenda?: string | null
+          atuou_como?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_reuniao?: string | null
+          decisoes?: string | null
+          id?: string
+          notas?: string | null
+          participantes?: string[] | null
+          status?: Database["public"]["Enums"]["status_documento_reuniao"]
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_reuniao_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funnels: {
+        Row: {
+          briefing_link: string | null
+          category: string | null
+          created_at: string
+          dashboard_link: string | null
+          drive_link: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          predicted_investment: number | null
+          product_name: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          briefing_link?: string | null
+          category?: string | null
+          created_at?: string
+          dashboard_link?: string | null
+          drive_link?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          predicted_investment?: number | null
+          product_name?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          briefing_link?: string | null
+          category?: string | null
+          created_at?: string
+          dashboard_link?: string | null
+          drive_link?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          predicted_investment?: number | null
+          product_name?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      lancamento_criativos: {
+        Row: {
+          created_at: string
+          folder_name: string | null
+          id: string
+          lancamento_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          folder_name?: string | null
+          id?: string
+          lancamento_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          folder_name?: string | null
+          id?: string
+          lancamento_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamento_criativos_lancamento_id_fkey"
+            columns: ["lancamento_id"]
+            isOneToOne: false
+            referencedRelation: "lancamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lancamentos: {
+        Row: {
+          client_id: string | null
+          created_at: string
+          id: string
+          nome: string
+          status: Database["public"]["Enums"]["status_lancamento"] | null
+          tipo: Database["public"]["Enums"]["tipo_lancamento"] | null
+          updated_at: string
+        }
+        Insert: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          status?: Database["public"]["Enums"]["status_lancamento"] | null
+          tipo?: Database["public"]["Enums"]["tipo_lancamento"] | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          status?: Database["public"]["Enums"]["status_lancamento"] | null
+          tipo?: Database["public"]["Enums"]["tipo_lancamento"] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lancamentos_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          sender_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          sender_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          sender_id?: string | null
+        }
+        Relationships: []
+      }
+      orcamentos_funil: {
+        Row: {
+          category: string | null
+          created_at: string
+          explanation_category: string | null
+          explanation_funnel: string | null
+          id: string
+          investment: number
+          name: string
+          status: Database["public"]["Enums"]["status_orcamento_enum"] | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          explanation_category?: string | null
+          explanation_funnel?: string | null
+          id?: string
+          investment: number
+          name: string
+          status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          explanation_category?: string | null
+          explanation_funnel?: string | null
+          id?: string
+          investment?: number
+          name?: string
+          status?: Database["public"]["Enums"]["status_orcamento_enum"] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          email: string
+          id: string
+          nivel_acesso: Database["public"]["Enums"]["nivel_acesso"]
+          nome: string
+          primeiro_login: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          nivel_acesso?: Database["public"]["Enums"]["nivel_acesso"]
+          nome: string
+          primeiro_login?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          nivel_acesso?: Database["public"]["Enums"]["nivel_acesso"]
+          nome?: string
+          primeiro_login?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       subtasks: {
         Row: {
           completed: boolean

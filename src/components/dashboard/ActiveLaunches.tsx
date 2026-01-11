@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 
-type Funnel = Database["public"]["Tables"]["funnels"]["Row"] & { category?: string };
+type Funnel = Database["public"]["Tables"]["funnels"]["Row"];
 
 const categoryColors: Record<string, string> = {
   "E-book": "border-blue-500 text-blue-500 bg-blue-500/10",

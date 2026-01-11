@@ -18,7 +18,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
-type Funnel = Database["public"]["Tables"]["funnels"]["Row"] & { category?: string };
+type Funnel = Database["public"]["Tables"]["funnels"]["Row"];
 
 const CATEGORIES = [
     "E-book",
