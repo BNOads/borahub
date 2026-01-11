@@ -1,5 +1,5 @@
 -- Tabela principal de tarefas
-CREATE TABLE public.tasks (
+CREATE TABLE IF NOT EXISTS public.tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title VARCHAR(100) NOT NULL,
   description TEXT,
@@ -16,7 +16,7 @@ CREATE TABLE public.tasks (
 );
 
 -- Subtarefas
-CREATE TABLE public.subtasks (
+CREATE TABLE IF NOT EXISTS public.subtasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
   title VARCHAR(200) NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE public.subtasks (
 );
 
 -- Comentarios
-CREATE TABLE public.task_comments (
+CREATE TABLE IF NOT EXISTS public.task_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
   author_name VARCHAR(100) NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE public.task_comments (
 );
 
 -- Historico
-CREATE TABLE public.task_history (
+CREATE TABLE IF NOT EXISTS public.task_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   task_id UUID NOT NULL REFERENCES public.tasks(id) ON DELETE CASCADE,
   action VARCHAR(50) NOT NULL,
@@ -48,11 +48,11 @@ CREATE TABLE public.task_history (
 );
 
 -- Indices
-CREATE INDEX idx_tasks_due_date ON public.tasks(due_date);
-CREATE INDEX idx_tasks_completed ON public.tasks(completed);
-CREATE INDEX idx_subtasks_task_id ON public.subtasks(task_id);
-CREATE INDEX idx_task_comments_task_id ON public.task_comments(task_id);
-CREATE INDEX idx_task_history_task_id ON public.task_history(task_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON public.tasks(due_date);
+CREATE INDEX IF NOT EXISTS idx_tasks_completed ON public.tasks(completed);
+CREATE INDEX IF NOT EXISTS idx_subtasks_task_id ON public.subtasks(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_comments_task_id ON public.task_comments(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_history_task_id ON public.task_history(task_id);
 
 -- Trigger para updated_at
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
@@ -63,6 +63,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_tasks_updated_at ON public.tasks;
 CREATE TRIGGER update_tasks_updated_at
   BEFORE UPDATE ON public.tasks
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
@@ -73,7 +74,11 @@ ALTER TABLE public.subtasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_history ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow all" ON public.tasks;
 CREATE POLICY "Allow all" ON public.tasks FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.subtasks;
 CREATE POLICY "Allow all" ON public.subtasks FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.task_comments;
 CREATE POLICY "Allow all" ON public.task_comments FOR ALL USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow all" ON public.task_history;
 CREATE POLICY "Allow all" ON public.task_history FOR ALL USING (true) WITH CHECK (true);

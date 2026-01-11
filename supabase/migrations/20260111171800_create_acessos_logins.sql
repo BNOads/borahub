@@ -42,6 +42,7 @@ TO authenticated
 USING (true);
 
 -- Trigger para updated_at
+DROP TRIGGER IF EXISTS update_acessos_logins_updated_at ON public.acessos_logins;
 CREATE TRIGGER update_acessos_logins_updated_at
 BEFORE UPDATE ON public.acessos_logins
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
