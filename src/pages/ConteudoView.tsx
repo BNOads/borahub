@@ -33,6 +33,8 @@ import { startOfWeek, addDays, format, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PostDetailsModal } from "@/components/conteudo/PostDetailsModal";
 import { EditorialLineModal } from "@/components/conteudo/EditorialLineModal";
+import { NewPostModal } from "@/components/conteudo/NewPostModal";
+import { ProfileManagementModal } from "@/components/conteudo/ProfileManagementModal";
 
 // Constants
 const POST_TYPES = {
@@ -102,6 +104,9 @@ export default function ConteudoView() {
     const [selectedPost, setSelectedPost] = useState<SocialPost | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
     const [isEditorialOpen, setIsEditorialOpen] = useState(false);
+    const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+    const [isProfilesOpen, setIsProfilesOpen] = useState(false);
+    const [newPostInitialData, setNewPostInitialData] = useState<{ date?: Date, profileId?: string, status?: string }>({});
 
     const daysOfWeek = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
@@ -145,6 +150,11 @@ export default function ConteudoView() {
         setIsDetailsOpen(true);
     };
 
+    const handleAddNewPost = (date?: Date, profileId?: string, status?: string) => {
+        setNewPostInitialData({ date, profileId, status });
+        setIsNewPostOpen(true);
+    };
+
     return (
         <div className="space-y-6 animate-fade-in">
             {/* Header */}
@@ -177,6 +187,14 @@ export default function ConteudoView() {
                     >
                         <Wand2 className="h-4 w-4" />
                         Nova Estratégia Semanal
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className="rounded-2xl h-11 gap-2 font-black border border-accent/10 hover:bg-accent/5 transition-all"
+                        onClick={() => setIsProfilesOpen(true)}
+                    >
+                        <User className="h-4 w-4" />
+                        Gerenciar Perfis
                     </Button>
                 </div>
             </div>
@@ -218,20 +236,24 @@ export default function ConteudoView() {
             </div>
 
             {/* Main Content Areas */}
-            {view === "grid" ? (
-                <WeeklyGridView
-                    days={daysOfWeek}
-                    profiles={profiles}
-                    posts={posts.filter(p => !searchQuery || p.theme.toLowerCase().includes(searchQuery.toLowerCase()))}
-                    getPost={getPostForDayAndProfile}
-                    onOpenPost={handleOpenPost}
-                />
-            ) : (
-                <KanbanView
-                    posts={posts.filter(p => !searchQuery || p.theme.toLowerCase().includes(searchQuery.toLowerCase()))}
-                    onOpenPost={handleOpenPost}
-                />
-            )}
+            {
+                view === "grid" ? (
+                    <WeeklyGridView
+                        days={daysOfWeek}
+                        profiles={profiles}
+                        posts={posts.filter(p => !searchQuery || p.theme.toLowerCase().includes(searchQuery.toLowerCase()))}
+                        getPost={getPostForDayAndProfile}
+                        onOpenPost={handleOpenPost}
+                        onAddPost={handleAddNewPost}
+                    />
+                ) : (
+                    <KanbanView
+                        posts={posts.filter(p => !searchQuery || p.theme.toLowerCase().includes(searchQuery.toLowerCase()))}
+                        onOpenPost={handleOpenPost}
+                        onAddPost={handleAddNewPost}
+                    />
+                )
+            }
 
             {/* Modals */}
             <PostDetailsModal
@@ -248,11 +270,27 @@ export default function ConteudoView() {
                 profiles={profiles}
                 onSuccess={fetchInitialData}
             />
-        </div>
+
+            <NewPostModal
+                isOpen={isNewPostOpen}
+                onClose={() => setIsNewPostOpen(false)}
+                onSuccess={fetchInitialData}
+                profiles={profiles}
+                initialDate={newPostInitialData.date}
+                initialProfileId={newPostInitialData.profileId}
+                initialStatus={newPostInitialData.status}
+            />
+
+            <ProfileManagementModal
+                isOpen={isProfilesOpen}
+                onClose={() => setIsProfilesOpen(false)}
+                onSuccess={fetchInitialData}
+            />
+        </div >
     );
 }
 
-function WeeklyGridView({ days, profiles, posts, getPost, onOpenPost }: any) {
+function WeeklyGridView({ days, profiles, posts, getPost, onOpenPost, onAddPost }: any) {
     return (
         <div className="bg-card/30 rounded-[2.5rem] border border-border overflow-hidden shadow-2xl">
             <div className="overflow-x-auto">
@@ -295,7 +333,10 @@ function WeeklyGridView({ days, profiles, posts, getPost, onOpenPost }: any) {
                                             {post ? (
                                                 <PostGridCard post={post} onClick={() => onOpenPost(post)} />
                                             ) : (
-                                                <div className="h-24 border-2 border-dashed border-accent/[0.03] rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-accent/[0.05] hover:border-accent/10 cursor-pointer">
+                                                <div
+                                                    onClick={() => onAddPost(day, profile.id)}
+                                                    className="h-24 border-2 border-dashed border-accent/[0.03] rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-accent/[0.05] hover:border-accent/10 cursor-pointer"
+                                                >
                                                     <Plus className="h-6 w-6 text-accent/10" />
                                                 </div>
                                             )}
@@ -351,7 +392,7 @@ function PostGridCard({ post, onClick }: { post: SocialPost, onClick: () => void
     );
 }
 
-function KanbanView({ posts, onOpenPost }: { posts: SocialPost[], onOpenPost: (p: SocialPost) => void }) {
+function KanbanView({ posts, onOpenPost, onAddPost }: { posts: SocialPost[], onOpenPost: (p: SocialPost) => void, onAddPost: (d?: Date, pid?: string, s?: string) => void }) {
     return (
         <div className="flex gap-3 overflow-x-auto pb-6 h-[calc(100vh-22rem)] min-h-[600px] px-2">
             {STATUS_PIPELINE.map(status => (
@@ -364,6 +405,16 @@ function KanbanView({ posts, onOpenPost }: { posts: SocialPost[], onOpenPost: (p
                                 {posts.filter(p => p.status === status).length}
                             </div>
                         </div>
+                        {status === 'Planejado' && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-md hover:bg-accent/10"
+                                onClick={() => onAddPost(undefined, undefined, 'Planejado')}
+                            >
+                                <Plus className="h-3 w-3" />
+                            </Button>
+                        )}
                     </div>
                     <ScrollArea className="flex-1 bg-card/20 rounded-3xl p-3 border border-border/60 hover:border-accent/10 transition-colors">
                         <div className="space-y-3">

@@ -71,10 +71,10 @@ CREATE POLICY "Enable all for authenticated posts" ON public.social_posts FOR AL
 CREATE POLICY "Enable all for authenticated comments" ON public.post_comments FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Enable all for authenticated history" ON public.post_history FOR ALL USING (auth.role() = 'authenticated') WITH CHECK (auth.role() = 'authenticated');
 
--- Seed initial profiles
+-- Seed initial profiles requested by user
 INSERT INTO public.social_profiles (name, icon, color) VALUES
-('Bora na Obra', '🏗️', '#D4AF37'),
-('Rafa Brasileiro', '👤', '#3498db'),
-('Alex Brasileiro', '👤', '#e74c3c'),
-('Bora Arq', '📐', '#2ecc71'),
-('Bora Construtora', '🏢', '#9b59b6');
+('BORAnaOBRA', '🏗️', '#D4AF37'),
+('BORA.arq', '📐', '#2ecc71'),
+('BORAConstrutora', '🏢', '#9b59b6'),
+('rafabrasileiro', '👤', '#3498db'),
+('alexbrasileiro', '👤', '#e74c3c');
