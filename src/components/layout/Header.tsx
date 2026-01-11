@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Bell, Menu, X, Sun, Moon, User, Settings, LogOut, ChevronDown } from "lucide-react";
 import logo from "@/assets/logo.png";
+import logoDark from "@/assets/logo-dark.png";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,7 +35,7 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
         {/* Logo */}
         <div className="flex items-center gap-2">
           <Link to="/" className="flex items-center gap-3 group">
-            <img src={logo} alt="BORAnaOBRA" className="h-10 w-10 rounded-lg object-contain" />
+            <img src={isDark ? logoDark : logo} alt="BORAnaOBRA" className="h-10 w-10 rounded-lg object-contain" />
             <span className="text-xl font-bold tracking-tight hidden sm:block">
               BORA<span className="text-accent">na</span>OBRA
             </span>
