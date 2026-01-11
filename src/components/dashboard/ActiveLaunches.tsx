@@ -31,7 +31,7 @@ export function ActiveLaunches() {
     <div className="rounded-xl border border-border bg-card p-6 animate-slide-up" style={{ animationDelay: "0.1s" }}>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">Lançamentos Ativos</h2>
+          <h2 className="text-lg font-semibold">Funis Ativos</h2>
           <Badge className="bg-accent text-accent-foreground">
             {launches.length}
           </Badge>
