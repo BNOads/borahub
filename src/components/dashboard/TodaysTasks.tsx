@@ -1,71 +1,87 @@
-import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Plus, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-
-interface Task {
-  id: number;
-  title: string;
-  priority: "Alta" | "Média" | "Baixa";
-  status: "overdue" | "today" | "no-date";
-  completed: boolean;
-  dueTime?: string;
-}
-
-const initialTasks: Task[] = [
-  { id: 1, title: "Revisar copy do email de lançamento", priority: "Alta", status: "overdue", completed: false, dueTime: "Ontem" },
-  { id: 2, title: "Gravar vídeo de boas-vindas", priority: "Alta", status: "today", completed: false, dueTime: "14:00" },
-  { id: 3, title: "Aprovar criativos do Instagram", priority: "Média", status: "today", completed: false, dueTime: "16:00" },
-  { id: 4, title: "Atualizar planilha de leads", priority: "Baixa", status: "today", completed: true, dueTime: "10:00" },
-  { id: 5, title: "Preparar pauta da reunião semanal", priority: "Média", status: "no-date", completed: false },
-];
+import { useTodaysTasks, useToggleTaskComplete } from "@/hooks/useTasks";
+import { useToast } from "@/hooks/use-toast";
+import type { TaskWithSubtasks, TaskStatus } from "@/types/tasks";
 
 const priorityColors = {
-  Alta: "bg-destructive/10 text-destructive border-destructive/20",
-  Média: "bg-warning/10 text-warning border-warning/20",
-  Baixa: "bg-muted text-muted-foreground border-muted",
+  alta: "bg-destructive/10 text-destructive border-destructive/20",
+  media: "bg-warning/10 text-warning border-warning/20",
+  baixa: "bg-muted text-muted-foreground border-muted",
 };
 
-const statusLabels = {
-  overdue: { label: "Em atraso", icon: AlertCircle, color: "text-destructive" },
-  today: { label: "Hoje", icon: Clock, color: "text-accent" },
-  "no-date": { label: "Sem data", icon: Clock, color: "text-muted-foreground" },
+const priorityLabels = {
+  alta: "Alta",
+  media: "Media",
+  baixa: "Baixa",
 };
 
 export function TodaysTasks() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  
-  const completedCount = tasks.filter(t => t.completed).length;
-  const totalCount = tasks.length;
-  const progressPercentage = Math.round((completedCount / totalCount) * 100);
+  const { toast } = useToast();
+  const { data: tasks = [], isLoading } = useTodaysTasks();
+  const toggleComplete = useToggleTaskComplete();
 
-  const toggleTask = (taskId: number) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+  const getTaskStatus = (task: TaskWithSubtasks): TaskStatus => {
+    if (!task.due_date) return "no-date";
+    const today = new Date().toISOString().split("T")[0];
+    if (task.due_date < today) return "overdue";
+    if (task.due_date === today) return "today";
+    return "upcoming";
   };
+
+  const handleToggle = async (id: string, completed: boolean) => {
+    try {
+      await toggleComplete.mutateAsync({ id, completed: !completed });
+    } catch {
+      toast({
+        title: "Erro ao atualizar tarefa",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const completedCount = tasks.filter((t) => t.completed).length;
+  const totalCount = tasks.length;
+  const progressPercentage =
+    totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   const groupedTasks = {
-    overdue: tasks.filter(t => t.status === "overdue" && !t.completed),
-    today: tasks.filter(t => t.status === "today" && !t.completed),
-    "no-date": tasks.filter(t => t.status === "no-date" && !t.completed),
-    completed: tasks.filter(t => t.completed),
+    overdue: tasks.filter(
+      (t) => !t.completed && getTaskStatus(t) === "overdue"
+    ),
+    today: tasks.filter((t) => !t.completed && getTaskStatus(t) === "today"),
+    "no-date": tasks.filter(
+      (t) => !t.completed && getTaskStatus(t) === "no-date"
+    ),
+    completed: tasks.filter((t) => t.completed),
   };
 
+  if (isLoading) {
+    return <TodaysTasksSkeleton />;
+  }
+
   return (
-    <div className="rounded-xl border border-border bg-card p-6 animate-slide-up" style={{ animationDelay: "0.2s" }}>
+    <div
+      className="rounded-xl border border-border bg-card p-6 animate-slide-up"
+      style={{ animationDelay: "0.2s" }}
+    >
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-semibold">Minhas Tarefas</h2>
           <p className="text-sm text-muted-foreground">
-            {completedCount} de {totalCount} concluídas hoje
+            {completedCount} de {totalCount} concluidas hoje
           </p>
         </div>
-        <Button variant="gold" size="sm">
-          <Plus className="h-4 w-4 mr-1" />
-          Nova Tarefa
+        <Button variant="gold" size="sm" asChild>
+          <Link to="/tarefas">
+            <Plus className="h-4 w-4 mr-1" />
+            Nova Tarefa
+          </Link>
         </Button>
       </div>
 
@@ -73,106 +89,186 @@ export function TodaysTasks() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">Progresso do dia</span>
-          <span className="text-sm text-accent font-semibold">{progressPercentage}%</span>
+          <span className="text-sm text-accent font-semibold">
+            {progressPercentage}%
+          </span>
         </div>
         <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div 
+          <div
             className="h-full bg-accent rounded-full transition-all duration-500"
             style={{ width: `${progressPercentage}%` }}
           />
         </div>
       </div>
 
-      <div className="space-y-6">
-        {/* Overdue tasks */}
-        {groupedTasks.overdue.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <AlertCircle className="h-4 w-4 text-destructive" />
-              <span className="text-sm font-medium text-destructive">Em atraso ({groupedTasks.overdue.length})</span>
+      {totalCount === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <p className="text-sm">Nenhuma tarefa para hoje</p>
+          <Button variant="link" asChild className="mt-2">
+            <Link to="/tarefas">Criar tarefa</Link>
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Overdue tasks */}
+          {groupedTasks.overdue.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <AlertCircle className="h-4 w-4 text-destructive" />
+                <span className="text-sm font-medium text-destructive">
+                  Em atraso ({groupedTasks.overdue.length})
+                </span>
+              </div>
+              <div className="space-y-2">
+                {groupedTasks.overdue.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    onToggle={handleToggle}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="space-y-2">
-              {groupedTasks.overdue.map((task) => (
-                <TaskItem key={task.id} task={task} onToggle={toggleTask} />
-              ))}
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Today's tasks */}
-        {groupedTasks.today.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="h-4 w-4 text-accent" />
-              <span className="text-sm font-medium">Hoje ({groupedTasks.today.length})</span>
+          {/* Today's tasks */}
+          {groupedTasks.today.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-4 w-4 text-accent" />
+                <span className="text-sm font-medium">
+                  Hoje ({groupedTasks.today.length})
+                </span>
+              </div>
+              <div className="space-y-2">
+                {groupedTasks.today.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    onToggle={handleToggle}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="space-y-2">
-              {groupedTasks.today.map((task) => (
-                <TaskItem key={task.id} task={task} onToggle={toggleTask} />
-              ))}
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* No date tasks */}
-        {groupedTasks["no-date"].length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-muted-foreground">Sem data ({groupedTasks["no-date"].length})</span>
+          {/* No date tasks */}
+          {groupedTasks["no-date"].length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">
+                  Sem data ({groupedTasks["no-date"].length})
+                </span>
+              </div>
+              <div className="space-y-2">
+                {groupedTasks["no-date"].map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    onToggle={handleToggle}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="space-y-2">
-              {groupedTasks["no-date"].map((task) => (
-                <TaskItem key={task.id} task={task} onToggle={toggleTask} />
-              ))}
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* Completed tasks */}
-        {groupedTasks.completed.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <CheckCircle2 className="h-4 w-4 text-success" />
-              <span className="text-sm font-medium text-success">Concluídas ({groupedTasks.completed.length})</span>
+          {/* Completed tasks */}
+          {groupedTasks.completed.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                <span className="text-sm font-medium text-success">
+                  Concluidas ({groupedTasks.completed.length})
+                </span>
+              </div>
+              <div className="space-y-2">
+                {groupedTasks.completed.map((task) => (
+                  <TaskItem
+                    key={task.id}
+                    task={task}
+                    onToggle={handleToggle}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="space-y-2">
-              {groupedTasks.completed.map((task) => (
-                <TaskItem key={task.id} task={task} onToggle={toggleTask} />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function TaskItem({ task, onToggle }: { task: Task; onToggle: (id: number) => void }) {
+interface TaskItemProps {
+  task: TaskWithSubtasks;
+  onToggle: (id: string, completed: boolean) => void;
+}
+
+function TaskItem({ task, onToggle }: TaskItemProps) {
+  const formatTime = (time: string | null) => {
+    if (!time) return null;
+    return time.substring(0, 5);
+  };
+
   return (
-    <div className={cn(
-      "flex items-center gap-3 p-3 rounded-lg border border-border transition-all hover:border-accent/30",
-      task.completed && "opacity-60"
-    )}>
+    <div
+      className={cn(
+        "flex items-center gap-3 p-3 rounded-lg border border-border transition-all hover:border-accent/30",
+        task.completed && "opacity-60"
+      )}
+    >
       <Checkbox
         checked={task.completed}
-        onCheckedChange={() => onToggle(task.id)}
+        onCheckedChange={() => onToggle(task.id, task.completed)}
         className="data-[state=checked]:bg-success data-[state=checked]:border-success"
       />
       <div className="flex-1 min-w-0">
-        <p className={cn(
-          "font-medium text-sm truncate",
-          task.completed && "line-through text-muted-foreground"
-        )}>
+        <p
+          className={cn(
+            "font-medium text-sm truncate",
+            task.completed && "line-through text-muted-foreground"
+          )}
+        >
           {task.title}
         </p>
-        {task.dueTime && (
-          <p className="text-xs text-muted-foreground">{task.dueTime}</p>
+        {task.due_time && (
+          <p className="text-xs text-muted-foreground">
+            {formatTime(task.due_time)}
+          </p>
         )}
       </div>
       <Badge variant="outline" className={priorityColors[task.priority]}>
-        {task.priority}
+        {priorityLabels[task.priority]}
       </Badge>
+    </div>
+  );
+}
+
+function TodaysTasksSkeleton() {
+  return (
+    <div
+      className="rounded-xl border border-border bg-card p-6 animate-slide-up"
+      style={{ animationDelay: "0.2s" }}
+    >
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <Skeleton className="h-6 w-32 mb-2" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <Skeleton className="h-8 w-28" />
+      </div>
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-8" />
+        </div>
+        <Skeleton className="h-2 w-full" />
+      </div>
+      <div className="space-y-3">
+        <Skeleton className="h-14 w-full" />
+        <Skeleton className="h-14 w-full" />
+        <Skeleton className="h-14 w-full" />
+      </div>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import Equipe from "./pages/Equipe";
 import Links from "./pages/Links";
 import AcessoRapido from "./pages/AcessoRapido";
 import Tarefas from "./pages/Tarefas";
+import TarefaDetalhe from "./pages/TarefaDetalhe";
 import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +26,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
           <Route path="/acesso-rapido" element={<AcessoRapido />} />
             <Route path="/tarefas" element={<Tarefas />} />
+            <Route path="/tarefas/:id" element={<TarefaDetalhe />} />
             <Route path="/treinamentos" element={<Placeholder />} />
             <Route path="/equipe" element={<Equipe />} />
             <Route path="/guia" element={<Placeholder />} />
