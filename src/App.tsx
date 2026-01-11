@@ -11,9 +11,9 @@ import AcessoRapido from "./pages/AcessoRapido";
 import Tarefas from "./pages/Tarefas";
 import TarefaDetalhe from "./pages/TarefaDetalhe";
 import Placeholder from "./pages/Placeholder";
+import ConteudoView from "./pages/ConteudoView";
 import NotFound from "./pages/NotFound";
 import Senhas from "./pages/Senhas";
-
 import TreinamentosView from "./pages/TreinamentosView";
 import CursoDetalhes from "./pages/CursoDetalhes";
 import AulaView from "./pages/AulaView";
@@ -43,7 +43,7 @@ const App = () => (
             <Route path="/guia" element={<GuiaView />} />
             <Route path="/links" element={<Links />} />
             <Route path="/senhas" element={<Senhas />} />
-            <Route path="/conteudo" element={<Placeholder />} />
+            <Route path="/conteudo" element={<ConteudoView />} />
             <Route path="/reunioes" element={<Placeholder />} />
             <Route path="/funis" element={<FunisView />} />
             <Route path="/funis/:id" element={<FunnelDetails />} />
