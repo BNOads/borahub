@@ -13,6 +13,9 @@ import TarefaDetalhe from "./pages/TarefaDetalhe";
 import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound";
 
+import FunisView from "./pages/FunisView";
+import FunnelDetails from "./pages/FunnelDetails";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -24,7 +27,7 @@ const App = () => (
         <Routes>
           <Route element={<MainLayout />}>
             <Route path="/" element={<Index />} />
-          <Route path="/acesso-rapido" element={<AcessoRapido />} />
+            <Route path="/acesso-rapido" element={<AcessoRapido />} />
             <Route path="/tarefas" element={<Tarefas />} />
             <Route path="/tarefas/:id" element={<TarefaDetalhe />} />
             <Route path="/treinamentos" element={<Placeholder />} />
@@ -34,7 +37,8 @@ const App = () => (
             <Route path="/senhas" element={<Placeholder />} />
             <Route path="/conteudo" element={<Placeholder />} />
             <Route path="/reunioes" element={<Placeholder />} />
-            <Route path="/funis" element={<Placeholder />} />
+            <Route path="/funis" element={<FunisView />} />
+            <Route path="/funis/:id" element={<FunnelDetails />} />
             <Route path="/metas" element={<Placeholder />} />
             <Route path="/desafio" element={<Placeholder />} />
             <Route path="/assistente" element={<Placeholder />} />
