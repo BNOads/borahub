@@ -12,6 +12,7 @@ import Tarefas from "./pages/Tarefas";
 import TarefaDetalhe from "./pages/TarefaDetalhe";
 import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound";
+import Senhas from "./pages/Senhas";
 
 import FunisView from "./pages/FunisView";
 import FunnelDetails from "./pages/FunnelDetails";
@@ -34,7 +35,7 @@ const App = () => (
             <Route path="/equipe" element={<Equipe />} />
             <Route path="/guia" element={<Placeholder />} />
             <Route path="/links" element={<Links />} />
-            <Route path="/senhas" element={<Placeholder />} />
+            <Route path="/senhas" element={<Senhas />} />
             <Route path="/conteudo" element={<Placeholder />} />
             <Route path="/reunioes" element={<Placeholder />} />
             <Route path="/funis" element={<FunisView />} />

@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
-import { 
-  BookOpen, 
-  Users, 
-  Link as LinkIcon, 
-  Key, 
-  FileText, 
-  Calendar, 
-  Target, 
+import {
+  BookOpen,
+  Users,
+  Link as LinkIcon,
+  Key,
+  FileText,
+  Calendar,
+  Target,
   TrendingUp,
   BookMarked,
   MessageSquare,
@@ -50,7 +50,7 @@ const tools = [
     color: "bg-purple-500/10 text-purple-500",
   },
   {
-    name: "Acessos & Logins",
+    name: "Senhas Úteis",
     description: "Gerencie credenciais e acessos da equipe de forma segura",
     href: "/senhas",
     icon: Key,
@@ -138,11 +138,11 @@ export default function AcessoRapido() {
             )}>
               <tool.icon className="h-6 w-6" />
             </div>
-            
+
             <h3 className="font-semibold text-lg mb-2 group-hover:text-accent transition-colors">
               {tool.name}
             </h3>
-            
+
             <p className="text-sm text-muted-foreground leading-relaxed">
               {tool.description}
             </p>
