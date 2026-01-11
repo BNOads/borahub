@@ -77,34 +77,6 @@ const tools = [
     icon: Rocket,
     color: "bg-orange-500/10 text-orange-500",
   },
-  {
-    name: "Orçamentos por Funil",
-    description: "Gerencie orçamentos de marketing organizados por funil",
-    href: "/funis",
-    icon: DollarSign,
-    color: "bg-emerald-500/10 text-emerald-500",
-  },
-  {
-    name: "Metas e OKRs",
-    description: "Acompanhe objetivos e resultados-chave do trimestre",
-    href: "/metas",
-    icon: Target,
-    color: "bg-red-500/10 text-red-500",
-  },
-  {
-    name: "Desafio do Mês",
-    description: "Participe dos desafios mensais e acompanhe o ranking",
-    href: "/desafio",
-    icon: Trophy,
-    color: "bg-amber-500/10 text-amber-500",
-  },
-  {
-    name: "Assistente IA",
-    description: "Assistente virtual para auxílio em tarefas e dúvidas",
-    href: "/assistente",
-    icon: Bot,
-    color: "bg-violet-500/10 text-violet-500",
-  },
 ];
 
 export default function AcessoRapido() {

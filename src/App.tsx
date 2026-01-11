@@ -14,6 +14,9 @@ import Placeholder from "./pages/Placeholder";
 import NotFound from "./pages/NotFound";
 import Senhas from "./pages/Senhas";
 
+import TreinamentosView from "./pages/TreinamentosView";
+import CursoDetalhes from "./pages/CursoDetalhes";
+import AulaView from "./pages/AulaView";
 import FunisView from "./pages/FunisView";
 import FunnelDetails from "./pages/FunnelDetails";
 
@@ -31,7 +34,9 @@ const App = () => (
             <Route path="/acesso-rapido" element={<AcessoRapido />} />
             <Route path="/tarefas" element={<Tarefas />} />
             <Route path="/tarefas/:id" element={<TarefaDetalhe />} />
-            <Route path="/treinamentos" element={<Placeholder />} />
+            <Route path="/treinamentos" element={<TreinamentosView />} />
+            <Route path="/treinamentos/:courseId" element={<CursoDetalhes />} />
+            <Route path="/treinamentos/:courseId/aula/:lessonId" element={<AulaView />} />
             <Route path="/equipe" element={<Equipe />} />
             <Route path="/guia" element={<Placeholder />} />
             <Route path="/links" element={<Links />} />

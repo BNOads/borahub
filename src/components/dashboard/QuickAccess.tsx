@@ -1,11 +1,11 @@
-import { 
-  BookOpen, 
-  Users, 
-  Link as LinkIcon, 
-  Key, 
-  FileText, 
-  Calendar, 
-  Target, 
+import {
+  BookOpen,
+  Users,
+  Link as LinkIcon,
+  Key,
+  FileText,
+  Calendar,
+  Target,
   TrendingUp,
   Plus,
   Settings
@@ -22,7 +22,6 @@ const quickLinks = [
   { name: "Conteúdo", href: "/conteudo", icon: FileText, color: "bg-pink-500/10 text-pink-500" },
   { name: "Reuniões", href: "/reunioes", icon: Calendar, color: "bg-cyan-500/10 text-cyan-500" },
   { name: "Funis", href: "/funis", icon: TrendingUp, color: "bg-yellow-500/10 text-yellow-500" },
-  { name: "Metas", href: "/metas", icon: Target, color: "bg-red-500/10 text-red-500" },
 ];
 
 export function QuickAccess() {
@@ -34,7 +33,7 @@ export function QuickAccess() {
           <Settings className="h-4 w-4" />
         </Button>
       </div>
-      
+
       <div className="space-y-2">
         {quickLinks.map((link) => (
           <Link
@@ -50,7 +49,7 @@ export function QuickAccess() {
             </span>
           </Link>
         ))}
-        
+
         <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-muted-foreground hover:text-foreground">
           <div className="p-2 rounded-lg bg-muted">
             <Plus className="h-4 w-4" />

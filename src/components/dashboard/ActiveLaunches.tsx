@@ -30,6 +30,7 @@ export function ActiveLaunches() {
           .select("*")
           .eq("status", "active")
           .eq("is_active", true)
+          .order("predicted_investment", { ascending: false, nullsFirst: false })
           .order("created_at", { ascending: false });
 
         if (error) {

@@ -23,6 +23,7 @@ export default function FunisView() {
             const { data, error } = await supabase
                 .from("funnels")
                 .select("*")
+                .order("predicted_investment", { ascending: false, nullsFirst: false })
                 .order("created_at", { ascending: false });
 
             if (error) throw error;

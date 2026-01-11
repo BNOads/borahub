@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Search, Plus, ExternalLink, Star, StarOff, MoreVertical } from "lucide-react";
+
+import { useState, useEffect } from "react";
+import { Search, Plus, ExternalLink, Star, StarOff, MoreVertical, LayoutGrid, List, Trash2, Edit, GripVertical } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,95 +18,40 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { LinkModal } from "@/components/links/LinkModal";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface LinkItem {
-  id: number;
+  id: string;
   name: string;
   url: string;
   description: string;
   category: string;
   favicon: string;
-  isFavorite: boolean;
+  is_favorite: boolean;
+  order_index: number;
 }
 
-const initialLinks: LinkItem[] = [
-  {
-    id: 1,
-    name: "Trello",
-    url: "https://trello.com/b/abc123",
-    description: "Quadro de gestão de projetos",
-    category: "Produtividade",
-    favicon: "T",
-    isFavorite: true,
-  },
-  {
-    id: 2,
-    name: "Google Drive",
-    url: "https://drive.google.com/drive/folders/xyz",
-    description: "Pasta principal da empresa",
-    category: "Armazenamento",
-    favicon: "G",
-    isFavorite: true,
-  },
-  {
-    id: 3,
-    name: "Canva",
-    url: "https://canva.com",
-    description: "Criação de artes e designs",
-    category: "Design",
-    favicon: "C",
-    isFavorite: false,
-  },
-  {
-    id: 4,
-    name: "Meta Business Suite",
-    url: "https://business.facebook.com",
-    description: "Gestão de redes sociais Meta",
-    category: "Marketing",
-    favicon: "M",
-    isFavorite: true,
-  },
-  {
-    id: 5,
-    name: "Google Analytics",
-    url: "https://analytics.google.com",
-    description: "Métricas e análise de dados",
-    category: "Análise",
-    favicon: "A",
-    isFavorite: false,
-  },
-  {
-    id: 6,
-    name: "Hotmart",
-    url: "https://hotmart.com",
-    description: "Plataforma de infoprodutos",
-    category: "Vendas",
-    favicon: "H",
-    isFavorite: false,
-  },
-  {
-    id: 7,
-    name: "Notion",
-    url: "https://notion.so/workspace",
-    description: "Documentação interna",
-    category: "Produtividade",
-    favicon: "N",
-    isFavorite: false,
-  },
-  {
-    id: 8,
-    name: "Figma",
-    url: "https://figma.com/files",
-    description: "Protótipos e designs UI/UX",
-    category: "Design",
-    favicon: "F",
-    isFavorite: false,
-  },
-];
-
-const categories = ["Todas", "Produtividade", "Armazenamento", "Design", "Marketing", "Análise", "Vendas"];
-
 const categoryColors: Record<string, string> = {
+  Geral: "bg-slate-500/10 text-slate-500 border-slate-500/20",
   Produtividade: "bg-blue-500/10 text-blue-500 border-blue-500/20",
   Armazenamento: "bg-green-500/10 text-green-500 border-green-500/20",
   Design: "bg-purple-500/10 text-purple-500 border-purple-500/20",
@@ -114,26 +60,113 @@ const categoryColors: Record<string, string> = {
   Vendas: "bg-pink-500/10 text-pink-500 border-pink-500/20",
 };
 
+const categoriesList = ["Todas", "Geral", "Produtividade", "Armazenamento", "Design", "Marketing", "Análise", "Vendas"];
+
 export default function Links() {
-  const [links, setLinks] = useState<LinkItem[]>(initialLinks);
+  const [links, setLinks] = useState<LinkItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todas");
+  const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
+  const [isIdOpen, setIsIdOpen] = useState(false);
+  const [selectedLink, setSelectedLink] = useState<LinkItem | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const toggleFavorite = (id: number) => {
-    setLinks(links.map(link => 
-      link.id === id ? { ...link, isFavorite: !link.isFavorite } : link
-    ));
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  useEffect(() => {
+    fetchLinks();
+  }, []);
+
+  async function fetchLinks() {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("links")
+        .select("*")
+        .order("order_index", { ascending: true });
+
+      if (error) throw error;
+      setLinks(data || []);
+    } catch (error) {
+      console.error("Error fetching links:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const toggleFavorite = async (link: LinkItem) => {
+    try {
+      const { error } = await supabase
+        .from("links")
+        .update({ is_favorite: !link.is_favorite })
+        .eq("id", link.id);
+      if (error) throw error;
+      fetchLinks();
+    } catch (error: any) {
+      toast.error("Erro ao favoritar link: " + error.message);
+    }
+  };
+
+  const deleteLink = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este link?")) return;
+    try {
+      const { error } = await supabase
+        .from("links")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      toast.success("Link excluído!");
+      fetchLinks();
+    } catch (error: any) {
+      toast.error("Erro ao excluir link: " + error.message);
+    }
   };
 
   const filteredLinks = links.filter((link) => {
     const matchesSearch = link.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      link.description.toLowerCase().includes(searchQuery.toLowerCase());
+      link.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "Todas" || link.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const favoriteLinks = filteredLinks.filter(link => link.isFavorite);
-  const otherLinks = filteredLinks.filter(link => !link.isFavorite);
+  const favoriteLinks = links.filter(link => link.is_favorite);
+  const nonFavoriteLinks = links.filter(link => !link.is_favorite);
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      const activeLink = links.find(l => l.id === active.id);
+      const overLink = links.find(l => l.id === over.id);
+
+      // Only allow reordering if both are favorites or both are non-favorites
+      // For simplicity, let's allow reordering within the same group if we want
+      // but for now let's just do a global reorder.
+
+      const oldIndex = links.findIndex((l) => l.id === active.id);
+      const newIndex = links.findIndex((l) => l.id === over.id);
+
+      const newLinks = arrayMove(links, oldIndex, newIndex);
+      setLinks(newLinks);
+
+      // Update order_index in DB
+      const updates = newLinks.map((link, index) => ({
+        id: link.id,
+        order_index: index
+      }));
+
+      // Bulk update (Supabase syntax might vary, easiest is to use a function or multiple updates if small)
+      // Here we just do multiple updates for simplicity as it's a small list.
+      for (let i = 0; i < updates.length; i++) {
+        await supabase.from("links").update({ order_index: updates[i].order_index }).eq("id", updates[i].id);
+      }
+    }
+  };
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -145,10 +178,32 @@ export default function Links() {
             Acesse rapidamente todas as ferramentas da equipe
           </p>
         </div>
-        <Button variant="gold">
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Link
-        </Button>
+        <div className="flex gap-2">
+          <div className="bg-muted p-1 rounded-xl flex">
+            <Button
+              variant={viewMode === "kanban" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-lg h-9"
+              onClick={() => setViewMode("kanban")}
+            >
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Grid
+            </Button>
+            <Button
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-lg h-9"
+              onClick={() => setViewMode("list")}
+            >
+              <List className="h-4 w-4 mr-2" />
+              Lista
+            </Button>
+          </div>
+          <Button onClick={() => { setSelectedLink(null); setIsIdOpen(true); }} className="rounded-xl bg-accent hover:bg-accent/90">
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Link
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -157,17 +212,17 @@ export default function Links() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar links..."
-            className="pl-10"
+            className="pl-10 h-11 rounded-xl border-accent/20 focus-visible:ring-accent"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[180px] h-11 rounded-xl">
             <SelectValue placeholder="Categoria" />
           </SelectTrigger>
           <SelectContent>
-            {categories.map((cat) => (
+            {categoriesList.map((cat) => (
               <SelectItem key={cat} value={cat}>
                 {cat}
               </SelectItem>
@@ -176,122 +231,224 @@ export default function Links() {
         </Select>
       </div>
 
-      {/* Favorites Section */}
-      {favoriteLinks.length > 0 && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Star className="h-5 w-5 text-accent fill-accent" />
-            <h2 className="text-lg font-semibold">Favoritos</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {favoriteLinks.map((link, index) => (
-              <LinkCard 
-                key={link.id} 
-                link={link} 
-                onToggleFavorite={toggleFavorite}
-                delay={index * 0.05}
-              />
-            ))}
-          </div>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => <div key={i} className="h-32 bg-accent/5 animate-pulse rounded-2xl" />)}
         </div>
+      ) : (
+        <>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            {/* Favorites Section */}
+            {favoriteLinks.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Star className="h-5 w-5 text-accent fill-accent" />
+                  <h2 className="text-lg font-semibold">Favoritos</h2>
+                </div>
+                <SortableContext
+                  items={favoriteLinks.map(l => l.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className={cn(
+                    viewMode === "kanban"
+                      ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                      : "flex flex-col gap-2"
+                  )}>
+                    {favoriteLinks.map((link) => (
+                      <SortableLinkCard
+                        key={link.id}
+                        link={link}
+                        viewMode={viewMode}
+                        onToggleFavorite={() => toggleFavorite(link)}
+                        onEdit={() => { setSelectedLink(link); setIsIdOpen(true); }}
+                        onDelete={() => deleteLink(link.id)}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </div>
+            )}
+
+            {/* All Links Section */}
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold">Outros Links</h2>
+              <SortableContext
+                items={nonFavoriteLinks.map(l => l.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className={cn(
+                  viewMode === "kanban"
+                    ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                    : "flex flex-col gap-2"
+                )}>
+                  {nonFavoriteLinks.filter(l => selectedCategory === "Todas" || l.category === selectedCategory).map((link) => (
+                    <SortableLinkCard
+                      key={link.id}
+                      link={link}
+                      viewMode={viewMode}
+                      onToggleFavorite={() => toggleFavorite(link)}
+                      onEdit={() => { setSelectedLink(link); setIsIdOpen(true); }}
+                      onDelete={() => deleteLink(link.id)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </div>
+          </DndContext>
+
+          {filteredLinks.length === 0 && (
+            <div className="text-center py-12 bg-accent/5 rounded-3xl border border-dashed border-accent/20">
+              <p className="text-muted-foreground">Nenhum link encontrado.</p>
+            </div>
+          )}
+        </>
       )}
 
-      {/* All Links Section */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Todos os Links</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {otherLinks.map((link, index) => (
-            <LinkCard 
-              key={link.id} 
-              link={link} 
-              onToggleFavorite={toggleFavorite}
-              delay={(favoriteLinks.length + index) * 0.05}
-            />
-          ))}
-        </div>
-      </div>
-
-      {filteredLinks.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Nenhum link encontrado.</p>
-        </div>
-      )}
+      <LinkModal
+        isOpen={isIdOpen}
+        onClose={() => setIsIdOpen(false)}
+        link={selectedLink}
+        onSuccess={fetchLinks}
+      />
     </div>
   );
 }
 
-function LinkCard({ 
-  link, 
-  onToggleFavorite,
-  delay 
-}: { 
-  link: LinkItem; 
-  onToggleFavorite: (id: number) => void;
-  delay: number;
-}) {
-  return (
-    <div 
-      className="group relative rounded-xl border border-border bg-card p-5 hover:border-accent/50 hover:shadow-lg transition-all duration-300 animate-slide-up"
-      style={{ animationDelay: `${delay}s` }}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent font-bold">
-            {link.favicon}
+function SortableLinkCard({ link, viewMode, onToggleFavorite, onEdit, onDelete }: any) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: link.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 0
+  };
+
+  if (viewMode === "list") {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={cn(
+          "group flex items-center justify-between p-3 rounded-xl border border-border bg-card/50 hover:border-accent/30 transition-all",
+          isDragging && "opacity-50 shadow-2xl"
+        )}
+      >
+        <div className="flex items-center gap-4">
+          <button {...attributes} {...listeners} className="cursor-grab hover:text-accent">
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent font-bold text-xs">
+            {link.favicon || link.name[0]}
           </div>
           <div>
-            <h3 className="font-semibold group-hover:text-accent transition-colors">
+            <h3 className="font-medium text-sm">{link.name}</h3>
+            <p className="text-xs text-muted-foreground line-clamp-1 max-w-[400px]">{link.description}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className={cn("hidden md:block px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider border", categoryColors[link.category])}>
+            {link.category}
+          </div>
+          <div className="flex items-center gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleFavorite}>
+              {link.is_favorite ? <Star className="h-4 w-4 text-accent fill-accent" /> : <StarOff className="h-4 w-4 text-muted-foreground" />}
+            </Button>
+            <a href={link.url} target="_blank" rel="noopener" className="p-2 hover:bg-accent/10 rounded-lg text-accent">
+              <ExternalLink className="h-4 w-4" />
+            </a>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="rounded-xl">
+                <DropdownMenuItem onClick={onEdit}><Edit className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
+                <DropdownMenuItem onClick={onDelete} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Excluir</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "group relative rounded-2xl border border-border bg-card/50 p-5 hover:border-accent/40 hover:shadow-xl transition-all duration-300 backdrop-blur-sm",
+        isDragging && "opacity-50 shadow-2xl"
+      )}
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-bold">
+            {link.favicon || link.name[0]}
+          </div>
+          <div>
+            <h3 className="font-semibold group-hover:text-accent transition-colors leading-tight">
               {link.name}
             </h3>
-            <Badge 
-              variant="outline" 
-              className={cn("text-xs mt-1", categoryColors[link.category])}
+            <Badge
+              variant="outline"
+              className={cn("text-[10px] mt-1 h-5 rounded-full border-none", categoryColors[link.category])}
             >
               {link.category}
             </Badge>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => onToggleFavorite(link.id)}
-          >
-            {link.isFavorite ? (
-              <Star className="h-4 w-4 text-accent fill-accent" />
-            ) : (
-              <StarOff className="h-4 w-4 text-muted-foreground" />
-            )}
-          </Button>
+          <button {...attributes} {...listeners} className="p-2 cursor-grab hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity">
+            <GripVertical className="h-3 w-3 text-muted-foreground" />
+          </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>Editar</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
+            <DropdownMenuContent align="end" className="rounded-xl">
+              <DropdownMenuItem onClick={onEdit}><Edit className="h-4 w-4 mr-2" /> Editar</DropdownMenuItem>
+              <DropdownMenuItem onClick={onDelete} className="text-destructive"><Trash2 className="h-4 w-4 mr-2" /> Excluir</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
 
-      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-        {link.description}
+      <p className="text-sm text-muted-foreground mb-6 line-clamp-2 h-10 leading-relaxed">
+        {link.description || "Nenhuma descrição fornecida."}
       </p>
 
-      <a
-        href={link.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:underline"
-      >
-        Acessar
-        <ExternalLink className="h-3 w-3" />
-      </a>
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-accent/5 hover:bg-accent/20" onClick={onToggleFavorite}>
+          {link.is_favorite ? (
+            <Star className="h-4 w-4 text-accent fill-accent" />
+          ) : (
+            <StarOff className="h-4 w-4 text-muted-foreground" />
+          )}
+        </Button>
+        <Button asChild variant="outline" className="rounded-xl h-9 px-4 gap-2 hover:bg-accent hover:text-accent-foreground border-accent/20">
+          <a href={link.url} target="_blank" rel="noopener noreferrer">
+            Acessar
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </Button>
+      </div>
     </div>
   );
 }
