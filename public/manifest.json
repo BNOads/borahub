@@ -1,0 +1,88 @@
+{
+  "name": "BORAnaOBRA hub",
+  "short_name": "BORAnaOBRA",
+  "description": "BORAnaOBRA hub - Gerencie seus funis, tarefas e equipe em um único lugar",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#1a1a1a",
+  "background_color": "#ffffff",
+  "dir": "ltr",
+  "lang": "pt-BR",
+  "screenshots": [
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "form_factor": "wide"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "32x32",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/logo.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "shortcuts": [
+    {
+      "name": "Minhas Tarefas",
+      "short_name": "Tarefas",
+      "description": "Ver minhas tarefas",
+      "url": "/tarefas",
+      "icons": [
+        {
+          "src": "/logo.png",
+          "type": "image/png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Acesso Rápido",
+      "short_name": "Atalhos",
+      "description": "Acessar atalhos rápidos",
+      "url": "/acesso-rapido",
+      "icons": [
+        {
+          "src": "/logo.png",
+          "type": "image/png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

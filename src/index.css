@@ -204,3 +204,62 @@
     transform: scale(1);
   }
 }
+
+/* PWA Specific Styles */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+}
+
+html, body {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Prevent double-tap zoom on buttons */
+button, a, input, select, textarea {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Status bar styling for PWA */
+@media (display-mode: standalone) {
+  body {
+    background: #1a1a1a;
+  }
+}
+
+/* Install prompt styling */
+.install-prompt {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  padding: 1rem;
+  z-index: 100;
+}
+
+@media (prefers-color-scheme: dark) {
+  .install-prompt {
+    background: #1a1a1a;
+    border-top-color: #374151;
+  }
+}
