@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      funnels: {
+        Row: {
+          briefing_link: string | null
+          created_at: string
+          dashboard_link: string | null
+          drive_link: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          predicted_investment: number | null
+          product_name: string | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          briefing_link?: string | null
+          created_at?: string
+          dashboard_link?: string | null
+          drive_link?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          predicted_investment?: number | null
+          product_name?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          briefing_link?: string | null
+          created_at?: string
+          dashboard_link?: string | null
+          drive_link?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          predicted_investment?: number | null
+          product_name?: string | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subtasks: {
         Row: {
           completed: boolean

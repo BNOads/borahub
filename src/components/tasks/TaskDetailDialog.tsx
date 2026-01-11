@@ -110,12 +110,14 @@ export function TaskDetailDialog({
     try {
       await updateTask.mutateAsync({
         id: taskId,
-        title: formData.title.trim(),
-        description: formData.description.trim() || null,
-        priority: formData.priority,
-        category: formData.category.trim() || null,
-        assignee: formData.assignee.trim(),
-        due_date: formData.dueDate,
+        updates: {
+          title: formData.title.trim(),
+          description: formData.description.trim() || null,
+          priority: formData.priority,
+          category: formData.category.trim() || null,
+          assignee: formData.assignee.trim(),
+          due_date: formData.dueDate,
+        },
       });
       setIsEditing(false);
       toast({ title: "Tarefa atualizada" });
