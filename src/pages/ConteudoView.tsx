@@ -215,9 +215,9 @@ export default function ConteudoView() {
             const newStatus = over.id;
             if (activePost.status === newStatus) return;
 
-            setPosts(prev => prev.map(p => p.id === active.id ? { ...p, status: newStatus } : p));
+            setPosts(prev => prev.map(p => p.id === String(active.id) ? { ...p, status: newStatus } : p));
 
-            const { error } = await supabase.from('social_posts').update({ status: newStatus }).eq('id', active.id);
+            const { error } = await supabase.from('social_posts').update({ status: newStatus }).eq('id', String(active.id));
             if (error) {
                 toast.error("Erro ao atualizar status");
                 fetchInitialData();
@@ -230,12 +230,12 @@ export default function ConteudoView() {
 
             if (activePost.scheduled_date === dateStr && activePost.profile_id === profileId) return;
 
-            setPosts(prev => prev.map(p => p.id === active.id ? { ...p, scheduled_date: dateStr, profile_id: profileId } : p));
+            setPosts(prev => prev.map(p => p.id === String(active.id) ? { ...p, scheduled_date: dateStr, profile_id: profileId } : p));
 
             const { error } = await supabase.from('social_posts').update({
                 scheduled_date: dateStr,
                 profile_id: profileId
-            }).eq('id', active.id);
+            }).eq('id', String(active.id));
 
             if (error) {
                 toast.error("Erro ao atualizar data/perfil");

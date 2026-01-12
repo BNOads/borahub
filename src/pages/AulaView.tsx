@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Clock, CheckCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, CheckCircle, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -18,8 +18,8 @@ interface Lesson {
     title: string;
     description: string;
     video_url: string;
-    duration: string;
-    order_index: number;
+    duration: number;
+    position: number;
 }
 
 export default function AulaView() {

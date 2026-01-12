@@ -98,7 +98,7 @@ export function CourseModal({ isOpen, onClose, course, onSuccess }: CourseModalP
             } else {
                 const { error } = await supabase
                     .from("courses")
-                    .insert(values);
+                    .insert([{ ...values, title: values.title }]);
                 if (error) throw error;
                 toast.success("Curso criado com sucesso!");
             }

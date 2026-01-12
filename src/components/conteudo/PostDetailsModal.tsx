@@ -500,9 +500,6 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
     );
 }
 
-function parseISO(date: string) {
-    return new Date(date + "T00:00:00");
-}
 
 const ArrowRight = ({ className }: { className?: string }) => (
     <svg className={className} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
