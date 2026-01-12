@@ -1,5 +1,7 @@
-import { Sparkles, MessageCircle, Calendar, FileText, Receipt } from "lucide-react";
+import { Sparkles, MessageCircle, Calendar, FileText, Receipt, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTodaysTasks } from "@/hooks/useTasks";
+import { useActiveFunnelsCount } from "@/hooks/useFunnels";
 
 const quickActions = [
   {
@@ -28,6 +30,12 @@ export function WelcomeSection() {
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? "Bom dia" : currentHour < 18 ? "Boa tarde" : "Boa noite";
   
+  const { data: tasks, isLoading: tasksLoading } = useTodaysTasks();
+  const { data: activeFunnelsCount, isLoading: funnelsLoading } = useActiveFunnelsCount();
+  
+  const pendingTasks = tasks?.filter(task => !task.completed) ?? [];
+  const pendingCount = pendingTasks.length;
+  
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-foreground to-foreground/80 p-5 text-primary-foreground animate-fade-in">
       <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -40,8 +48,17 @@ export function WelcomeSection() {
             Bem-vindo, João!
           </h1>
           <p className="text-primary-foreground/70 text-sm">
-            Você tem <span className="text-accent font-semibold">5 tarefas</span> pendentes hoje e{" "}
-            <span className="text-accent font-semibold">2 lançamentos</span> ativos.
+            {tasksLoading || funnelsLoading ? (
+              <span className="inline-flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Carregando...
+              </span>
+            ) : (
+              <>
+                Você tem <span className="text-accent font-semibold">{pendingCount} {pendingCount === 1 ? 'tarefa' : 'tarefas'}</span> pendentes hoje e{" "}
+                <span className="text-accent font-semibold">{activeFunnelsCount ?? 0} {activeFunnelsCount === 1 ? 'lançamento' : 'lançamentos'}</span> ativos.
+              </>
+            )}
           </p>
         </div>
         
