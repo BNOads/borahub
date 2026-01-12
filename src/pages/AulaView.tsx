@@ -18,8 +18,8 @@ interface Lesson {
     title: string;
     description: string;
     video_url: string;
-    duration: number;
-    position: number;
+    duration: string;
+    order_index: number;
 }
 
 export default function AulaView() {

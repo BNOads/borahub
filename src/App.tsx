@@ -21,6 +21,7 @@ import FunisView from "./pages/FunisView";
 import FunnelDetails from "./pages/FunnelDetails";
 import GuiaView from "./pages/GuiaView";
 import PublicDocView from "./pages/PublicDocView";
+import Agenda from "./pages/Agenda";
 
 const queryClient = new QueryClient();
 
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/senhas" element={<Senhas />} />
             <Route path="/conteudo" element={<ConteudoView />} />
             <Route path="/reunioes" element={<Placeholder />} />
+            <Route path="/agenda" element={<Agenda />} />
             <Route path="/funis" element={<FunisView />} />
             <Route path="/funis/:id" element={<FunnelDetails />} />
             <Route path="/p/:slug" element={<PublicDocView />} />

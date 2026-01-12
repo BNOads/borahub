@@ -26,8 +26,17 @@ interface Course {
     thumbnail_url: string;
 }
 
+interface Lesson {
+    id: string;
+    course_id: string;
+    title: string;
+    description: string;
+    course_title?: string;
+}
+
 export default function TreinamentosView() {
     const [courses, setCourses] = useState<Course[]>([]);
+    const [lessons, setLessons] = useState<Lesson[]>([]);
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -35,6 +44,7 @@ export default function TreinamentosView() {
 
     useEffect(() => {
         fetchCourses();
+        fetchLessons();
     }, []);
 
     async function fetchCourses() {
@@ -54,12 +64,35 @@ export default function TreinamentosView() {
         }
     }
 
+    async function fetchLessons() {
+        try {
+            const { data, error } = await supabase
+                .from("lessons")
+                .select("id, course_id, title, description, courses(title)")
+                .order("order_index", { ascending: true });
+
+            if (error) throw error;
+            const lessonsWithCourse = data?.map(lesson => ({
+                ...lesson,
+                course_title: (lesson.courses as any)?.title
+            })) || [];
+            setLessons(lessonsWithCourse);
+        } catch (error) {
+            console.error("Error fetching lessons:", error);
+        }
+    }
+
     const filteredCourses = courses.filter(course => {
         const matchesSearch = course.title.toLowerCase().includes(search.toLowerCase()) ||
             course.category?.toLowerCase().includes(search.toLowerCase());
 
         return matchesSearch;
     });
+
+    const filteredLessons = search.length > 1 ? lessons.filter(lesson => {
+        return lesson.title.toLowerCase().includes(search.toLowerCase()) ||
+            lesson.description?.toLowerCase().includes(search.toLowerCase());
+    }) : [];
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             {/* Header */}
@@ -92,7 +125,7 @@ export default function TreinamentosView() {
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Buscar treinamentos..."
+                        placeholder="Buscar cursos ou aulas..."
                         className="pl-10 h-12 rounded-full border-accent/20 focus-visible:ring-accent"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -103,6 +136,35 @@ export default function TreinamentosView() {
                     Filtros
                 </Button>
             </div>
+
+            {/* Lesson Search Results */}
+            {filteredLessons.length > 0 && (
+                <div className="space-y-4">
+                    <h2 className="text-xl font-bold flex items-center gap-2">
+                        <Play className="h-5 w-5" />
+                        Aulas Encontradas ({filteredLessons.length})
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {filteredLessons.map((lesson) => (
+                            <Card key={lesson.id} className="group p-4 rounded-2xl border-accent/10 hover:border-accent/40 transition-all hover:bg-accent/5">
+                                <Link to={`/treinamentos/${lesson.course_id}/aula/${lesson.id}`} className="flex items-center gap-4">
+                                    <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent flex-shrink-0">
+                                        <Play className="h-4 w-4 fill-current" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-semibold truncate group-hover:text-accent transition-colors">
+                                            {lesson.title}
+                                        </h3>
+                                        <p className="text-xs text-muted-foreground truncate">
+                                            {lesson.course_title}
+                                        </p>
+                                    </div>
+                                </Link>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div>
                 <h2 className="text-2xl font-bold mb-6">Cursos Disponíveis</h2>

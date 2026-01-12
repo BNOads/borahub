@@ -28,8 +28,8 @@ const lessonSchema = z.object({
     title: z.string().min(1, "Título é obrigatório"),
     description: z.string().optional(),
     video_url: z.string().url("URL de vídeo inválida").or(z.literal("")),
-    duration: z.coerce.number().optional(),
-    position: z.coerce.number().default(0),
+    duration: z.string().optional(),
+    order_index: z.coerce.number().default(0),
 });
 
 type LessonFormValues = z.infer<typeof lessonSchema>;
@@ -51,8 +51,8 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
             title: "",
             description: "",
             video_url: "",
-            duration: 0,
-            position: 0,
+            duration: "",
+            order_index: 0,
         },
     });
 
@@ -62,16 +62,16 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
                 title: lesson.title,
                 description: lesson.description || "",
                 video_url: lesson.video_url || "",
-                duration: lesson.duration || 0,
-                position: lesson.position || 0,
+                duration: lesson.duration || "",
+                order_index: lesson.order_index || 0,
             });
         } else {
             form.reset({
                 title: "",
                 description: "",
                 video_url: "",
-                duration: 0,
-                position: 0,
+                duration: "",
+                order_index: 0,
             });
         }
     }, [lesson, form, isOpen]);
@@ -85,9 +85,9 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
                     .update({
                         title: values.title,
                         description: values.description,
-                        video_url: values.video_url,
-                        duration: values.duration,
-                        position: values.position,
+                        video_url: values.video_url || null,
+                        duration: values.duration || null,
+                        order_index: values.order_index,
                         updated_at: new Date().toISOString(),
                     })
                     .eq("id", lesson.id);
@@ -99,9 +99,9 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
                     .insert([{
                         title: values.title,
                         description: values.description,
-                        video_url: values.video_url,
-                        duration: values.duration,
-                        position: values.position,
+                        video_url: values.video_url || null,
+                        duration: values.duration || null,
+                        order_index: values.order_index,
                         course_id: courseId,
                     }]);
                 if (error) throw error;
@@ -182,7 +182,7 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
                         </div>
                         <FormField
                             control={form.control}
-                            name="position"
+                            name="order_index"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Ordem</FormLabel>

@@ -28,8 +28,8 @@ interface Course {
 interface Lesson {
     id: string;
     title: string;
-    duration: number;
-    position: number;
+    duration: string;
+    order_index: number;
     completed?: boolean;
 }
 
@@ -69,7 +69,7 @@ export default function CursoDetalhes() {
                 .from("lessons")
                 .select("*")
                 .eq("course_id", courseId)
-                .order("position", { ascending: true });
+                .order("order_index", { ascending: true });
 
             if (lessonsError) throw lessonsError;
 
