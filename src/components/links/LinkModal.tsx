@@ -92,7 +92,7 @@ export function LinkModal({ isOpen, onClose, link, onSuccess }: LinkModalProps) 
             } else {
                 const { error } = await supabase
                     .from("links")
-                    .insert([values]);
+                    .insert([{ ...values, name: values.name, url: values.url }]);
                 if (error) throw error;
                 toast.success("Link criado com sucesso!");
             }

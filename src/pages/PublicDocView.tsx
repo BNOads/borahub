@@ -27,14 +27,14 @@ export default function PublicDocView() {
     async function fetchPublicDoc() {
         try {
             setLoading(true);
-            const { data, error } = await supabase
+            const { data, error: fetchError } = await supabase
                 .from("documents")
                 .select("*")
-                .eq("share_slug", slug)
+                .eq("slug", slug)
                 .eq("is_public", true)
                 .single();
 
-            if (error) throw error;
+            if (fetchError) throw fetchError;
             setDoc(data);
         } catch (err) {
             console.error("Error fetching public doc:", err);

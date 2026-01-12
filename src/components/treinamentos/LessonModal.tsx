@@ -28,8 +28,8 @@ const lessonSchema = z.object({
     title: z.string().min(1, "Título é obrigatório"),
     description: z.string().optional(),
     video_url: z.string().url("URL de vídeo inválida").or(z.literal("")),
-    duration: z.string().optional(),
-    order_index: z.coerce.number().default(0),
+    duration: z.coerce.number().optional(),
+    position: z.coerce.number().default(0),
 });
 
 type LessonFormValues = z.infer<typeof lessonSchema>;
@@ -51,8 +51,8 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
             title: "",
             description: "",
             video_url: "",
-            duration: "",
-            order_index: 0,
+            duration: 0,
+            position: 0,
         },
     });
 
@@ -62,16 +62,16 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
                 title: lesson.title,
                 description: lesson.description || "",
                 video_url: lesson.video_url || "",
-                duration: lesson.duration || "",
-                order_index: lesson.order_index,
+                duration: lesson.duration || 0,
+                position: lesson.position || 0,
             });
         } else {
             form.reset({
                 title: "",
                 description: "",
                 video_url: "",
-                duration: "",
-                order_index: 0,
+                duration: 0,
+                position: 0,
             });
         }
     }, [lesson, form, isOpen]);
@@ -83,7 +83,11 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
                 const { error } = await supabase
                     .from("lessons")
                     .update({
-                        ...values,
+                        title: values.title,
+                        description: values.description,
+                        video_url: values.video_url,
+                        duration: values.duration,
+                        position: values.position,
                         updated_at: new Date().toISOString(),
                     })
                     .eq("id", lesson.id);
@@ -92,10 +96,14 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
             } else {
                 const { error } = await supabase
                     .from("lessons")
-                    .insert({
-                        ...values,
+                    .insert([{
+                        title: values.title,
+                        description: values.description,
+                        video_url: values.video_url,
+                        duration: values.duration,
+                        position: values.position,
                         course_id: courseId,
-                    });
+                    }]);
                 if (error) throw error;
                 toast.success("Aula criada com sucesso!");
             }
@@ -174,7 +182,7 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
                         </div>
                         <FormField
                             control={form.control}
-                            name="order_index"
+                            name="position"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Ordem</FormLabel>

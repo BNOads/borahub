@@ -25,7 +25,7 @@ interface Document {
     icon: string;
     is_favorite: boolean;
     is_public: boolean;
-    share_slug: string;
+    slug: string;
     category: string;
     updated_at: string;
 }
@@ -244,12 +244,12 @@ export default function GuiaView() {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="rounded-xl w-56">
-                                        <DropdownMenuItem onClick={() => updateDocumentImmediately(selectedDoc.id, { is_public: !selectedDoc.is_public })}>
+                                            <DropdownMenuItem onClick={() => updateDocumentImmediately(selectedDoc.id, { is_public: !selectedDoc.is_public })}>
                                             {selectedDoc.is_public ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
                                             Tornar {selectedDoc.is_public ? "Privado" : "Público"}
                                         </DropdownMenuItem>
                                         {selectedDoc.is_public && (
-                                            <DropdownMenuItem onClick={() => copyPublicLink(selectedDoc.share_slug)}>
+                                            <DropdownMenuItem onClick={() => copyPublicLink(selectedDoc.slug)}>
                                                 <Share2 className="h-4 w-4 mr-2" />
                                                 Copiar Link Público
                                             </DropdownMenuItem>

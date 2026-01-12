@@ -46,8 +46,8 @@ interface LinkItem {
   description: string;
   category: string;
   favicon: string;
-  is_favorite: boolean;
-  order_index: number;
+  is_favorite?: boolean;
+  order_index?: number;
 }
 
 const categoryColors: Record<string, string> = {
@@ -103,7 +103,7 @@ export default function Links() {
     try {
       const { error } = await supabase
         .from("links")
-        .update({ is_favorite: !link.is_favorite })
+        .update({ is_favorite: !(link.is_favorite ?? false) })
         .eq("id", link.id);
       if (error) throw error;
       fetchLinks();
@@ -134,7 +134,7 @@ export default function Links() {
     return matchesSearch && matchesCategory;
   });
 
-  const favoriteLinks = links.filter(link => link.is_favorite);
+  const favoriteLinks = links.filter(link => link.is_favorite === true);
   const nonFavoriteLinks = links.filter(link => !link.is_favorite);
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -155,15 +155,9 @@ export default function Links() {
       setLinks(newLinks);
 
       // Update order_index in DB
-      const updates = newLinks.map((link, index) => ({
-        id: link.id,
-        order_index: index
-      }));
-
-      // Bulk update (Supabase syntax might vary, easiest is to use a function or multiple updates if small)
-      // Here we just do multiple updates for simplicity as it's a small list.
-      for (let i = 0; i < updates.length; i++) {
-        await supabase.from("links").update({ order_index: updates[i].order_index }).eq("id", updates[i].id);
+      // Update order in DB - use position for ordering
+      for (let i = 0; i < newLinks.length; i++) {
+        await supabase.from("links").update({ order_index: i }).eq("id", newLinks[i].id);
       }
     }
   };
