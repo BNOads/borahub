@@ -16,7 +16,10 @@ import {
   DollarSign,
   Rocket,
   Palette,
-  Bot
+  Bot,
+  Link2,
+  CalendarDays,
+  Filter
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -71,11 +74,25 @@ const tools = [
     color: "bg-cyan-500/10 text-cyan-500",
   },
   {
-    name: "Gestão de Lançamentos",
-    description: "Gerencie e acompanhe todos os lançamentos e campanhas",
+    name: "Funis de Vendas",
+    description: "Gerencie funis, etapas e acompanhe conversoes",
     href: "/funis",
-    icon: Rocket,
+    icon: Filter,
     color: "bg-orange-500/10 text-orange-500",
+  },
+  {
+    name: "Agenda de Eventos",
+    description: "Calendario de reunioes, compromissos e eventos da equipe",
+    href: "/agenda",
+    icon: CalendarDays,
+    color: "bg-teal-500/10 text-teal-500",
+  },
+  {
+    name: "Criador de UTM",
+    description: "Gere links rastreáveis para campanhas de marketing",
+    href: "/utm",
+    icon: Link2,
+    color: "bg-amber-500/10 text-amber-500",
   },
 ];
 

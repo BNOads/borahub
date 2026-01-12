@@ -22,6 +22,7 @@ import FunnelDetails from "./pages/FunnelDetails";
 import GuiaView from "./pages/GuiaView";
 import PublicDocView from "./pages/PublicDocView";
 import Agenda from "./pages/Agenda";
+import UtmCreator from "./pages/UtmCreator";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/agenda" element={<Agenda />} />
             <Route path="/funis" element={<FunisView />} />
             <Route path="/funis/:id" element={<FunnelDetails />} />
+            <Route path="/utm" element={<UtmCreator />} />
             <Route path="/p/:slug" element={<PublicDocView />} />
             <Route path="/metas" element={<Placeholder />} />
             <Route path="/desafio" element={<Placeholder />} />
