@@ -21,7 +21,9 @@ import {
     Image as ImageIcon,
     Smartphone,
     Wand2,
-    GripVertical
+    GripVertical,
+    FileText,
+    Bot
 } from "lucide-react";
 import {
     DndContext,
@@ -57,6 +59,8 @@ import { PostDetailsModal } from "@/components/conteudo/PostDetailsModal";
 import { EditorialLineModal } from "@/components/conteudo/EditorialLineModal";
 import { NewPostModal } from "@/components/conteudo/NewPostModal";
 import { ProfileManagementModal } from "@/components/conteudo/ProfileManagementModal";
+import { DiretrizesView } from "@/components/conteudo/DiretrizesView";
+import { AgentesIAView } from "@/components/conteudo/AgentesIAView";
 
 // Constants
 const POST_TYPES = {
@@ -117,7 +121,7 @@ interface SocialPost {
 }
 
 export default function ConteudoView() {
-    const [view, setView] = useState<"grid" | "kanban">("grid");
+    const [view, setView] = useState<"grid" | "kanban" | "diretrizes" | "agentes">("grid");
     const [profiles, setProfiles] = useState<SocialProfile[]>([]);
     const [posts, setPosts] = useState<SocialPost[]>([]);
     const [loading, setLoading] = useState(true);
@@ -318,7 +322,7 @@ export default function ConteudoView() {
                         <div className="flex items-center gap-1 bg-background/50 p-1 rounded-2xl">
                             <Button
                                 variant={view === "grid" ? "gold" : "ghost"}
-                                className={cn("rounded-xl h-9 gap-2 px-6", view === "grid" && "shadow-md")}
+                                className={cn("rounded-xl h-9 gap-2 px-4", view === "grid" && "shadow-md")}
                                 onClick={() => setView("grid")}
                             >
                                 <Calendar className="h-4 w-4" />
@@ -326,11 +330,28 @@ export default function ConteudoView() {
                             </Button>
                             <Button
                                 variant={view === "kanban" ? "gold" : "ghost"}
-                                className={cn("rounded-xl h-9 gap-2 px-6", view === "kanban" && "shadow-md")}
+                                className={cn("rounded-xl h-9 gap-2 px-4", view === "kanban" && "shadow-md")}
                                 onClick={() => setView("kanban")}
                             >
                                 <LayoutGrid className="h-4 w-4" />
                                 Kanban
+                            </Button>
+                            <div className="w-px h-6 bg-border mx-1" />
+                            <Button
+                                variant={view === "diretrizes" ? "gold" : "ghost"}
+                                className={cn("rounded-xl h-9 gap-2 px-4", view === "diretrizes" && "shadow-md")}
+                                onClick={() => setView("diretrizes")}
+                            >
+                                <FileText className="h-4 w-4" />
+                                Diretrizes
+                            </Button>
+                            <Button
+                                variant={view === "agentes" ? "gold" : "ghost"}
+                                className={cn("rounded-xl h-9 gap-2 px-4", view === "agentes" && "shadow-md")}
+                                onClick={() => setView("agentes")}
+                            >
+                                <Bot className="h-4 w-4" />
+                                Agentes de IA
                             </Button>
                         </div>
                         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -350,24 +371,29 @@ export default function ConteudoView() {
                     </div>
 
                     {/* Main Content Areas */}
-                    {
-                        view === "grid" ? (
-                            <WeeklyGridView
-                                days={daysOfWeek}
-                                profiles={sortedProfiles}
-                                posts={posts.filter(p => !searchQuery || p.theme?.toLowerCase().includes(searchQuery.toLowerCase()))}
-                                getPosts={getPostsForDayAndProfile}
-                                onOpenPost={handleOpenPost}
-                                onAddPost={handleAddNewPost}
-                            />
-                        ) : (
-                            <KanbanView
-                                posts={posts.filter(p => !searchQuery || p.theme?.toLowerCase().includes(searchQuery.toLowerCase()))}
-                                onOpenPost={handleOpenPost}
-                                onAddPost={handleAddNewPost}
-                            />
-                        )
-                    }
+                    {view === "grid" && (
+                        <WeeklyGridView
+                            days={daysOfWeek}
+                            profiles={sortedProfiles}
+                            posts={posts.filter(p => !searchQuery || p.theme?.toLowerCase().includes(searchQuery.toLowerCase()))}
+                            getPosts={getPostsForDayAndProfile}
+                            onOpenPost={handleOpenPost}
+                            onAddPost={handleAddNewPost}
+                        />
+                    )}
+                    {view === "kanban" && (
+                        <KanbanView
+                            posts={posts.filter(p => !searchQuery || p.theme?.toLowerCase().includes(searchQuery.toLowerCase()))}
+                            onOpenPost={handleOpenPost}
+                            onAddPost={handleAddNewPost}
+                        />
+                    )}
+                    {view === "diretrizes" && (
+                        <DiretrizesView />
+                    )}
+                    {view === "agentes" && (
+                        <AgentesIAView />
+                    )}
 
                     <DragOverlay>
                         {activeId && posts.find(p => p.id === activeId) ? (
