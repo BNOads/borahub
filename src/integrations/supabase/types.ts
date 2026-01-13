@@ -376,6 +376,10 @@ export type Database = {
           status: string
           theme: string | null
           updated_at: string
+          roteiro: string | null
+          arquivos_link: string | null
+          big_idea: string | null
+          campos_extras: { label: string; value: string }[] | null
         }
         Insert: {
           created_at?: string
@@ -391,6 +395,10 @@ export type Database = {
           status?: string
           theme?: string | null
           updated_at?: string
+          roteiro?: string | null
+          arquivos_link?: string | null
+          big_idea?: string | null
+          campos_extras?: { label: string; value: string }[] | null
         }
         Update: {
           created_at?: string
@@ -406,6 +414,10 @@ export type Database = {
           status?: string
           theme?: string | null
           updated_at?: string
+          roteiro?: string | null
+          arquivos_link?: string | null
+          big_idea?: string | null
+          campos_extras?: { label: string; value: string }[] | null
         }
         Relationships: [
           {

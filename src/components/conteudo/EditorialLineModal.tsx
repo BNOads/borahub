@@ -31,7 +31,7 @@ interface EditorialLineModalProps {
 }
 
 const DAYS_OF_WEEK = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
-const POST_TYPES = ["Reels", "Carrossel", "Imagem", "Vídeo", "Stories"];
+const POST_TYPES = ["Reels", "Carrossel", "Imagem", "Vídeo", "Stories", "Youtube"];
 
 // Diretrizes por perfil - mapeamento por nome
 const DIRETRIZES_POR_PERFIL: Record<string, string[]> = {
@@ -232,7 +232,16 @@ export function EditorialLineModal({ isOpen, onClose, profiles, onSuccess }: Edi
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl z-[100]">
                                     {profiles.map(p => (
-                                        <SelectItem key={p.id} value={p.id}>{p.icon} {p.name}</SelectItem>
+                                        <SelectItem key={p.id} value={p.id} className="flex items-center gap-2">
+                                            <span className="flex items-center gap-2">
+                                                {p.icon?.startsWith('http') ? (
+                                                    <img src={p.icon} alt={p.name} className="h-5 w-5 rounded-full object-cover" />
+                                                ) : (
+                                                    <span>{p.icon}</span>
+                                                )}
+                                                {p.name}
+                                            </span>
+                                        </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>

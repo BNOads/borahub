@@ -37,17 +37,17 @@ export function WelcomeSection() {
   const pendingCount = pendingTasks.length;
   
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-foreground to-foreground/80 p-5 text-primary-foreground animate-fade-in">
+    <div className="relative overflow-hidden rounded-2xl bg-card border border-border p-5 animate-fade-in">
       <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-accent mb-1">
             <Sparkles className="h-4 w-4" />
             <span className="text-xs font-medium">{greeting}</span>
           </div>
-          <h1 className="text-2xl font-bold mb-1">
+          <h1 className="text-2xl font-bold mb-1 text-foreground">
             Bem-vindo, João!
           </h1>
-          <p className="text-primary-foreground/70 text-sm">
+          <p className="text-muted-foreground text-sm">
             {tasksLoading || funnelsLoading ? (
               <span className="inline-flex items-center gap-1">
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -61,14 +61,14 @@ export function WelcomeSection() {
             )}
           </p>
         </div>
-        
+
         <div className="flex flex-wrap gap-2">
           {quickActions.map((action) => (
             <Button
               key={action.label}
-              variant="gold-outline"
+              variant="outline"
               size="sm"
-              className="bg-transparent border-accent/50 text-accent hover:bg-accent hover:text-accent-foreground text-xs"
+              className="border-accent/30 text-foreground hover:bg-accent hover:text-accent-foreground hover:border-accent text-xs"
               asChild
             >
               <a href={action.href} target="_blank" rel="noopener noreferrer">
@@ -79,10 +79,6 @@ export function WelcomeSection() {
           ))}
         </div>
       </div>
-      
-      {/* Decorative elements */}
-      <div className="absolute top-0 right-0 w-48 h-48 bg-accent/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 right-20 w-24 h-24 bg-accent/20 rounded-full blur-2xl" />
     </div>
   );
 }

@@ -36,13 +36,26 @@ import {
     Video,
     Layers,
     Smartphone,
-    Image as ImageIcon
+    Image as ImageIcon,
+    Lightbulb,
+    Link as LinkIcon,
+    Plus,
+    X,
+    Save
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+// Youtube Icon Component
+const YoutubeIcon = ({ className }: { className?: string }) => (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+    </svg>
+);
 
 const POST_TYPES = {
     'Reels': { icon: Video, color: 'text-purple-500' },
@@ -50,6 +63,7 @@ const POST_TYPES = {
     'Imagem': { icon: ImageIcon, color: 'text-emerald-500' },
     'Vídeo': { icon: Monitor, color: 'text-rose-500' },
     'Stories': { icon: Smartphone, color: 'text-orange-500' },
+    'Youtube': { icon: YoutubeIcon, color: 'text-red-600' },
 };
 
 interface PostDetailsModalProps {
@@ -78,6 +92,11 @@ const STATUS_PIPELINE = [
     'Publicado'
 ];
 
+interface CampoExtra {
+    label: string;
+    value: string;
+}
+
 export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetailsModalProps) {
     const [comments, setComments] = useState<any[]>([]);
     const [history, setHistory] = useState<any[]>([]);
@@ -87,9 +106,23 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
     const [isEditingTheme, setIsEditingTheme] = useState(false);
     const [editedTheme, setEditedTheme] = useState("");
 
+    // Novos campos de conteúdo
+    const [roteiro, setRoteiro] = useState("");
+    const [arquivosLink, setArquivosLink] = useState("");
+    const [bigIdea, setBigIdea] = useState("");
+    const [camposExtras, setCamposExtras] = useState<CampoExtra[]>([]);
+    const [novoCampoLabel, setNovoCampoLabel] = useState("");
+    const [savingContent, setSavingContent] = useState(false);
+
     useEffect(() => {
         if (post && isOpen) {
-            setEditedTheme(post.theme);
+            setEditedTheme(post.theme || "");
+            setRoteiro(post.roteiro || "");
+            setArquivosLink(post.arquivos_link || "");
+            setBigIdea(post.big_idea || "");
+            // Garantir que campos_extras seja sempre um array válido
+            const extras = post.campos_extras;
+            setCamposExtras(Array.isArray(extras) ? extras : []);
             fetchComments();
             fetchHistory();
         }
@@ -272,6 +305,45 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
         }
     }
 
+    async function handleSaveContentFields() {
+        try {
+            setSavingContent(true);
+            const { error } = await supabase
+                .from("social_posts")
+                .update({
+                    roteiro,
+                    arquivos_link: arquivosLink,
+                    big_idea: bigIdea,
+                    campos_extras: camposExtras
+                })
+                .eq("id", post.id);
+
+            if (error) throw error;
+            toast.success("Conteúdo salvo com sucesso!");
+            onUpdate();
+        } catch (error: any) {
+            toast.error("Erro ao salvar: " + error.message);
+        } finally {
+            setSavingContent(false);
+        }
+    }
+
+    function handleAddCampoExtra() {
+        if (!novoCampoLabel.trim()) return;
+        setCamposExtras([...camposExtras, { label: novoCampoLabel, value: "" }]);
+        setNovoCampoLabel("");
+    }
+
+    function handleRemoveCampoExtra(index: number) {
+        setCamposExtras(camposExtras.filter((_, i) => i !== index));
+    }
+
+    function handleUpdateCampoExtra(index: number, value: string) {
+        const newCampos = [...camposExtras];
+        newCampos[index].value = value;
+        setCamposExtras(newCampos);
+    }
+
     if (!post) return null;
 
     return (
@@ -382,16 +454,111 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
                                 <div className="flex items-center gap-3 px-4 h-12 rounded-2xl bg-muted/30 font-black">
                                     <Clock className="h-5 w-5 text-destructive" />
                                     <span className="text-sm">
-                                        {format(parseISO(post.deadline), "dd/MM/yyyy")}
+                                        {post.deadline ? format(parseISO(post.deadline), "dd/MM/yyyy") : "Não definido"}
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="space-y-4 pt-6 mt-auto">
-                            <div className="h-32 bg-accent/5 rounded-3xl border border-dashed border-accent/20 flex flex-col items-center justify-center p-6 text-center">
-                                <FileText className="h-8 w-8 text-accent/20 mb-2" />
-                                <p className="text-xs font-bold text-muted-foreground">Arraste aqui artes, roteiros ou referências para este post.</p>
+                        {/* Campos de Conteúdo */}
+                        <div className="space-y-4 pt-4 border-t border-border">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] uppercase font-black text-accent tracking-[0.2em]">Conteúdo do Post</span>
+                                <Button
+                                    variant="gold"
+                                    size="sm"
+                                    className="h-8 rounded-xl text-[10px] font-black gap-1.5"
+                                    onClick={handleSaveContentFields}
+                                    disabled={savingContent}
+                                >
+                                    <Save className="h-3 w-3" />
+                                    {savingContent ? "Salvando..." : "Salvar"}
+                                </Button>
+                            </div>
+
+                            {/* BIG Idea */}
+                            <div className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 p-4 rounded-2xl border border-amber-500/20">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Lightbulb className="h-4 w-4 text-amber-500" />
+                                    <span className="text-[10px] uppercase font-black text-amber-600 tracking-widest">BIG Idea</span>
+                                </div>
+                                <Textarea
+                                    value={bigIdea}
+                                    onChange={(e) => setBigIdea(e.target.value)}
+                                    placeholder="Qual a grande ideia por trás deste post?"
+                                    className="min-h-[60px] bg-background/50 border-amber-500/20 rounded-xl text-sm resize-none"
+                                />
+                            </div>
+
+                            {/* Roteiro */}
+                            <div className="bg-background/80 p-4 rounded-2xl border border-border">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <FileText className="h-4 w-4 text-accent" />
+                                    <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Roteiro</span>
+                                </div>
+                                <Textarea
+                                    value={roteiro}
+                                    onChange={(e) => setRoteiro(e.target.value)}
+                                    placeholder="Escreva o roteiro ou script do post aqui..."
+                                    className="min-h-[100px] bg-muted/30 border-none rounded-xl text-sm resize-none"
+                                />
+                            </div>
+
+                            {/* Arquivos/Link */}
+                            <div className="bg-background/80 p-4 rounded-2xl border border-border">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <LinkIcon className="h-4 w-4 text-blue-500" />
+                                    <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Link de Arquivos</span>
+                                </div>
+                                <Input
+                                    value={arquivosLink}
+                                    onChange={(e) => setArquivosLink(e.target.value)}
+                                    placeholder="https://drive.google.com/... ou link para arquivos"
+                                    className="h-10 bg-muted/30 border-none rounded-xl text-sm"
+                                />
+                            </div>
+
+                            {/* Campos Extras */}
+                            {camposExtras.map((campo, index) => (
+                                <div key={index} className="bg-background/80 p-4 rounded-2xl border border-border group">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">{campo.label}</span>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
+                                            onClick={() => handleRemoveCampoExtra(index)}
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </Button>
+                                    </div>
+                                    <Textarea
+                                        value={campo.value}
+                                        onChange={(e) => handleUpdateCampoExtra(index, e.target.value)}
+                                        placeholder={`Preencha ${campo.label.toLowerCase()}...`}
+                                        className="min-h-[60px] bg-muted/30 border-none rounded-xl text-sm resize-none"
+                                    />
+                                </div>
+                            ))}
+
+                            {/* Adicionar Campo Extra */}
+                            <div className="flex gap-2">
+                                <Input
+                                    value={novoCampoLabel}
+                                    onChange={(e) => setNovoCampoLabel(e.target.value)}
+                                    placeholder="Nome do novo campo..."
+                                    className="h-9 bg-muted/30 border-accent/10 rounded-xl text-xs flex-1"
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAddCampoExtra()}
+                                />
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-9 rounded-xl text-[10px] font-black gap-1 border-accent/10 hover:bg-accent/5"
+                                    onClick={handleAddCampoExtra}
+                                >
+                                    <Plus className="h-3 w-3" />
+                                    Adicionar Campo
+                                </Button>
                             </div>
                         </div>
                     </div>

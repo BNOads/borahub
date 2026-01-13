@@ -22,7 +22,7 @@ interface NewPostModalProps {
     initialStatus?: string;
 }
 
-const POST_TYPES = ['Reels', 'Carrossel', 'Imagem', 'Vídeo', 'Stories'];
+const POST_TYPES = ['Reels', 'Carrossel', 'Imagem', 'Vídeo', 'Stories', 'Youtube'];
 
 export function NewPostModal({ isOpen, onClose, onSuccess, profiles, initialDate, initialProfileId, initialStatus }: NewPostModalProps) {
     const [loading, setLoading] = useState(false);
@@ -83,7 +83,16 @@ export function NewPostModal({ isOpen, onClose, onSuccess, profiles, initialDate
                             </SelectTrigger>
                             <SelectContent className="rounded-2xl z-[100]">
                                 {profiles.map(p => (
-                                    <SelectItem key={p.id} value={p.id}>{p.icon} {p.name}</SelectItem>
+                                    <SelectItem key={p.id} value={p.id} className="flex items-center gap-2">
+                                        <span className="flex items-center gap-2">
+                                            {p.icon?.startsWith('http') ? (
+                                                <img src={p.icon} alt={p.name} className="h-5 w-5 rounded-full object-cover" />
+                                            ) : (
+                                                <span>{p.icon}</span>
+                                            )}
+                                            {p.name}
+                                        </span>
+                                    </SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
