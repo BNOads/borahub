@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Search, Plus, ExternalLink, Star, StarOff, MoreVertical, LayoutGrid, List, Trash2, Edit, GripVertical } from "lucide-react";
+import { Search, Plus, ExternalLink, Star, StarOff, MoreVertical, LayoutGrid, List, Trash2, Edit, GripVertical, Copy, Share2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -359,6 +359,36 @@ function SortableLinkCard({ link, viewMode, onToggleFavorite, onEdit, onDelete }
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onToggleFavorite}>
               {link.is_favorite ? <Star className="h-4 w-4 text-accent fill-accent" /> : <StarOff className="h-4 w-4 text-muted-foreground" />}
             </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => {
+                navigator.clipboard.writeText(link.url);
+                toast.success("Link copiado!");
+              }}
+            >
+              <Copy className="h-4 w-4 text-muted-foreground" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={async () => {
+                if (navigator.share) {
+                  try {
+                    await navigator.share({ title: link.name, url: link.url });
+                  } catch (err) {
+                    // User cancelled or error
+                  }
+                } else {
+                  navigator.clipboard.writeText(link.url);
+                  toast.success("Link copiado!");
+                }
+              }}
+            >
+              <Share2 className="h-4 w-4 text-muted-foreground" />
+            </Button>
             <a href={link.url} target="_blank" rel="noopener" className="p-2 hover:bg-accent/10 rounded-lg text-accent">
               <ExternalLink className="h-4 w-4" />
             </a>
@@ -429,13 +459,45 @@ function SortableLinkCard({ link, viewMode, onToggleFavorite, onEdit, onDelete }
       </p>
 
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-accent/5 hover:bg-accent/20" onClick={onToggleFavorite}>
-          {link.is_favorite ? (
-            <Star className="h-4 w-4 text-accent fill-accent" />
-          ) : (
-            <StarOff className="h-4 w-4 text-muted-foreground" />
-          )}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full bg-accent/5 hover:bg-accent/20" onClick={onToggleFavorite}>
+            {link.is_favorite ? (
+              <Star className="h-4 w-4 text-accent fill-accent" />
+            ) : (
+              <StarOff className="h-4 w-4 text-muted-foreground" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full bg-accent/5 hover:bg-accent/20"
+            onClick={() => {
+              navigator.clipboard.writeText(link.url);
+              toast.success("Link copiado!");
+            }}
+          >
+            <Copy className="h-4 w-4 text-muted-foreground" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-9 w-9 rounded-full bg-accent/5 hover:bg-accent/20"
+            onClick={async () => {
+              if (navigator.share) {
+                try {
+                  await navigator.share({ title: link.name, url: link.url });
+                } catch (err) {
+                  // User cancelled or error
+                }
+              } else {
+                navigator.clipboard.writeText(link.url);
+                toast.success("Link copiado!");
+              }
+            }}
+          >
+            <Share2 className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </div>
         <Button asChild variant="outline" className="rounded-xl h-9 px-4 gap-2 hover:bg-accent hover:text-accent-foreground border-accent/20">
           <a href={link.url} target="_blank" rel="noopener noreferrer">
             Acessar
