@@ -376,10 +376,6 @@ export type Database = {
           status: string
           theme: string | null
           updated_at: string
-          roteiro: string | null
-          arquivos_link: string | null
-          big_idea: string | null
-          campos_extras: { label: string; value: string }[] | null
         }
         Insert: {
           created_at?: string
@@ -395,10 +391,6 @@ export type Database = {
           status?: string
           theme?: string | null
           updated_at?: string
-          roteiro?: string | null
-          arquivos_link?: string | null
-          big_idea?: string | null
-          campos_extras?: { label: string; value: string }[] | null
         }
         Update: {
           created_at?: string
@@ -414,10 +406,6 @@ export type Database = {
           status?: string
           theme?: string | null
           updated_at?: string
-          roteiro?: string | null
-          arquivos_link?: string | null
-          big_idea?: string | null
-          campos_extras?: { label: string; value: string }[] | null
         }
         Relationships: [
           {
@@ -656,60 +644,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      content_settings: {
-        Row: {
-          id: string
-          key: string
-          value: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          key: string
-          value: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          key?: string
-          value?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      ia_agents: {
-        Row: {
-          id: string
-          name: string
-          type: string
-          description: string | null
-          link: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          type?: string
-          description?: string | null
-          link: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          name?: string
-          type?: string
-          description?: string | null
-          link?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
     }
     Views: {
