@@ -29,41 +29,56 @@ export const boraNewsKeys = {
   leitura: () => [...boraNewsKeys.all, "leitura"] as const,
 };
 
+const queryOptions = {
+  retry: 1,
+  staleTime: 5 * 60 * 1000, // 5 minutos
+  gcTime: 30 * 60 * 1000, // 30 minutos
+};
+
 export function useBoraNewsList(onlyPublished = true) {
   return useQuery({
     queryKey: onlyPublished ? boraNewsKeys.published() : boraNewsKeys.list(),
     queryFn: async () => {
-      const userId = getUserId();
+      try {
+        const userId = getUserId();
 
-      let query = supabase
-        .from("bora_news")
-        .select("*")
-        .order("destaque", { ascending: false })
-        .order("data_publicacao", { ascending: false });
+        let query = supabase
+          .from("bora_news")
+          .select("*")
+          .order("destaque", { ascending: false })
+          .order("data_publicacao", { ascending: false });
 
-      if (onlyPublished) {
-        query = query.eq("status_publicacao", "publicado");
+        if (onlyPublished) {
+          query = query.eq("status_publicacao", "publicado");
+        }
+
+        const { data: news, error } = await query;
+        if (error) {
+          console.error('Error fetching bora news:', error);
+          return [];
+        }
+
+        const { data: leituras } = await supabase
+          .from("bora_news_leitura")
+          .select("*")
+          .eq("user_id", userId);
+
+        const leituraMap = new Map(
+          (leituras || []).map((l) => [l.bora_news_id, l.lido])
+        );
+
+        const newsWithLeitura: BoraNewsWithLeitura[] = (news || []).map((n) => ({
+          ...n,
+          lido: leituraMap.get(n.id) ?? false,
+        }));
+
+        return newsWithLeitura;
+      } catch (error) {
+        console.error('Exception in useBoraNewsList:', error);
+        return [];
       }
-
-      const { data: news, error } = await query;
-      if (error) throw error;
-
-      const { data: leituras } = await supabase
-        .from("bora_news_leitura")
-        .select("*")
-        .eq("user_id", userId);
-
-      const leituraMap = new Map(
-        (leituras || []).map((l) => [l.bora_news_id, l.lido])
-      );
-
-      const newsWithLeitura: BoraNewsWithLeitura[] = (news || []).map((n) => ({
-        ...n,
-        lido: leituraMap.get(n.id) ?? false,
-      }));
-
-      return newsWithLeitura;
     },
+    ...queryOptions,
   });
 }
 

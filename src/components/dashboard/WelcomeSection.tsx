@@ -30,11 +30,13 @@ export function WelcomeSection() {
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? "Bom dia" : currentHour < 18 ? "Boa tarde" : "Boa noite";
   
-  const { data: tasks, isLoading: tasksLoading } = useTodaysTasks();
-  const { data: activeFunnelsCount, isLoading: funnelsLoading } = useActiveFunnelsCount();
+  const { data: tasks = [], isLoading: tasksLoading, isError: tasksError } = useTodaysTasks();
+  const { data: activeFunnelsCount = 0, isLoading: funnelsLoading, isError: funnelsError } = useActiveFunnelsCount();
   
   const pendingTasks = tasks?.filter(task => !task.completed) ?? [];
   const pendingCount = pendingTasks.length;
+  
+  const isLoading = tasksLoading || funnelsLoading;
   
   return (
     <div className="relative overflow-hidden rounded-2xl bg-card border border-border p-5 animate-fade-in">
@@ -48,7 +50,7 @@ export function WelcomeSection() {
             Bem-vindo, João!
           </h1>
           <p className="text-muted-foreground text-sm">
-            {tasksLoading || funnelsLoading ? (
+            {isLoading ? (
               <span className="inline-flex items-center gap-1">
                 <Loader2 className="h-3 w-3 animate-spin" />
                 Carregando...

@@ -24,6 +24,7 @@ export function ActiveLaunches() {
   useEffect(() => {
     const fetchFunnels = async () => {
       try {
+        setLoading(true);
         // Fetch funnels that are marked as status='active' AND is_active=true
         const { data, error } = await supabase
           .from("funnels")
@@ -35,12 +36,13 @@ export function ActiveLaunches() {
 
         if (error) {
           console.error("Error fetching funnels:", error);
-          return;
+          setFunnels([]);
+        } else {
+          setFunnels(data || []);
         }
-
-        setFunnels(data || []);
       } catch (error) {
         console.error("Error fetching funnels:", error);
+        setFunnels([]);
       } finally {
         setLoading(false);
       }

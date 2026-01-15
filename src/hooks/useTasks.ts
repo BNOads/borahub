@@ -22,32 +22,42 @@ export function useTasks(filters?: Partial<TaskFilters>) {
   return useQuery({
     queryKey: taskKeys.list(filters ?? {}),
     queryFn: async () => {
-      let query = supabase
-        .from("tasks")
-        .select(`
-          *,
-          subtasks (*)
-        `)
-        .order("position", { ascending: true })
-        .order("created_at", { ascending: false });
+      try {
+        let query = supabase
+          .from("tasks")
+          .select(`
+            *,
+            subtasks (*)
+          `)
+          .order("position", { ascending: true })
+          .order("created_at", { ascending: false });
 
-      if (filters?.priority && filters.priority !== "all") {
-        query = query.eq("priority", filters.priority);
-      }
-      if (filters?.category && filters.category !== "all") {
-        query = query.eq("category", filters.category);
-      }
-      if (filters?.assignee && filters.assignee !== "all") {
-        query = query.eq("assignee", filters.assignee);
-      }
-      if (filters?.search) {
-        query = query.ilike("title", `%${filters.search}%`);
-      }
+        if (filters?.priority && filters.priority !== "all") {
+          query = query.eq("priority", filters.priority);
+        }
+        if (filters?.category && filters.category !== "all") {
+          query = query.eq("category", filters.category);
+        }
+        if (filters?.assignee && filters.assignee !== "all") {
+          query = query.eq("assignee", filters.assignee);
+        }
+        if (filters?.search) {
+          query = query.ilike("title", `%${filters.search}%`);
+        }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as TaskWithSubtasks[];
+        const { data, error } = await query;
+        if (error) {
+          console.error('Error fetching tasks:', error);
+          return [];
+        }
+        return data as TaskWithSubtasks[];
+      } catch (error) {
+        console.error('Exception in useTasks:', error);
+        return [];
+      }
     },
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutos
   });
 }
 
@@ -57,19 +67,30 @@ export function useTodaysTasks() {
   return useQuery({
     queryKey: taskKeys.today(),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select(`
-          *,
-          subtasks (*)
-        `)
-        .or(`due_date.eq.${today},due_date.lt.${today},due_date.is.null`)
-        .order("due_date", { ascending: true, nullsFirst: false })
-        .order("priority", { ascending: true });
+      try {
+        const { data, error } = await supabase
+          .from("tasks")
+          .select(`
+            *,
+            subtasks (*)
+          `)
+          .or(`due_date.eq.${today},due_date.lt.${today},due_date.is.null`)
+          .order("due_date", { ascending: true, nullsFirst: false })
+          .order("priority", { ascending: true });
 
-      if (error) throw error;
-      return data as TaskWithSubtasks[];
+        if (error) {
+          console.error('Error fetching today tasks:', error);
+          return [];
+        }
+        return data as TaskWithSubtasks[];
+      } catch (error) {
+        console.error('Exception in useTodaysTasks:', error);
+        return [];
+      }
     },
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    gcTime: 30 * 60 * 1000, // 30 minutos (antes era cacheTime)
   });
 }
 

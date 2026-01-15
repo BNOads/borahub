@@ -8,6 +8,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import logo from '@/assets/logo.png';
+import logoDark from '@/assets/logo-dark.png';
 
 export default function Login() {
     const navigate = useNavigate();
@@ -21,19 +23,34 @@ export default function Login() {
     const [error, setError] = useState('');
     const [attempts, setAttempts] = useState(0);
     const [isBlocked, setIsBlocked] = useState(false);
+    const [isDark, setIsDark] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('theme') === 'dark';
+        }
+        return false;
+    });
 
     const from = (location.state as any)?.from?.pathname || '/';
 
     // Redireciona se já estiver autenticado
     useEffect(() => {
-        if (user && profile) {
-            if (profile.must_change_password) {
-                navigate('/troca-senha');
-            } else if (!profile.is_active) {
-                navigate('/conta-desativada');
-            } else {
-                navigate(from, { replace: true });
+        // Se o usuário está autenticado
+        if (user) {
+            // Se temos perfil, podemos fazer as verificações
+            if (profile !== undefined) {  // profile pode ser null mas não undefined
+                if (profile?.must_change_password) {
+                    navigate('/troca-senha');
+                } else if (profile && !profile.is_active) {
+                    navigate('/conta-desativada');
+                } else if (profile) {
+                    navigate(from, { replace: true });
+                } else {
+                    // Perfil é null mas foi tentado carregar, redireciona mesmo assim
+                    // O ProtectedRoute verificará novamente
+                    navigate(from, { replace: true });
+                }
             }
+            // Se profile é undefined, ainda está carregando
         }
     }, [user, profile, navigate, from]);
 
@@ -63,8 +80,10 @@ export default function Login() {
 
         try {
             await signIn(email, password, rememberMe);
-            // A navegação será feita pelo useEffect após o login
+            // Aguarda o estado ser atualizado antes de verificar redirecionamento
+            // O useEffect se encarregará da navegação
         } catch (err: any) {
+            setIsLoading(false);
             const newAttempts = attempts + 1;
             setAttempts(newAttempts);
 
@@ -74,19 +93,35 @@ export default function Login() {
             } else {
                 setError(err.message || 'Email ou senha incorretos');
             }
-        } finally {
-            setIsLoading(false);
         }
     };
 
     const isFormValid = email.trim() !== '' && password.length >= 8;
 
+    // Se o usuário está sendo redirecionado (autenticado)
+    if (user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
+                <div className="text-center space-y-6">
+                    <div className="mx-auto flex items-center justify-center">
+                        <img src={isDark ? logoDark : logo} alt="BORAnaOBRA" className="h-20 w-20 rounded-lg object-contain" />
+                    </div>
+                    <div className="space-y-2">
+                        <h1 className="text-2xl font-bold">Carregando...</h1>
+                        <p className="text-muted-foreground">Preparando seu ambiente</p>
+                    </div>
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-accent" />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-4">
             <Card className="w-full max-w-md shadow-xl">
                 <CardHeader className="space-y-4 text-center">
-                    <div className="mx-auto w-20 h-20 bg-gradient-to-br from-black to-gray-800 dark:from-white dark:to-gray-200 rounded-2xl flex items-center justify-center shadow-lg">
-                        <span className="text-3xl font-bold text-white dark:text-black">B</span>
+                    <div className="mx-auto flex items-center justify-center">
+                        <img src={isDark ? logoDark : logo} alt="BORAnaOBRA" className="h-20 w-20 rounded-lg object-contain" />
                     </div>
                     <div>
                         <CardTitle className="text-3xl font-bold">BORAnaOBRA</CardTitle>

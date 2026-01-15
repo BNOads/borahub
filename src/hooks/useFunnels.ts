@@ -7,18 +7,33 @@ export const funnelKeys = {
   activeCount: () => [...funnelKeys.all, "active-count"] as const,
 };
 
+const queryOptions = {
+  retry: 1,
+  staleTime: 5 * 60 * 1000, // 5 minutos
+  gcTime: 30 * 60 * 1000, // 30 minutos
+};
+
 export function useActiveFunnelsCount() {
   return useQuery({
     queryKey: funnelKeys.activeCount(),
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from("funnels")
-        .select("*", { count: "exact", head: true })
-        .eq("is_active", true);
+      try {
+        const { count, error } = await supabase
+          .from("funnels")
+          .select("*", { count: "exact", head: true })
+          .eq("is_active", true);
 
-      if (error) throw error;
-      return count ?? 0;
+        if (error) {
+          console.error('Error fetching funnels count:', error);
+          return 0;
+        }
+        return count ?? 0;
+      } catch (error) {
+        console.error('Exception in useActiveFunnelsCount:', error);
+        return 0;
+      }
     },
+    ...queryOptions,
   });
 }
 
@@ -26,14 +41,23 @@ export function useActiveFunnels() {
   return useQuery({
     queryKey: funnelKeys.active(),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("funnels")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
+      try {
+        const { data, error } = await supabase
+          .from("funnels")
+          .select("*")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data;
+        if (error) {
+          console.error('Error fetching active funnels:', error);
+          return [];
+        }
+        return data || [];
+      } catch (error) {
+        console.error('Exception in useActiveFunnels:', error);
+        return [];
+      }
     },
+    ...queryOptions,
   });
 }
