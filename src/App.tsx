@@ -18,7 +18,7 @@ import TreinamentosView from "./pages/TreinamentosView";
 import CursoDetalhes from "./pages/CursoDetalhes";
 import AulaView from "./pages/AulaView";
 import FunisView from "./pages/FunisView";
-import FunnelDetails from "./pages/FunnelDetails";
+import FunnelPanel from "./pages/FunnelPanel";
 import GuiaView from "./pages/GuiaView";
 import PublicDocView from "./pages/PublicDocView";
 import Agenda from "./pages/Agenda";
@@ -49,7 +49,7 @@ const App = () => (
             <Route path="/reunioes" element={<Placeholder />} />
             <Route path="/agenda" element={<Agenda />} />
             <Route path="/funis" element={<FunisView />} />
-            <Route path="/funis/:id" element={<FunnelDetails />} />
+            <Route path="/funis/:id" element={<FunnelPanel />} />
             <Route path="/utm" element={<UtmCreator />} />
             <Route path="/p/:slug" element={<PublicDocView />} />
             <Route path="/metas" element={<Placeholder />} />
