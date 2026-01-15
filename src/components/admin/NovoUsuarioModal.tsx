@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
     Dialog,
@@ -11,21 +11,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
-
-interface Department {
-    id: string;
-    name: string;
-}
 
 interface NovoUsuarioModalProps {
     open: boolean;
@@ -40,38 +28,14 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
 }) => {
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
-    const [departments, setDepartments] = useState<Department[]>([]);
 
     const [formData, setFormData] = useState({
         email: '',
         full_name: '',
         display_name: '',
-        department: '',
         job_title: '',
         role: 'collaborator' as 'admin' | 'collaborator',
     });
-
-    // Carregar departamentos
-    useEffect(() => {
-        if (open) {
-            loadDepartments();
-        }
-    }, [open]);
-
-    const loadDepartments = async () => {
-        try {
-            const { data, error } = await supabase
-                .from('departments')
-                .select('id, name')
-                .eq('is_active', true)
-                .order('name');
-
-            if (error) throw error;
-            setDepartments(data || []);
-        } catch (error) {
-            console.error('Error loading departments:', error);
-        }
-    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -81,43 +45,20 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
             // Extrai parte do email antes do @ para usar como senha inicial
             const initialPassword = formData.email.split('@')[0];
 
-            // Cria usuário no auth (isso precisa ser feito via API admin do Supabase)
-            // Por ora, vamos apenas criar o perfil e mostrar a mensagem
-            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            // Cria usuário usando signUp normal (a tabela profiles não existe no banco externo)
+            const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: formData.email,
                 password: initialPassword,
-                email_confirm: true,
-                user_metadata: {
-                    full_name: formData.full_name,
-                    display_name: formData.display_name || formData.full_name,
+                options: {
+                    data: {
+                        full_name: formData.full_name,
+                        display_name: formData.display_name || formData.full_name,
+                        role: formData.role,
+                    },
                 },
             });
 
             if (authError) throw authError;
-
-            // Atualiza o perfil com informações adicionais
-            if (authData.user) {
-                const { error: profileError } = await supabase
-                    .from('profiles')
-                    .update({
-                        full_name: formData.full_name,
-                        display_name: formData.display_name || formData.full_name,
-                        department: formData.department || null,
-                        job_title: formData.job_title || null,
-                        role: formData.role,
-                        must_change_password: true,
-                    })
-                    .eq('id', authData.user.id);
-
-                if (profileError) throw profileError;
-
-                // Registra atividade
-                await supabase.rpc('log_activity', {
-                    p_action: 'user_created',
-                    p_entity_type: 'user',
-                    p_entity_id: authData.user.id,
-                });
-            }
 
             toast({
                 title: 'Usuário criado!',
@@ -149,7 +90,6 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
             email: '',
             full_name: '',
             display_name: '',
-            department: '',
             job_title: '',
             role: 'collaborator',
         });
@@ -204,26 +144,6 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
                                 onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
                                 disabled={isLoading}
                             />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="department">Departamento</Label>
-                            <Select
-                                value={formData.department}
-                                onValueChange={(value) => setFormData({ ...formData, department: value })}
-                                disabled={isLoading}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Selecione um departamento" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {departments.map((dept) => (
-                                        <SelectItem key={dept.id} value={dept.id}>
-                                            {dept.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
                         </div>
 
                         <div className="space-y-2">
