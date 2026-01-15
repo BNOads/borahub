@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Bell, Menu, X, Sun, Moon, User, Settings, LogOut, ChevronDown } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Bell, Menu, X, Sun, Moon, User, Settings, LogOut, ChevronDown, Shield } from "lucide-react";
 import logo from "@/assets/logo.png";
 import logoDark from "@/assets/logo-dark.png";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,7 +29,32 @@ interface HeaderProps {
 
 export function Header({ isDark, toggleTheme }: HeaderProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { profile, isAdmin, signOut } = useAuth();
   const notificationCount = 3;
+
+  const getInitials = (name?: string) => {
+    if (!name) return "U";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login");
+  };
+
+  const handleProfile = () => {
+    navigate("/perfil");
+  };
+
+  const handleSettings = () => {
+    navigate("/configuracoes");
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -118,29 +145,48 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3">
-                <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center">
-                  <span className="text-sm font-semibold text-accent-foreground">JS</span>
-                </div>
-                <span className="hidden sm:block text-sm font-medium">João Silva</span>
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile?.avatar_url} />
+                  <AvatarFallback className="bg-accent text-accent-foreground">
+                    {getInitials(profile?.display_name || profile?.full_name)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden sm:block text-sm font-medium">
+                  {profile?.display_name || profile?.full_name || 'Usuário'}
+                </span>
                 <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <div className="px-4 py-3 border-b border-border">
-                <p className="font-medium">João Silva</p>
-                <p className="text-sm text-muted-foreground">joao@boranaobra.com</p>
-                <Badge variant="outline" className="mt-2 text-xs">Admin</Badge>
+                <p className="font-medium">{profile?.full_name}</p>
+                <p className="text-sm text-muted-foreground">{profile?.email}</p>
+                {isAdmin && (
+                  <Badge className="mt-2 text-xs bg-amber-500 hover:bg-amber-600">
+                    <Shield className="w-3 h-3 mr-1" />
+                    Admin
+                  </Badge>
+                )}
               </div>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleProfile}>
                 <User className="mr-2 h-4 w-4" />
                 Meu Perfil
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSettings}>
                 <Settings className="mr-2 h-4 w-4" />
                 Configurações
               </DropdownMenuItem>
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/admin/usuarios")}>
+                    <Shield className="mr-2 h-4 w-4" />
+                    Gestão de Usuários
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Sair
               </DropdownMenuItem>
