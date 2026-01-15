@@ -42,32 +42,60 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
   const [editingUrls, setEditingUrls] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  const fetchLinks = async () => {
+  const ensureLinksExist = async () => {
     try {
-      const { data, error } = await supabase
+      // Busca links existentes
+      const { data: existingLinks, error: fetchError } = await supabase
+        .from("funnel_links")
+        .select("*")
+        .eq("funnel_id", funnelId);
+
+      if (fetchError) throw fetchError;
+
+      // Verifica quais categorias faltam
+      const existingTypes = new Set(existingLinks?.map(l => l.link_type) || []);
+      const missingCategories = LINK_CATEGORIES.filter(cat => !existingTypes.has(cat.type));
+
+      // Cria os links faltantes
+      if (missingCategories.length > 0) {
+        const linksToCreate = missingCategories.map(cat => ({
+          funnel_id: funnelId,
+          name: cat.label,
+          link_type: cat.type,
+        }));
+
+        const { error: insertError } = await supabase
+          .from("funnel_links")
+          .insert(linksToCreate);
+
+        if (insertError) throw insertError;
+      }
+
+      // Busca todos os links novamente
+      const { data: allLinks, error: refetchError } = await supabase
         .from("funnel_links")
         .select("*")
         .eq("funnel_id", funnelId)
         .order("created_at", { ascending: true });
 
-      if (error) throw error;
-      setLinks(data || []);
+      if (refetchError) throw refetchError;
+      setLinks(allLinks || []);
 
       // Inicializa os valores de edição
       const urls: Record<string, string> = {};
-      data?.forEach(link => {
+      allLinks?.forEach(link => {
         urls[link.id] = link.url || "";
       });
       setEditingUrls(urls);
     } catch (error) {
-      console.error("Error fetching links:", error);
+      console.error("Error ensuring links exist:", error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLinks();
+    ensureLinksExist();
   }, [funnelId]);
 
   const getLinkByType = (type: string) => {
@@ -88,7 +116,11 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
 
       if (error) throw error;
       toast.success("Link salvo!");
-      fetchLinks();
+
+      // Atualiza o estado local sem recarregar tudo
+      setLinks(prev => prev.map(l =>
+        l.id === linkId ? { ...l, url: editingUrls[linkId] } : l
+      ));
     } catch (error: any) {
       toast.error("Erro: " + error.message);
     } finally {
