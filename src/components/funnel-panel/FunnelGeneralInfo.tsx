@@ -22,8 +22,6 @@ import {
   Hash,
   Video,
   Zap,
-  User,
-  Building2,
 } from "lucide-react";
 import { FunnelData } from "./types";
 import { supabase } from "@/integrations/supabase/client";
@@ -122,8 +120,6 @@ export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) 
     funnel_type: funnel.funnel_type || "",
     lesson_type: funnel.lesson_type || "",
     launch_type: funnel.launch_type || "",
-    manager: funnel.manager || "",
-    client: funnel.client || "",
     code: funnel.code || "",
   });
   const [saving, setSaving] = useState(false);
@@ -155,8 +151,6 @@ export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) 
       funnel_type: funnel.funnel_type || "",
       lesson_type: funnel.lesson_type || "",
       launch_type: funnel.launch_type || "",
-      manager: funnel.manager || "",
-      client: funnel.client || "",
       code: funnel.code || "",
     });
     setIsEditing(false);
@@ -179,7 +173,7 @@ export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) 
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {/* Identificação - Azul */}
             <InfoCard
               label="Nome do Funil"
@@ -225,21 +219,6 @@ export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) 
               icon={<Zap className="h-4 w-4" />}
               colorClass="bg-green-500/10 text-green-600 border-green-500/20"
               isEmpty={!funnel.launch_type}
-            />
-            {/* Responsáveis - Roxo */}
-            <InfoCard
-              label="Gestor"
-              value={funnel.manager}
-              icon={<User className="h-4 w-4" />}
-              colorClass="bg-purple-500/10 text-purple-600 border-purple-500/20"
-              isEmpty={!funnel.manager}
-            />
-            <InfoCard
-              label="Cliente"
-              value={funnel.client}
-              icon={<Building2 className="h-4 w-4" />}
-              colorClass="bg-purple-500/10 text-purple-600 border-purple-500/20"
-              isEmpty={!funnel.client}
             />
           </div>
         </CardContent>
@@ -348,22 +327,6 @@ export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) 
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-purple-600">Gestor Responsável</Label>
-            <Input
-              value={formData.manager}
-              onChange={(e) => setFormData({ ...formData, manager: e.target.value })}
-              className="border-purple-500/30 focus-visible:ring-purple-500"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-purple-600">Cliente</Label>
-            <Input
-              value={formData.client}
-              onChange={(e) => setFormData({ ...formData, client: e.target.value })}
-              className="border-purple-500/30 focus-visible:ring-purple-500"
-            />
           </div>
         </div>
       </CardContent>
