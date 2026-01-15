@@ -14,6 +14,83 @@ export type Database = {
   }
   public: {
     Tables: {
+      bora_news: {
+        Row: {
+          id: string
+          titulo: string
+          conteudo: string
+          resumo: string | null
+          autor_id: string | null
+          autor_nome: string
+          data_publicacao: string
+          status_publicacao: string
+          destaque: boolean | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          titulo: string
+          conteudo: string
+          resumo?: string | null
+          autor_id?: string | null
+          autor_nome?: string
+          data_publicacao?: string
+          status_publicacao?: string
+          destaque?: boolean | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          titulo?: string
+          conteudo?: string
+          resumo?: string | null
+          autor_id?: string | null
+          autor_nome?: string
+          data_publicacao?: string
+          status_publicacao?: string
+          destaque?: boolean | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bora_news_leitura: {
+        Row: {
+          id: string
+          bora_news_id: string
+          user_id: string
+          lido: boolean | null
+          data_leitura: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          bora_news_id: string
+          user_id: string
+          lido?: boolean | null
+          data_leitura?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          bora_news_id?: string
+          user_id?: string
+          lido?: boolean | null
+          data_leitura?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bora_news_leitura_bora_news_id_fkey"
+            columns: ["bora_news_id"]
+            isOneToOne: false
+            referencedRelation: "bora_news"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       acessos_logins: {
         Row: {
           ativo: boolean | null

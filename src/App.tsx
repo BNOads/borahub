@@ -23,6 +23,8 @@ import GuiaView from "./pages/GuiaView";
 import PublicDocView from "./pages/PublicDocView";
 import Agenda from "./pages/Agenda";
 import UtmCreator from "./pages/UtmCreator";
+import BoraNewsView from "./pages/BoraNewsView";
+import BoraNewsDetail from "./pages/BoraNewsDetail";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +53,8 @@ const App = () => (
             <Route path="/funis" element={<FunisView />} />
             <Route path="/funis/:id" element={<FunnelPanel />} />
             <Route path="/utm" element={<UtmCreator />} />
+            <Route path="/bora-news" element={<BoraNewsView />} />
+            <Route path="/bora-news/:id" element={<BoraNewsDetail />} />
             <Route path="/p/:slug" element={<PublicDocView />} />
             <Route path="/metas" element={<Placeholder />} />
             <Route path="/desafio" element={<Placeholder />} />
