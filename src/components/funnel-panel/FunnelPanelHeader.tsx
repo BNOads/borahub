@@ -75,7 +75,12 @@ export function FunnelPanelHeader({ funnel, onUpdate }: FunnelPanelHeaderProps) 
         </Button>
         <div>
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold">{funnel.name}</h1>
+            <div>
+              <h1 className="text-2xl font-bold">{funnel.name}</h1>
+              {funnel.product_name && (
+                <p className="text-sm text-muted-foreground mt-0.5">{funnel.product_name}</p>
+              )}
+            </div>
             {funnel.code && (
               <Badge variant="outline" className="text-xs">
                 {funnel.code}
@@ -89,7 +94,6 @@ export function FunnelPanelHeader({ funnel, onUpdate }: FunnelPanelHeaderProps) 
             </Badge>
           </div>
           <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-            {funnel.funnel_type && <span>{funnel.funnel_type}</span>}
             {funnel.category && <span>{funnel.category}</span>}
             <span className="font-medium text-foreground">
               {formatCurrency(funnel.predicted_investment)}
