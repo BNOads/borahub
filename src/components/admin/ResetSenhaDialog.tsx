@@ -34,30 +34,19 @@ export const ResetSenhaDialog: React.FC<ResetSenhaDialogProps> = ({
         setIsLoading(true);
 
         try {
-            // Extrai senha do email
-            const newPassword = user.email.split('@')[0];
-
-            // Chama função do Supabase para resetar senha
-            const { data, error } = await supabase.rpc('reset_user_password', {
-                p_user_id: user.id,
+            // Envia email de reset de senha usando a API pública
+            const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+                redirectTo: `${window.location.origin}/troca-senha`,
             });
 
             if (error) throw error;
 
-            // Também precisa usar a API admin para alterar a senha
-            const { error: updateError } = await supabase.auth.admin.updateUserById(
-                user.id,
-                { password: newPassword }
-            );
-
-            if (updateError) throw updateError;
-
             toast({
-                title: 'Senha resetada!',
+                title: 'Email enviado!',
                 description: (
                     <div>
-                        <p>Nova senha: <strong>{newPassword}</strong></p>
-                        <p className="text-sm mt-1">O usuário deverá trocar no próximo acesso.</p>
+                        <p>Um email de redefinição de senha foi enviado para <strong>{user.email}</strong></p>
+                        <p className="text-sm mt-1">O usuário deve verificar a caixa de entrada.</p>
                     </div>
                 ),
             });
@@ -76,8 +65,6 @@ export const ResetSenhaDialog: React.FC<ResetSenhaDialogProps> = ({
         }
     };
 
-    const newPassword = user.email.split('@')[0];
-
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent>
@@ -85,11 +72,10 @@ export const ResetSenhaDialog: React.FC<ResetSenhaDialogProps> = ({
                     <AlertDialogTitle>Resetar senha de {user.full_name}?</AlertDialogTitle>
                     <AlertDialogDescription className="space-y-2">
                         <p>
-                            A senha será alterada para <strong>"{newPassword}"</strong> e o usuário
-                            precisará criar uma nova senha no próximo acesso.
+                            Um email de redefinição de senha será enviado para <strong>{user.email}</strong>.
                         </p>
                         <p className="text-sm text-muted-foreground">
-                            Esta ação não pode ser desfeita. Certifique-se de comunicar a nova senha ao usuário.
+                            O usuário receberá um link para criar uma nova senha.
                         </p>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -103,10 +89,10 @@ export const ResetSenhaDialog: React.FC<ResetSenhaDialogProps> = ({
                         {isLoading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Resetando...
+                                Enviando...
                             </>
                         ) : (
-                            'Resetar senha'
+                            'Enviar email de reset'
                         )}
                     </AlertDialogAction>
                 </AlertDialogFooter>

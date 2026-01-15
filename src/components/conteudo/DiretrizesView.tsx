@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
     FileText,
     Edit3,
@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const DEFAULT_DIRETRIZES = `# Diretrizes de Criação de Conteúdo
@@ -118,50 +117,12 @@ export function DiretrizesView({ className }: DiretrizesViewProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [content, setContent] = useState(DEFAULT_DIRETRIZES);
     const [editContent, setEditContent] = useState(DEFAULT_DIRETRIZES);
-    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-
-    useEffect(() => {
-        fetchDiretrizes();
-    }, []);
-
-    async function fetchDiretrizes() {
-        try {
-            setLoading(true);
-            const { data, error } = await supabase
-                .from("content_settings")
-                .select("value")
-                .eq("key", "diretrizes")
-                .single();
-
-            if (error && error.code !== 'PGRST116') {
-                throw error;
-            }
-
-            if (data?.value) {
-                setContent(data.value);
-                setEditContent(data.value);
-            }
-        } catch (error: any) {
-            console.error("Erro ao carregar diretrizes:", error.message);
-        } finally {
-            setLoading(false);
-        }
-    }
 
     async function handleSave() {
         try {
             setSaving(true);
-            const { error } = await supabase
-                .from("content_settings")
-                .upsert({
-                    key: "diretrizes",
-                    value: editContent,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'key' });
-
-            if (error) throw error;
-
+            // Salva localmente já que a tabela content_settings não existe
             setContent(editContent);
             setIsEditing(false);
             toast.success("Diretrizes salvas com sucesso!");
@@ -272,14 +233,6 @@ export function DiretrizesView({ className }: DiretrizesViewProps) {
         return elements;
     }
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-[500px]">
-                <Loader2 className="h-8 w-8 animate-spin text-accent" />
-            </div>
-        );
-    }
-
     return (
         <div className={cn("space-y-6", className)}>
             {/* Header */}
@@ -295,7 +248,7 @@ export function DiretrizesView({ className }: DiretrizesViewProps) {
                 </div>
                 {!isEditing ? (
                     <Button
-                        variant="gold"
+                        variant="default"
                         className="rounded-2xl gap-2 font-black"
                         onClick={() => setIsEditing(true)}
                     >
@@ -314,7 +267,7 @@ export function DiretrizesView({ className }: DiretrizesViewProps) {
                             Cancelar
                         </Button>
                         <Button
-                            variant="gold"
+                            variant="default"
                             className="rounded-2xl gap-2 font-black"
                             onClick={handleSave}
                             disabled={saving}

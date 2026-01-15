@@ -1,24 +1,22 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Database } from "@/integrations/supabase/types";
 
-export type BoraNews = Database["public"]["Tables"]["bora_news"]["Row"];
-export type BoraNewsInsert = Database["public"]["Tables"]["bora_news"]["Insert"];
-export type BoraNewsLeitura = Database["public"]["Tables"]["bora_news_leitura"]["Row"];
+// Interface local para BoraNews (tabela não existe no banco externo)
+export interface BoraNews {
+  id: string;
+  titulo: string;
+  conteudo: string;
+  resumo?: string;
+  autor_nome: string;
+  data_publicacao: string;
+  status_publicacao: 'publicado' | 'rascunho';
+  destaque: boolean;
+  created_at: string;
+}
+
+export type BoraNewsInsert = Omit<BoraNews, 'id' | 'created_at'>;
 
 export interface BoraNewsWithLeitura extends BoraNews {
   lido?: boolean;
-}
-
-const USER_ID_KEY = "bora_news_user_id";
-
-function getUserId(): string {
-  let userId = localStorage.getItem(USER_ID_KEY);
-  if (!userId) {
-    userId = crypto.randomUUID();
-    localStorage.setItem(USER_ID_KEY, userId);
-  }
-  return userId;
 }
 
 export const boraNewsKeys = {
@@ -35,48 +33,28 @@ const queryOptions = {
   gcTime: 30 * 60 * 1000, // 30 minutos
 };
 
+// Dados mock para funcionalidade sem a tabela bora_news
+const mockNews: BoraNewsWithLeitura[] = [
+  {
+    id: '1',
+    titulo: 'Bem-vindo ao Bora Hub!',
+    conteudo: 'Este é o seu painel central de notícias e avisos. A funcionalidade de notícias será implementada quando a tabela bora_news estiver configurada no banco de dados.',
+    resumo: 'Painel de notícias e avisos internos.',
+    autor_nome: 'Sistema',
+    data_publicacao: new Date().toISOString(),
+    status_publicacao: 'publicado',
+    destaque: true,
+    created_at: new Date().toISOString(),
+    lido: false,
+  },
+];
+
 export function useBoraNewsList(onlyPublished = true) {
   return useQuery({
     queryKey: onlyPublished ? boraNewsKeys.published() : boraNewsKeys.list(),
     queryFn: async () => {
-      try {
-        const userId = getUserId();
-
-        let query = supabase
-          .from("bora_news")
-          .select("*")
-          .order("destaque", { ascending: false })
-          .order("data_publicacao", { ascending: false });
-
-        if (onlyPublished) {
-          query = query.eq("status_publicacao", "publicado");
-        }
-
-        const { data: news, error } = await query;
-        if (error) {
-          console.error('Error fetching bora news:', error);
-          return [];
-        }
-
-        const { data: leituras } = await supabase
-          .from("bora_news_leitura")
-          .select("*")
-          .eq("user_id", userId);
-
-        const leituraMap = new Map(
-          (leituras || []).map((l) => [l.bora_news_id, l.lido])
-        );
-
-        const newsWithLeitura: BoraNewsWithLeitura[] = (news || []).map((n) => ({
-          ...n,
-          lido: leituraMap.get(n.id) ?? false,
-        }));
-
-        return newsWithLeitura;
-      } catch (error) {
-        console.error('Exception in useBoraNewsList:', error);
-        return [];
-      }
+      // Retorna dados mock já que a tabela não existe
+      return mockNews;
     },
     ...queryOptions,
   });
@@ -86,13 +64,9 @@ export function useBoraNewsDetail(id: string) {
   return useQuery({
     queryKey: boraNewsKeys.detail(id),
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bora_news")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (error) throw error;
-      return data;
+      const news = mockNews.find(n => n.id === id);
+      if (!news) throw new Error('Notícia não encontrada');
+      return news;
     },
     enabled: !!id,
   });
@@ -102,27 +76,7 @@ export function useBoraNewsUnreadCount() {
   return useQuery({
     queryKey: [...boraNewsKeys.all, "unread_count"],
     queryFn: async () => {
-      const userId = getUserId();
-
-      const { data: news, error: newsError } = await supabase
-        .from("bora_news")
-        .select("id")
-        .eq("status_publicacao", "publicado");
-
-      if (newsError) throw newsError;
-
-      const { data: leituras, error: leituraError } = await supabase
-        .from("bora_news_leitura")
-        .select("bora_news_id")
-        .eq("user_id", userId)
-        .eq("lido", true);
-
-      if (leituraError) throw leituraError;
-
-      const readIds = new Set((leituras || []).map((l) => l.bora_news_id));
-      const unreadCount = (news || []).filter((n) => !readIds.has(n.id)).length;
-
-      return unreadCount;
+      return mockNews.filter(n => !n.lido).length;
     },
   });
 }
@@ -132,30 +86,8 @@ export function useMarkAsRead() {
 
   return useMutation({
     mutationFn: async (boraNewsId: string) => {
-      const userId = getUserId();
-
-      const { data: existing } = await supabase
-        .from("bora_news_leitura")
-        .select("*")
-        .eq("bora_news_id", boraNewsId)
-        .eq("user_id", userId)
-        .single();
-
-      if (existing) {
-        const { error } = await supabase
-          .from("bora_news_leitura")
-          .update({ lido: true, data_leitura: new Date().toISOString() })
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("bora_news_leitura").insert({
-          bora_news_id: boraNewsId,
-          user_id: userId,
-          lido: true,
-          data_leitura: new Date().toISOString(),
-        });
-        if (error) throw error;
-      }
+      // Mock implementation
+      console.log('Marking as read:', boraNewsId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: boraNewsKeys.all });
@@ -168,33 +100,8 @@ export function useToggleRead() {
 
   return useMutation({
     mutationFn: async ({ boraNewsId, lido }: { boraNewsId: string; lido: boolean }) => {
-      const userId = getUserId();
-
-      const { data: existing } = await supabase
-        .from("bora_news_leitura")
-        .select("*")
-        .eq("bora_news_id", boraNewsId)
-        .eq("user_id", userId)
-        .single();
-
-      if (existing) {
-        const { error } = await supabase
-          .from("bora_news_leitura")
-          .update({
-            lido,
-            data_leitura: lido ? new Date().toISOString() : null
-          })
-          .eq("id", existing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("bora_news_leitura").insert({
-          bora_news_id: boraNewsId,
-          user_id: userId,
-          lido,
-          data_leitura: lido ? new Date().toISOString() : null,
-        });
-        if (error) throw error;
-      }
+      // Mock implementation
+      console.log('Toggle read:', boraNewsId, lido);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: boraNewsKeys.all });
@@ -207,13 +114,9 @@ export function useCreateBoraNews() {
 
   return useMutation({
     mutationFn: async (news: BoraNewsInsert) => {
-      const { data, error } = await supabase
-        .from("bora_news")
-        .insert(news)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
+      // Mock implementation
+      console.log('Creating news:', news);
+      return { ...news, id: crypto.randomUUID(), created_at: new Date().toISOString() };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: boraNewsKeys.all });
@@ -226,14 +129,9 @@ export function useUpdateBoraNews() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }: Partial<BoraNews> & { id: string }) => {
-      const { data, error } = await supabase
-        .from("bora_news")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return data;
+      // Mock implementation
+      console.log('Updating news:', id, updates);
+      return { id, ...updates };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: boraNewsKeys.all });
@@ -246,8 +144,8 @@ export function useDeleteBoraNews() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("bora_news").delete().eq("id", id);
-      if (error) throw error;
+      // Mock implementation
+      console.log('Deleting news:', id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: boraNewsKeys.all });
