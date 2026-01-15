@@ -252,10 +252,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) throw error;
 
-      await refreshProfile();
+      // Atualiza o estado local imediatamente
+      setProfile(prev => prev ? { ...prev, ...safeUpdates } : null);
+
+      // Recarrega o perfil em background (sem awaitar)
+      refreshProfile().catch(err => console.error('Error refreshing profile:', err));
 
       // Registra atividade
-      await logActivity('user_updated', 'user', user.id, { updates: safeUpdates });
+      logActivity('user_updated', 'user', user.id, { updates: safeUpdates }).catch(err => 
+        console.error('Error logging activity:', err)
+      );
 
       toast({
         title: 'Perfil atualizado!',

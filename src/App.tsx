@@ -30,6 +30,7 @@ import BoraNewsDetail from "./pages/BoraNewsDetail";
 import Login from "./pages/Login";
 import TrocaSenha from "./pages/TrocaSenha";
 import ContaDesativada from "./pages/ContaDesativada";
+import Perfil from "./pages/Perfil";
 import GestaoUsuarios from "./pages/admin/GestaoUsuarios";
 
 const queryClient = new QueryClient();
@@ -82,6 +83,7 @@ const App = () => (
               <Route path="/metas" element={<Placeholder />} />
               <Route path="/desafio" element={<Placeholder />} />
               <Route path="/assistente" element={<Placeholder />} />
+              <Route path="/perfil" element={<Perfil />} />
             </Route>
 
             {/* Rotas admin */}

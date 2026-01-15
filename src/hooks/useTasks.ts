@@ -62,8 +62,6 @@ export function useTasks(filters?: Partial<TaskFilters>) {
 }
 
 export function useTodaysTasks() {
-  const today = new Date().toISOString().split("T")[0];
-
   return useQuery({
     queryKey: taskKeys.today(),
     queryFn: async () => {
@@ -74,7 +72,7 @@ export function useTodaysTasks() {
             *,
             subtasks (*)
           `)
-          .or(`due_date.eq.${today},due_date.lt.${today},due_date.is.null`)
+          .lte("due_date", new Date().toISOString().split("T")[0])
           .order("due_date", { ascending: true, nullsFirst: false })
           .order("priority", { ascending: true });
 
