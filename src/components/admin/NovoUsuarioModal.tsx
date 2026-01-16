@@ -78,52 +78,53 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
         setIsLoading(true);
 
         try {
-            // Extrai parte do email antes do @ para usar como senha inicial
-            const initialPassword = formData.email.split('@')[0];
+            // Get the current session for authorization
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                throw new Error('Você precisa estar logado para criar usuários');
+            }
 
-            // Cria usuário no auth (isso precisa ser feito via API admin do Supabase)
-            // Por ora, vamos apenas criar o perfil e mostrar a mensagem
-            const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+            // Call the Edge Function to create the user
+            console.log('Calling create-user Edge Function with:', {
                 email: formData.email,
-                password: initialPassword,
-                email_confirm: true,
-                user_metadata: {
+                full_name: formData.full_name,
+                role: formData.role,
+                token: session.access_token.substring(0, 20) + '...',
+            });
+
+            const response = await supabase.functions.invoke('create-user', {
+                body: {
+                    email: formData.email,
                     full_name: formData.full_name,
                     display_name: formData.display_name || formData.full_name,
+                    department: formData.department || null,
+                    job_title: formData.job_title || null,
+                    role: formData.role,
+                },
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`,
                 },
             });
 
-            if (authError) throw authError;
+            console.log('Edge Function response:', response);
 
-            // Atualiza o perfil com informações adicionais
-            if (authData.user) {
-                const { error: profileError } = await supabase
-                    .from('profiles')
-                    .update({
-                        full_name: formData.full_name,
-                        display_name: formData.display_name || formData.full_name,
-                        department: formData.department || null,
-                        job_title: formData.job_title || null,
-                        role: formData.role,
-                        must_change_password: true,
-                    })
-                    .eq('id', authData.user.id);
+            if (response.error) {
+                console.error('Edge Function error:', response.error);
+                throw new Error(response.error.message || 'Erro ao criar usuário');
+            }
 
-                if (profileError) throw profileError;
+            const result = response.data;
+            console.log('Edge Function result:', result);
 
-                // Registra atividade
-                await supabase.rpc('log_activity', {
-                    p_action: 'user_created',
-                    p_entity_type: 'user',
-                    p_entity_id: authData.user.id,
-                });
+            if (!result.success) {
+                throw new Error(result.error || 'Erro ao criar usuário');
             }
 
             toast({
                 title: 'Usuário criado!',
                 description: (
                     <div>
-                        <p>Senha inicial: <strong>{initialPassword}</strong></p>
+                        <p>Senha inicial: <strong>{result.initial_password}</strong></p>
                         <p className="text-sm mt-1">O usuário deverá trocar no primeiro acesso.</p>
                     </div>
                 ),

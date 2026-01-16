@@ -58,21 +58,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAdmin = profile?.role === 'admin' && profile?.is_active;
 
-  // Função para buscar o perfil do usuário
+  // Função para buscar o perfil do usuário com timeout
   const fetchProfile = async (userId: string) => {
+    console.log('fetchProfile: Starting for userId:', userId);
     try {
-      const { data, error } = await supabase
+      console.log('fetchProfile: Querying Supabase...');
+
+      // Adiciona timeout de 10 segundos para evitar travamento
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);
+      });
+
+      const queryPromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+
+      console.log('fetchProfile: Query result:', { data: !!data, error });
+
       if (error) {
         console.error('Error fetching profile:', error);
         throw error;
       }
-      
+
       if (data) {
+        console.log('fetchProfile: Setting profile data');
         setProfile(data as Profile);
         return data as Profile;
       } else {
@@ -287,21 +300,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Monitorar mudanças na autenticação
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id).finally(() => setIsLoading(false));
-      } else {
-        setIsLoading(false);
+    let isMounted = true;
+
+    const initializeAuth = async () => {
+      console.log('AuthContext: Starting initialization...');
+      try {
+        console.log('AuthContext: Getting session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('AuthContext: Got session:', { hasSession: !!session, error });
+
+        if (!isMounted) return;
+
+        // Se houver erro de token inválido, limpa a sessão
+        if (error) {
+          console.error('Session error:', error);
+          await supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setIsLoading(false);
+          return;
+        }
+
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          console.log('AuthContext: Fetching profile for user:', session.user.id);
+          await fetchProfile(session.user.id);
+          console.log('AuthContext: Profile fetched');
+        } else {
+          console.log('AuthContext: No session, skipping profile fetch');
+        }
+      } catch (error: any) {
+        console.error('Error initializing auth:', error);
+        // Em caso de erro, limpa tudo
+        if (error.message?.includes('Refresh Token') || error.message?.includes('JWT')) {
+          await supabase.auth.signOut();
+        }
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+      } finally {
+        console.log('AuthContext: Initialization complete, setting isLoading to false');
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-    });
+    };
+
+    initializeAuth();
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+
+      // Se o token expirou ou foi invalidado, limpa tudo
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        return;
+      }
+
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setUser(null);
+        setProfile(null);
+        return;
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -312,7 +382,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const value: AuthContextType = {

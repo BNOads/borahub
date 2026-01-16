@@ -34,29 +34,36 @@ export const ResetSenhaDialog: React.FC<ResetSenhaDialogProps> = ({
         setIsLoading(true);
 
         try {
-            // Extrai senha do email
-            const newPassword = user.email.split('@')[0];
+            // Get the current session for authorization
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                throw new Error('Você precisa estar logado para resetar senhas');
+            }
 
-            // Chama função do Supabase para resetar senha
-            const { data, error } = await supabase.rpc('reset_user_password', {
-                p_user_id: user.id,
+            // Call the Edge Function to reset the password
+            const response = await supabase.functions.invoke('reset-password', {
+                body: {
+                    user_id: user.id,
+                },
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                },
             });
 
-            if (error) throw error;
+            if (response.error) {
+                throw new Error(response.error.message || 'Erro ao resetar senha');
+            }
 
-            // Também precisa usar a API admin para alterar a senha
-            const { error: updateError } = await supabase.auth.admin.updateUserById(
-                user.id,
-                { password: newPassword }
-            );
-
-            if (updateError) throw updateError;
+            const result = response.data;
+            if (!result.success) {
+                throw new Error(result.error || 'Erro ao resetar senha');
+            }
 
             toast({
                 title: 'Senha resetada!',
                 description: (
                     <div>
-                        <p>Nova senha: <strong>{newPassword}</strong></p>
+                        <p>Nova senha: <strong>{result.new_password}</strong></p>
                         <p className="text-sm mt-1">O usuário deverá trocar no próximo acesso.</p>
                     </div>
                 ),

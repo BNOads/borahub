@@ -45,18 +45,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip API calls - network only
-  if (request.url.includes('/api/') || request.url.includes('supabase')) {
-    event.respondWith(
-      fetch(request)
-        .then(response => {
-          if (response.ok) {
-            return response;
-          }
-          return caches.match(request);
-        })
-        .catch(() => caches.match(request))
-    );
+  // Skip chrome-extension URLs entirely
+  if (request.url.startsWith('chrome-extension://')) {
+    return;
+  }
+
+  // Skip API calls and Supabase - let them go directly to network without SW intervention
+  if (request.url.includes('/api/') ||
+      request.url.includes('supabase') ||
+      request.url.includes('/auth/') ||
+      request.url.includes('/rest/') ||
+      request.url.includes('/storage/')) {
+    return;
+  }
+
+  // Only cache static assets from same origin
+  if (!request.url.startsWith(self.location.origin)) {
     return;
   }
 
@@ -64,25 +68,26 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        // Clone the response
-        const responseClone = response.clone();
-        
-        // Cache successful responses
-        if (response.ok) {
+        // Only cache successful responses
+        if (response.ok && response.type === 'basic') {
+          const responseClone = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(request, responseClone);
-          });
+          }).catch(() => {});
         }
-        
         return response;
       })
       .catch(() => {
         // Fall back to cache if network fails
         return caches.match(request).then((response) => {
-          return response || new Response('Offline - Resource not available', {
-            status: 503,
-            statusText: 'Service Unavailable'
-          });
+          if (response) {
+            return response;
+          }
+          // Return a simple offline response for navigation requests
+          if (request.mode === 'navigate') {
+            return caches.match('/index.html');
+          }
+          return new Response('', { status: 408, statusText: 'Offline' });
         });
       })
   );

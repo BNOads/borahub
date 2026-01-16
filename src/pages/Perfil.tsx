@@ -1,13 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, ArrowLeft, Mail, User, Phone, Calendar, Lock } from 'lucide-react';
+import { Loader2, ArrowLeft, Mail, User, Phone, Calendar, Lock, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function Perfil() {
   const navigate = useNavigate();
@@ -16,6 +18,8 @@ export default function Perfil() {
   const [isSaving, setIsSaving] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -58,6 +62,85 @@ export default function Perfil() {
       ...prev,
       [name]: value
     }));
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile?.id) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Tipo de arquivo inválido. Use JPG, PNG, GIF ou WebP.');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. O tamanho máximo é 5MB.');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    try {
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('profile_icons')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile_icons')
+        .getPublicUrl(filePath);
+
+      console.log('Avatar URL:', publicUrl);
+
+      // Update profile directly in database
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', profile.id);
+
+      if (updateError) throw updateError;
+
+      // Refresh profile to get updated data
+      await refreshProfile();
+
+      toast.success('Foto de perfil atualizada!');
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      toast.error(error.message || 'Erro ao fazer upload da imagem');
+    } finally {
+      setIsUploadingAvatar(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
@@ -140,6 +223,48 @@ export default function Perfil() {
           <p className="text-muted-foreground mt-1">Gerencie suas informações pessoais</p>
         </div>
       </div>
+
+      {/* Avatar Upload */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Foto de Perfil</CardTitle>
+          <CardDescription>Clique na foto para alterar</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center">
+          <div className="relative group">
+            <Avatar
+              className="h-32 w-32 cursor-pointer transition-opacity group-hover:opacity-80"
+              onClick={handleAvatarClick}
+            >
+              <AvatarImage src={profile?.avatar_url} alt={profile?.full_name} />
+              <AvatarFallback className="text-4xl font-bold bg-accent text-accent-foreground">
+                {profile?.full_name ? getInitials(profile.full_name) : 'U'}
+              </AvatarFallback>
+            </Avatar>
+            <div
+              className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              onClick={handleAvatarClick}
+            >
+              {isUploadingAvatar ? (
+                <Loader2 className="h-8 w-8 text-white animate-spin" />
+              ) : (
+                <Camera className="h-8 w-8 text-white" />
+              )}
+            </div>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            className="hidden"
+            onChange={handleAvatarUpload}
+            disabled={isUploadingAvatar}
+          />
+          <p className="text-sm text-muted-foreground mt-4 text-center">
+            Formatos: JPG, PNG, GIF, WebP (máx. 5MB)
+          </p>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

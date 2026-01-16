@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Grid3X3, List, Mail, Phone, MapPin } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Grid3X3, List, Mail, Phone, MapPin, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,125 +11,121 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-const teamMembers = [
-  {
-    id: 1,
-    name: "João Silva",
-    role: "CEO & Fundador",
-    department: "Diretoria",
-    email: "joao@boranaobra.com",
-    phone: "(11) 99999-1234",
-    location: "São Paulo, SP",
-    avatar: "JS",
-    status: "active",
-    isAdmin: true,
-  },
-  {
-    id: 2,
-    name: "Maria Santos",
-    role: "Head de Marketing",
-    department: "Marketing",
-    email: "maria@boranaobra.com",
-    phone: "(11) 99999-2345",
-    location: "São Paulo, SP",
-    avatar: "MS",
-    status: "active",
-    isAdmin: true,
-  },
-  {
-    id: 3,
-    name: "Pedro Lima",
-    role: "Gestor de Tráfego",
-    department: "Marketing",
-    email: "pedro@boranaobra.com",
-    phone: "(11) 99999-3456",
-    location: "Rio de Janeiro, RJ",
-    avatar: "PL",
-    status: "active",
-    isAdmin: false,
-  },
-  {
-    id: 4,
-    name: "Ana Oliveira",
-    role: "Designer Gráfico",
-    department: "Criação",
-    email: "ana@boranaobra.com",
-    phone: "(11) 99999-4567",
-    location: "São Paulo, SP",
-    avatar: "AO",
-    status: "vacation",
-    isAdmin: false,
-  },
-  {
-    id: 5,
-    name: "Carlos Mendes",
-    role: "Copywriter",
-    department: "Conteúdo",
-    email: "carlos@boranaobra.com",
-    phone: "(11) 99999-5678",
-    location: "Belo Horizonte, MG",
-    avatar: "CM",
-    status: "active",
-    isAdmin: false,
-  },
-  {
-    id: 6,
-    name: "Fernanda Costa",
-    role: "Social Media",
-    department: "Conteúdo",
-    email: "fernanda@boranaobra.com",
-    phone: "(11) 99999-6789",
-    location: "São Paulo, SP",
-    avatar: "FC",
-    status: "active",
-    isAdmin: false,
-  },
-  {
-    id: 7,
-    name: "Lucas Almeida",
-    role: "Desenvolvedor",
-    department: "Tecnologia",
-    email: "lucas@boranaobra.com",
-    phone: "(11) 99999-7890",
-    location: "Curitiba, PR",
-    avatar: "LA",
-    status: "active",
-    isAdmin: false,
-  },
-  {
-    id: 8,
-    name: "Juliana Rocha",
-    role: "Atendimento ao Cliente",
-    department: "Suporte",
-    email: "juliana@boranaobra.com",
-    phone: "(11) 99999-8901",
-    location: "São Paulo, SP",
-    avatar: "JR",
-    status: "away",
-    isAdmin: false,
-  },
-];
+interface Department {
+  id: string;
+  name: string;
+}
 
-const departments = ["Todos", "Diretoria", "Marketing", "Criação", "Conteúdo", "Tecnologia", "Suporte"];
-
-const statusConfig = {
-  active: { label: "Ativo", class: "bg-success text-success-foreground" },
-  vacation: { label: "Férias", class: "bg-warning text-warning-foreground" },
-  away: { label: "Afastado", class: "bg-muted text-muted-foreground" },
-};
+interface TeamMember {
+  id: string;
+  full_name: string;
+  display_name?: string;
+  email: string;
+  phone?: string;
+  job_title?: string;
+  avatar_url?: string;
+  role: "admin" | "collaborator";
+  is_active: boolean;
+  department?: {
+    id: string;
+    name: string;
+  };
+}
 
 export default function Equipe() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("Todos");
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch team members with department info
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select(`
+          id,
+          full_name,
+          display_name,
+          email,
+          phone,
+          job_title,
+          avatar_url,
+          role,
+          is_active,
+          department:departments(id, name)
+        `)
+        .eq("is_active", true)
+        .order("full_name");
+
+      if (profilesError) {
+        console.error("Error fetching profiles:", profilesError);
+        // Em caso de erro, tenta buscar sem o join
+        const { data: simpleProfiles } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("is_active", true)
+          .order("full_name");
+        setTeamMembers(simpleProfiles || []);
+      } else {
+        setTeamMembers(profiles || []);
+      }
+
+      // Fetch departments
+      const { data: depts, error: deptsError } = await supabase
+        .from("departments")
+        .select("id, name")
+        .eq("is_active", true)
+        .order("name");
+
+      if (deptsError) {
+        console.error("Error fetching departments:", deptsError);
+      } else {
+        setDepartments(depts || []);
+      }
+    } catch (error) {
+      console.error("Error loading data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredMembers = teamMembers.filter((member) => {
-    const matchesSearch = member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.role.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesDepartment = selectedDepartment === "Todos" || member.department === selectedDepartment;
+    const matchesSearch =
+      member.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (member.job_title?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+      (member.display_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+    const matchesDepartment =
+      selectedDepartment === "Todos" || member.department?.name === selectedDepartment;
     return matchesSearch && matchesDepartment;
   });
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -158,9 +154,10 @@ export default function Equipe() {
               <SelectValue placeholder="Departamento" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="Todos">Todos</SelectItem>
               {departments.map((dept) => (
-                <SelectItem key={dept} value={dept}>
-                  {dept}
+                <SelectItem key={dept.id} value={dept.name}>
+                  {dept.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -196,39 +193,50 @@ export default function Equipe() {
             >
               <div className="flex flex-col items-center text-center">
                 <div className="relative mb-4">
-                  <div className="h-20 w-20 rounded-full bg-accent flex items-center justify-center text-2xl font-bold text-accent-foreground group-hover:scale-105 transition-transform">
-                    {member.avatar}
-                  </div>
-                  <div className={cn(
-                    "absolute bottom-0 right-0 h-5 w-5 rounded-full border-2 border-card",
-                    member.status === "active" ? "bg-success" : member.status === "vacation" ? "bg-warning" : "bg-muted"
-                  )} />
+                  <Avatar className="h-20 w-20 group-hover:scale-105 transition-transform">
+                    <AvatarImage src={member.avatar_url} alt={member.full_name} />
+                    <AvatarFallback className="text-2xl font-bold bg-accent text-accent-foreground">
+                      {getInitials(member.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute bottom-0 right-0 h-5 w-5 rounded-full border-2 border-card bg-success" />
                 </div>
-                
+
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-semibold">{member.name}</h3>
-                  {member.isAdmin && (
+                  <h3 className="font-semibold">{member.display_name || member.full_name}</h3>
+                  {member.role === "admin" && (
                     <Badge className="bg-foreground text-background text-xs">Admin</Badge>
                   )}
                 </div>
-                
-                <p className="text-sm text-accent font-medium">{member.role}</p>
-                <p className="text-sm text-muted-foreground mb-4">{member.department}</p>
-                
-                <Badge 
-                  variant="outline" 
-                  className={cn("text-xs", statusConfig[member.status as keyof typeof statusConfig].class)}
-                >
-                  {statusConfig[member.status as keyof typeof statusConfig].label}
+
+                <p className="text-sm text-accent font-medium">{member.job_title || "Colaborador"}</p>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {member.department?.name || "Sem departamento"}
+                </p>
+
+                <Badge variant="outline" className="text-xs bg-success text-success-foreground">
+                  Ativo
                 </Badge>
 
                 <div className="flex gap-2 mt-4 pt-4 border-t border-border w-full justify-center">
-                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => window.open(`mailto:${member.email}`, "_blank")}
+                  >
                     <Mail className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-9 w-9">
-                    <Phone className="h-4 w-4" />
-                  </Button>
+                  {member.phone && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9"
+                      onClick={() => window.open(`tel:${member.phone}`, "_blank")}
+                    >
+                      <Phone className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -241,59 +249,70 @@ export default function Equipe() {
               <tr className="border-b border-border bg-muted/50">
                 <th className="text-left p-4 font-semibold">Membro</th>
                 <th className="text-left p-4 font-semibold hidden md:table-cell">Departamento</th>
-                <th className="text-left p-4 font-semibold hidden lg:table-cell">Localização</th>
+                <th className="text-left p-4 font-semibold hidden lg:table-cell">Cargo</th>
                 <th className="text-left p-4 font-semibold">Status</th>
                 <th className="text-right p-4 font-semibold">Contato</th>
               </tr>
             </thead>
             <tbody>
               {filteredMembers.map((member, index) => (
-                <tr 
-                  key={member.id} 
+                <tr
+                  key={member.id}
                   className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors animate-fade-in"
                   style={{ animationDelay: `${index * 0.03}s` }}
                 >
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-accent flex items-center justify-center font-semibold text-accent-foreground">
-                        {member.avatar}
-                      </div>
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={member.avatar_url} alt={member.full_name} />
+                        <AvatarFallback className="font-semibold bg-accent text-accent-foreground">
+                          {getInitials(member.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium">{member.name}</span>
-                          {member.isAdmin && (
+                          <span className="font-medium">
+                            {member.display_name || member.full_name}
+                          </span>
+                          {member.role === "admin" && (
                             <Badge className="bg-foreground text-background text-xs">Admin</Badge>
                           )}
                         </div>
-                        <span className="text-sm text-muted-foreground">{member.role}</span>
+                        <span className="text-sm text-muted-foreground">{member.email}</span>
                       </div>
                     </div>
                   </td>
                   <td className="p-4 hidden md:table-cell text-muted-foreground">
-                    {member.department}
+                    {member.department?.name || "Sem departamento"}
                   </td>
-                  <td className="p-4 hidden lg:table-cell">
-                    <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <MapPin className="h-3 w-3" />
-                      {member.location}
-                    </span>
+                  <td className="p-4 hidden lg:table-cell text-muted-foreground">
+                    {member.job_title || "Colaborador"}
                   </td>
                   <td className="p-4">
-                    <Badge 
-                      variant="outline" 
-                      className={cn("text-xs", statusConfig[member.status as keyof typeof statusConfig].class)}
-                    >
-                      {statusConfig[member.status as keyof typeof statusConfig].label}
+                    <Badge variant="outline" className="text-xs bg-success text-success-foreground">
+                      Ativo
                     </Badge>
                   </td>
                   <td className="p-4">
                     <div className="flex gap-1 justify-end">
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => window.open(`mailto:${member.email}`, "_blank")}
+                      >
                         <Mail className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Phone className="h-4 w-4" />
-                      </Button>
+                      {member.phone && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => window.open(`tel:${member.phone}`, "_blank")}
+                        >
+                          <Phone className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </td>
                 </tr>
