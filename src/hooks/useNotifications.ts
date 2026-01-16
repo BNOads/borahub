@@ -56,7 +56,8 @@ export function useNotifications() {
       return data as Notification[];
     },
     enabled: !!user,
-    refetchInterval: 30000, // Refetch a cada 30 segundos
+    staleTime: 2 * 60 * 1000, // 2 minutos
+    refetchInterval: false, // Desabilitar refetch automatico
   });
 }
 
@@ -84,7 +85,8 @@ export function useUnreadNotifications() {
       return data as Notification[];
     },
     enabled: !!user,
-    refetchInterval: 30000,
+    staleTime: 60 * 1000, // 1 minuto
+    refetchInterval: 2 * 60 * 1000, // Refetch a cada 2 minutos
   });
 }
 
@@ -107,7 +109,8 @@ export function useUnreadCount() {
       return count ?? 0;
     },
     enabled: !!user,
-    refetchInterval: 30000,
+    staleTime: 60 * 1000, // 1 minuto
+    refetchInterval: 2 * 60 * 1000, // Refetch a cada 2 minutos
   });
 }
 

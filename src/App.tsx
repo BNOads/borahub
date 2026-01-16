@@ -34,7 +34,17 @@ import Perfil from "./pages/Perfil";
 import GestaoUsuarios from "./pages/admin/GestaoUsuarios";
 import GestaoNotificacoes from "./pages/admin/GestaoNotificacoes";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutos - dados considerados frescos
+      gcTime: 30 * 60 * 1000, // 30 minutos - tempo no cache
+      refetchOnWindowFocus: false, // Nao refetch ao focar janela
+      refetchOnReconnect: false, // Nao refetch ao reconectar
+      retry: 1, // Apenas 1 retry em caso de erro
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

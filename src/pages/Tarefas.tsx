@@ -61,6 +61,8 @@ import { TaskKanban } from "@/components/tasks/TaskKanban";
 import type { TaskPriority, TaskWithSubtasks, TaskFormData, RecurrenceType } from "@/types/tasks";
 import { RECURRENCE_LABELS } from "@/types/tasks";
 import { Repeat } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const categories = [
   "Lancamento",
@@ -68,14 +70,6 @@ const categories = [
   "Vendas",
   "Suporte",
   "Administrativo",
-];
-
-const team = [
-  "Maria Santos",
-  "Pedro Lima",
-  "Ana Costa",
-  "Lucas Oliveira",
-  "Julia Silva",
 ];
 
 const emptyFormData: TaskFormData = {
@@ -116,6 +110,21 @@ export default function Tarefas() {
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const toggleComplete = useToggleTaskComplete();
+
+  // Buscar usuarios reais do banco
+  const { data: users = [] } = useQuery({
+    queryKey: ["profiles-for-tasks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, display_name")
+        .eq("is_active", true)
+        .order("full_name");
+
+      if (error) return [];
+      return data;
+    },
+  });
 
   const pendingTasks = tasks.filter((t) => !t.completed);
   const completedTasks = tasks.filter((t) => t.completed);
@@ -418,9 +427,9 @@ export default function Tarefas() {
                         <SelectValue placeholder="Selecione" />
                       </SelectTrigger>
                       <SelectContent>
-                        {team.map((member) => (
-                          <SelectItem key={member} value={member}>
-                            {member}
+                        {users.map((user) => (
+                          <SelectItem key={user.id} value={user.display_name || user.full_name}>
+                            {user.display_name || user.full_name}
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -389,8 +389,12 @@ export type Database = {
           event_time: string
           event_type: string | null
           id: string
+          is_recurring_instance: boolean | null
           location: string | null
           meeting_link: string | null
+          parent_event_id: string | null
+          recurrence: Database["public"]["Enums"]["recurrence_type"] | null
+          recurrence_end_date: string | null
           title: string
           updated_at: string
         }
@@ -404,8 +408,12 @@ export type Database = {
           event_time: string
           event_type?: string | null
           id?: string
+          is_recurring_instance?: boolean | null
           location?: string | null
           meeting_link?: string | null
+          parent_event_id?: string | null
+          recurrence?: Database["public"]["Enums"]["recurrence_type"] | null
+          recurrence_end_date?: string | null
           title: string
           updated_at?: string
         }
@@ -419,12 +427,24 @@ export type Database = {
           event_time?: string
           event_type?: string | null
           id?: string
+          is_recurring_instance?: boolean | null
           location?: string | null
           meeting_link?: string | null
+          parent_event_id?: string | null
+          recurrence?: Database["public"]["Enums"]["recurrence_type"] | null
+          recurrence_end_date?: string | null
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_parent_event_id_fkey"
+            columns: ["parent_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       funnel_checklist: {
         Row: {
@@ -1395,6 +1415,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_next_recurring_event: {
+        Args: { event_id: string }
+        Returns: string
+      }
       create_next_recurring_task: { Args: { task_id: string }; Returns: string }
       get_next_recurrence_date: {
         Args: {

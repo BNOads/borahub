@@ -27,6 +27,7 @@ import {
   type EventInsert,
 } from "@/hooks/useEvents";
 import { useAuth } from "@/contexts/AuthContext";
+import { RecurrenceType, RECURRENCE_LABELS } from "@/types/tasks";
 
 interface EventModalProps {
   open: boolean;
@@ -65,6 +66,8 @@ export function EventModal({
     location: "",
     meeting_link: "",
     event_type: "reuniao",
+    recurrence: "none" as RecurrenceType,
+    recurrence_end_date: "",
   });
 
   const isLoading = createEvent.isPending || updateEvent.isPending;
@@ -81,6 +84,8 @@ export function EventModal({
         location: event.location || "",
         meeting_link: event.meeting_link || "",
         event_type: event.event_type || "reuniao",
+        recurrence: (event.recurrence as RecurrenceType) || "none",
+        recurrence_end_date: event.recurrence_end_date || "",
       });
     } else {
       setFormData({
@@ -92,6 +97,8 @@ export function EventModal({
         location: "",
         meeting_link: "",
         event_type: "reuniao",
+        recurrence: "none",
+        recurrence_end_date: "",
       });
     }
   }, [event, defaultDate, open]);
@@ -119,6 +126,8 @@ export function EventModal({
         meeting_link: formData.meeting_link.trim() || null,
         event_type: formData.event_type,
         created_by: user?.id || null,
+        recurrence: formData.recurrence,
+        recurrence_end_date: formData.recurrence_end_date || null,
       };
 
       if (isEditing && event) {
@@ -289,6 +298,46 @@ export function EventModal({
                 }
                 disabled={isLoading}
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="recurrence">Recorrencia</Label>
+                <Select
+                  value={formData.recurrence}
+                  onValueChange={(value: RecurrenceType) =>
+                    setFormData({ ...formData, recurrence: value })
+                  }
+                  disabled={isLoading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(RECURRENCE_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {formData.recurrence !== "none" && (
+                <div className="space-y-2">
+                  <Label htmlFor="recurrence_end_date">Data Limite</Label>
+                  <Input
+                    id="recurrence_end_date"
+                    type="date"
+                    placeholder="Opcional"
+                    value={formData.recurrence_end_date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, recurrence_end_date: e.target.value })
+                    }
+                    disabled={isLoading}
+                  />
+                </div>
+              )}
             </div>
           </div>
 

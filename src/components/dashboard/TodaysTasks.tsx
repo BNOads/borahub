@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Plus, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -7,7 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useTasks, useToggleTaskComplete } from "@/hooks/useTasks";
 import { useToast } from "@/hooks/use-toast";
-import type { TaskWithSubtasks, TaskStatus } from "@/types/tasks";
+import type { TaskWithSubtasks, TaskStatus, RecurrenceType } from "@/types/tasks";
+import { RECURRENCE_LABELS } from "@/types/tasks";
 
 const priorityColors = {
   alta: "bg-destructive/10 text-destructive border-destructive/20",
@@ -232,17 +233,27 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
     return time.substring(0, 5);
   };
 
+  const formatDate = (date: string | null) => {
+    if (!date) return null;
+    return new Date(date + "T00:00:00").toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "short",
+    });
+  };
+
+  const hasRecurrence = task.recurrence && task.recurrence !== "none";
+
   return (
     <div
       className={cn(
-        "flex items-center gap-3 p-3 rounded-lg border border-border transition-all hover:border-accent/30",
+        "flex items-start gap-3 p-3 rounded-lg border border-border transition-all hover:border-accent/30",
         task.completed && "opacity-60"
       )}
     >
       <Checkbox
         checked={task.completed}
         onCheckedChange={() => onToggle(task.id, task.completed)}
-        className="data-[state=checked]:bg-success data-[state=checked]:border-success"
+        className="mt-0.5 data-[state=checked]:bg-success data-[state=checked]:border-success"
       />
       <div className="flex-1 min-w-0">
         <p
@@ -253,13 +264,27 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
         >
           {task.title}
         </p>
-        {task.due_time && (
-          <p className="text-xs text-muted-foreground">
-            {formatTime(task.due_time)}
-          </p>
-        )}
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          {task.due_time && (
+            <span className="text-xs text-muted-foreground">
+              {formatTime(task.due_time)}
+            </span>
+          )}
+          {hasRecurrence && (
+            <span className="text-xs text-accent flex items-center gap-1">
+              <Repeat className="h-3 w-3" />
+              {RECURRENCE_LABELS[task.recurrence as RecurrenceType]}
+            </span>
+          )}
+          {hasRecurrence && task.recurrence_end_date && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              até {formatDate(task.recurrence_end_date)}
+            </span>
+          )}
+        </div>
       </div>
-      <Badge variant="outline" className={priorityColors[task.priority]}>
+      <Badge variant="outline" className={cn("shrink-0", priorityColors[task.priority])}>
         {priorityLabels[task.priority]}
       </Badge>
     </div>

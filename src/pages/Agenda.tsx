@@ -28,7 +28,9 @@ import {
   MapPin,
   Video,
   Loader2,
+  Repeat,
 } from "lucide-react";
+import { RecurrenceType, RECURRENCE_LABELS } from "@/types/tasks";
 import { useToast } from "@/components/ui/use-toast";
 import { EventModal } from "@/components/events/EventModal";
 
@@ -175,7 +177,18 @@ export default function Agenda() {
                 >
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="font-medium">{event.title}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{event.title}</span>
+                        {event.recurrence && event.recurrence !== "none" && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0 h-5 bg-accent/10 text-accent border-accent/30"
+                          >
+                            <Repeat className="h-3 w-3 mr-1" />
+                            {RECURRENCE_LABELS[event.recurrence as RecurrenceType]}
+                          </Badge>
+                        )}
+                      </div>
                       {event.description && (
                         <span className="text-sm text-muted-foreground truncate max-w-[300px]">
                           {event.description}
