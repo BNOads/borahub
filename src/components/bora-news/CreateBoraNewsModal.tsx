@@ -21,14 +21,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useCreateBoraNews } from "@/hooks/useBoraNews";
+import { useCreateBoraNews, BoraNewsInsert } from "@/hooks/useBoraNews";
 
 interface FormData {
   titulo: string;
   conteudo: string;
   resumo?: string;
   autor_nome: string;
-  status_publicacao: string;
+  status_publicacao: 'publicado' | 'rascunho';
   destaque: boolean;
 }
 
@@ -59,14 +59,16 @@ export function CreateBoraNewsModal() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      await createNews.mutateAsync({
+      const newsData: BoraNewsInsert = {
         titulo: data.titulo,
         conteudo: data.conteudo,
-        resumo: data.resumo || null,
+        resumo: data.resumo || undefined,
         autor_nome: data.autor_nome,
         status_publicacao: data.status_publicacao,
         destaque: data.destaque,
-      });
+        data_publicacao: new Date().toISOString(),
+      };
+      await createNews.mutateAsync(newsData);
       toast.success("Noticia criada com sucesso!");
       setOpen(false);
       reset();
@@ -97,9 +99,7 @@ export function CreateBoraNewsModal() {
               {...register("titulo", { required: "Titulo e obrigatorio" })}
             />
             {errors.titulo && (
-              <span className="text-sm text-destructive">
-                {errors.titulo.message}
-              </span>
+              <span className="text-sm text-destructive">{errors.titulo.message}</span>
             )}
           </div>
 
@@ -107,7 +107,7 @@ export function CreateBoraNewsModal() {
             <Label htmlFor="resumo">Resumo (opcional)</Label>
             <Textarea
               id="resumo"
-              placeholder="Resumo que aparecera na listagem (se vazio, sera usado o inicio do conteudo)"
+              placeholder="Resumo que aparecera na listagem"
               rows={2}
               {...register("resumo")}
             />
@@ -122,26 +122,20 @@ export function CreateBoraNewsModal() {
               {...register("conteudo", { required: "Conteudo e obrigatorio" })}
             />
             {errors.conteudo && (
-              <span className="text-sm text-destructive">
-                {errors.conteudo.message}
-              </span>
+              <span className="text-sm text-destructive">{errors.conteudo.message}</span>
             )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="autor_nome">Autor</Label>
-            <Input
-              id="autor_nome"
-              placeholder="Nome do autor"
-              {...register("autor_nome")}
-            />
+            <Input id="autor_nome" placeholder="Nome do autor" {...register("autor_nome")} />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="status">Status de Publicacao</Label>
             <Select
               value={status}
-              onValueChange={(value) => setValue("status_publicacao", value)}
+              onValueChange={(value: 'publicado' | 'rascunho') => setValue("status_publicacao", value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o status" />
@@ -168,17 +162,11 @@ export function CreateBoraNewsModal() {
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
             <Button type="submit" disabled={createNews.isPending}>
-              {createNews.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
+              {createNews.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Criar Noticia
             </Button>
           </div>

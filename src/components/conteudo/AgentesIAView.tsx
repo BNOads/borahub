@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
     Bot,
     Plus,
@@ -20,7 +20,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     Dialog,
     DialogContent,
@@ -41,7 +40,6 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const AGENT_TYPES = {
@@ -68,9 +66,22 @@ interface AgentesIAViewProps {
     className?: string;
 }
 
+// Mock data - tabela ia_agents não existe no banco externo
+const mockAgents: IAAgent[] = [
+    {
+        id: '1',
+        name: 'Assistente de Copywriting',
+        type: 'Copywriter',
+        description: 'Ajuda na criação de textos e legendas para posts',
+        link: 'https://chat.openai.com',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+    },
+];
+
 export function AgentesIAView({ className }: AgentesIAViewProps) {
-    const [agents, setAgents] = useState<IAAgent[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [agents, setAgents] = useState<IAAgent[]>(mockAgents);
+    const [loading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAgent, setEditingAgent] = useState<IAAgent | null>(null);
     const [saving, setSaving] = useState(false);
@@ -82,27 +93,6 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
         description: '',
         link: ''
     });
-
-    useEffect(() => {
-        fetchAgents();
-    }, []);
-
-    async function fetchAgents() {
-        try {
-            setLoading(true);
-            const { data, error } = await supabase
-                .from("ia_agents")
-                .select("*")
-                .order("created_at", { ascending: false });
-
-            if (error) throw error;
-            setAgents(data || []);
-        } catch (error: any) {
-            console.error("Erro ao carregar agentes:", error.message);
-        } finally {
-            setLoading(false);
-        }
-    }
 
     function handleOpenModal(agent?: IAAgent) {
         if (agent) {
@@ -150,35 +140,26 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
             setSaving(true);
 
             if (editingAgent) {
-                const { error } = await supabase
-                    .from("ia_agents")
-                    .update({
-                        name: formData.name,
-                        type: formData.type,
-                        description: formData.description,
-                        link: formData.link,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq("id", editingAgent.id);
-
-                if (error) throw error;
+                // Atualiza localmente
+                setAgents(prev => prev.map(a => 
+                    a.id === editingAgent.id 
+                        ? { ...a, ...formData, updated_at: new Date().toISOString() }
+                        : a
+                ));
                 toast.success("Agente atualizado com sucesso!");
             } else {
-                const { error } = await supabase
-                    .from("ia_agents")
-                    .insert({
-                        name: formData.name,
-                        type: formData.type,
-                        description: formData.description,
-                        link: formData.link
-                    });
-
-                if (error) throw error;
+                // Adiciona localmente
+                const newAgent: IAAgent = {
+                    id: crypto.randomUUID(),
+                    ...formData,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                };
+                setAgents(prev => [newAgent, ...prev]);
                 toast.success("Agente criado com sucesso!");
             }
 
             handleCloseModal();
-            fetchAgents();
         } catch (error: any) {
             toast.error("Erro ao salvar agente: " + error.message);
         } finally {
@@ -186,21 +167,11 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
         }
     }
 
-    async function handleDelete(agent: IAAgent) {
+    function handleDelete(agent: IAAgent) {
         if (!confirm(`Tem certeza que deseja excluir o agente "${agent.name}"?`)) return;
 
-        try {
-            const { error } = await supabase
-                .from("ia_agents")
-                .delete()
-                .eq("id", agent.id);
-
-            if (error) throw error;
-            toast.success("Agente excluído com sucesso!");
-            fetchAgents();
-        } catch (error: any) {
-            toast.error("Erro ao excluir agente: " + error.message);
-        }
+        setAgents(prev => prev.filter(a => a.id !== agent.id));
+        toast.success("Agente excluído com sucesso!");
     }
 
     function handleOpenLink(link: string) {
@@ -229,7 +200,7 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
                     </div>
                 </div>
                 <Button
-                    variant="gold"
+                    variant="default"
                     className="rounded-2xl gap-2 font-black"
                     onClick={() => handleOpenModal()}
                 >
@@ -247,7 +218,7 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
                     <h3 className="text-lg font-black text-muted-foreground mb-2">Nenhum agente criado</h3>
                     <p className="text-sm text-muted-foreground/60 mb-6">Crie seu primeiro agente de IA para auxiliar na criação de conteúdo</p>
                     <Button
-                        variant="gold"
+                        variant="default"
                         className="rounded-2xl gap-2 font-black"
                         onClick={() => handleOpenModal()}
                     >
@@ -324,7 +295,7 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
 
                                 <div className="flex items-center gap-2 mt-4">
                                     <Button
-                                        variant="gold"
+                                        variant="default"
                                         size="sm"
                                         className="flex-1 rounded-xl h-9 text-xs font-bold gap-1.5"
                                         onClick={() => handleOpenLink(agent.link)}
@@ -386,7 +357,7 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-xl">
-                                        {Object.entries(AGENT_TYPES).map(([key, { icon: Icon, color, description }]) => (
+                                        {Object.entries(AGENT_TYPES).map(([key, { icon: Icon, color }]) => (
                                             <SelectItem key={key} value={key} className="rounded-lg">
                                                 <div className="flex items-center gap-2">
                                                     <div className={cn("p-1 rounded text-white", color)}>
@@ -420,26 +391,23 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
                             <Input
                                 value={formData.link}
                                 onChange={(e) => setFormData(prev => ({ ...prev, link: e.target.value }))}
-                                placeholder="https://exemplo.com/agente"
+                                placeholder="https://..."
                                 className="rounded-xl h-11 border-accent/10"
                             />
-                            <p className="text-[10px] text-muted-foreground/60">
-                                Cole o link da ferramenta onde o agente de IA está hospedado.
-                            </p>
                         </div>
 
-                        <div className="flex items-center gap-3 pt-4 border-t border-accent/10">
+                        <div className="flex justify-end gap-3 pt-4">
                             <Button
                                 variant="ghost"
-                                className="flex-1 rounded-xl h-11"
+                                className="rounded-xl"
                                 onClick={handleCloseModal}
                                 disabled={saving}
                             >
                                 Cancelar
                             </Button>
                             <Button
-                                variant="gold"
-                                className="flex-1 rounded-xl h-11 font-black gap-2"
+                                variant="default"
+                                className="rounded-xl gap-2 font-black"
                                 onClick={handleSave}
                                 disabled={saving}
                             >

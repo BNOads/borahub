@@ -59,8 +59,8 @@ export function BoraNewsWidget() {
           {displayNews.map((item) => {
             const resumo =
               item.resumo ||
-              item.conteudo.substring(0, 140) +
-                (item.conteudo.length > 140 ? "..." : "");
+              (item.conteudo ? item.conteudo.substring(0, 140) +
+                (item.conteudo.length > 140 ? "..." : "") : "");
 
             return (
               <Link
