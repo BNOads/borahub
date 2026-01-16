@@ -791,6 +791,60 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          read: boolean | null
+          read_at: string | null
+          recipient_id: string | null
+          sender_id: string | null
+          title: string
+          type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          read?: boolean | null
+          read_at?: string | null
+          recipient_id?: string | null
+          sender_id?: string | null
+          title: string
+          type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          read?: boolean | null
+          read_at?: string | null
+          recipient_id?: string | null
+          sender_id?: string | null
+          title?: string
+          type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_comments: {
         Row: {
           content: string
@@ -1166,8 +1220,12 @@ export type Database = {
           due_date: string | null
           due_time: string | null
           id: string
+          is_recurring_instance: boolean | null
+          parent_task_id: string | null
           position: number | null
           priority: string
+          recurrence: Database["public"]["Enums"]["recurrence_type"] | null
+          recurrence_end_date: string | null
           title: string
           updated_at: string
         }
@@ -1182,8 +1240,12 @@ export type Database = {
           due_date?: string | null
           due_time?: string | null
           id?: string
+          is_recurring_instance?: boolean | null
+          parent_task_id?: string | null
           position?: number | null
           priority?: string
+          recurrence?: Database["public"]["Enums"]["recurrence_type"] | null
+          recurrence_end_date?: string | null
           title: string
           updated_at?: string
         }
@@ -1198,8 +1260,12 @@ export type Database = {
           due_date?: string | null
           due_time?: string | null
           id?: string
+          is_recurring_instance?: boolean | null
+          parent_task_id?: string | null
           position?: number | null
           priority?: string
+          recurrence?: Database["public"]["Enums"]["recurrence_type"] | null
+          recurrence_end_date?: string | null
           title?: string
           updated_at?: string
         }
@@ -1209,6 +1275,13 @@ export type Database = {
             columns: ["assigned_to_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -1322,6 +1395,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_next_recurring_task: { Args: { task_id: string }; Returns: string }
+      get_next_recurrence_date: {
+        Args: {
+          base_date: string
+          rec_type: Database["public"]["Enums"]["recurrence_type"]
+        }
+        Returns: string
+      }
       get_user_stats: { Args: { p_user_id: string }; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       log_activity: {
@@ -1337,7 +1418,14 @@ export type Database = {
       update_password_force: { Args: { p_new_password: string }; Returns: Json }
     }
     Enums: {
-      [_ in never]: never
+      recurrence_type:
+        | "none"
+        | "daily"
+        | "weekly"
+        | "biweekly"
+        | "monthly"
+        | "semiannual"
+        | "yearly"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1467,7 +1555,17 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      recurrence_type: [
+        "none",
+        "daily",
+        "weekly",
+        "biweekly",
+        "monthly",
+        "semiannual",
+        "yearly",
+      ],
+    },
   },
 } as const
 A new version of Supabase CLI is available: v2.72.7 (currently installed v2.67.1)

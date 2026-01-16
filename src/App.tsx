@@ -32,6 +32,7 @@ import TrocaSenha from "./pages/TrocaSenha";
 import ContaDesativada from "./pages/ContaDesativada";
 import Perfil from "./pages/Perfil";
 import GestaoUsuarios from "./pages/admin/GestaoUsuarios";
+import GestaoNotificacoes from "./pages/admin/GestaoNotificacoes";
 
 const queryClient = new QueryClient();
 
@@ -90,6 +91,12 @@ const App = () => (
             <Route path="/admin/usuarios" element={
               <ProtectedRoute requireAdmin>
                 <GestaoUsuarios />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/notificacoes" element={
+              <ProtectedRoute requireAdmin>
+                <GestaoNotificacoes />
               </ProtectedRoute>
             } />
 

@@ -1,5 +1,17 @@
 export type TaskPriority = "alta" | "media" | "baixa";
 
+export type RecurrenceType = "none" | "daily" | "weekly" | "biweekly" | "monthly" | "semiannual" | "yearly";
+
+export const RECURRENCE_LABELS: Record<RecurrenceType, string> = {
+  none: "Sem recorrência",
+  daily: "Diário",
+  weekly: "Semanal",
+  biweekly: "Quinzenal",
+  monthly: "Mensal",
+  semiannual: "Semestral",
+  yearly: "Anual",
+};
+
 export type TaskHistoryAction =
   | "created"
   | "updated"
@@ -14,6 +26,7 @@ export interface Task {
   priority: TaskPriority;
   category: string | null;
   assignee: string | null;
+  assigned_to_id: string | null;
   due_date: string | null;
   due_time: string | null;
   completed: boolean;
@@ -21,6 +34,10 @@ export interface Task {
   created_at: string;
   updated_at: string;
   position: number;
+  recurrence: RecurrenceType | null;
+  recurrence_end_date: string | null;
+  parent_task_id: string | null;
+  is_recurring_instance: boolean | null;
 }
 
 export interface Subtask {
@@ -89,4 +106,6 @@ export interface TaskFormData {
   assignee: string;
   dueDate: string;
   dueTime: string;
+  recurrence: RecurrenceType;
+  recurrenceEndDate: string;
 }

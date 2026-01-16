@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Bell, Menu, X, Sun, Moon, User, Settings, LogOut, ChevronDown, Shield } from "lucide-react";
+import { Bell, Sun, Moon, User, LogOut, ChevronDown, Shield, Info, CheckCircle2, AlertTriangle, AlertCircle, Loader2 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import logoDark from "@/assets/logo-dark.png";
 import { Button } from "@/components/ui/button";
@@ -15,10 +14,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import {
+  useUnreadNotifications,
+  useUnreadCount,
+  useMarkAsRead,
+  useMarkAllAsRead,
+  Notification,
+} from "@/hooks/useNotifications";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const navigation = [
-  { name: "Início", href: "/" },
-  { name: "Acesso Rápido", href: "/acesso-rapido" },
+  { name: "Inicio", href: "/" },
+  { name: "Acesso Rapido", href: "/acesso-rapido" },
   { name: "Treinamentos", href: "/treinamentos" },
 ];
 
@@ -27,11 +35,29 @@ interface HeaderProps {
   toggleTheme: () => void;
 }
 
+const notificationTypeIcons = {
+  info: Info,
+  success: CheckCircle2,
+  warning: AlertTriangle,
+  alert: AlertCircle,
+};
+
+const notificationTypeColors = {
+  info: "text-blue-500",
+  success: "text-green-500",
+  warning: "text-yellow-500",
+  alert: "text-red-500",
+};
+
 export function Header({ isDark, toggleTheme }: HeaderProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { profile, isAdmin, signOut } = useAuth();
-  const notificationCount = 3;
+
+  const { data: notifications = [], isLoading: loadingNotifications } = useUnreadNotifications();
+  const { data: unreadCount = 0 } = useUnreadCount();
+  const markAsRead = useMarkAsRead();
+  const markAllAsRead = useMarkAllAsRead();
 
   const getInitials = (name?: string) => {
     if (!name) return "U";
@@ -50,6 +76,27 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
 
   const handleProfile = () => {
     navigate("/perfil");
+  };
+
+  const handleNotificationClick = async (notification: Notification) => {
+    if (!notification.read) {
+      await markAsRead.mutateAsync(notification.id);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    await markAllAsRead.mutateAsync();
+  };
+
+  const formatNotificationTime = (dateStr: string) => {
+    try {
+      return formatDistanceToNow(new Date(dateStr), {
+        addSuffix: true,
+        locale: ptBR,
+      });
+    } catch {
+      return "";
+    }
   };
 
   return (
@@ -99,57 +146,109 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5" />
-                {notificationCount > 0 && (
+                {unreadCount > 0 && (
                   <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-destructive text-destructive-foreground">
-                    {notificationCount}
+                    {unreadCount > 9 ? "9+" : unreadCount}
                   </Badge>
                 )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-80">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-                <span className="font-semibold">Notificações</span>
-                <Button variant="ghost" size="sm" className="text-xs text-accent">
-                  Marcar todas como lidas
-                </Button>
+                <span className="font-semibold">Notificacoes</span>
+                {unreadCount > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-accent h-auto p-1"
+                    onClick={handleMarkAllAsRead}
+                    disabled={markAllAsRead.isPending}
+                  >
+                    {markAllAsRead.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      "Marcar todas como lidas"
+                    )}
+                  </Button>
+                )}
               </div>
-              <div className="py-2">
-                <DropdownMenuItem className="flex flex-col items-start gap-1 p-4">
-                  <span className="font-medium">Nova tarefa atribuída</span>
-                  <span className="text-sm text-muted-foreground">Revisar copy do lançamento</span>
-                  <span className="text-xs text-muted-foreground">2 min atrás</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex flex-col items-start gap-1 p-4">
-                  <span className="font-medium">Reunião em 30 minutos</span>
-                  <span className="text-sm text-muted-foreground">Daily da equipe</span>
-                  <span className="text-xs text-muted-foreground">10 min atrás</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex flex-col items-start gap-1 p-4">
-                  <span className="font-medium">OKR atualizado</span>
-                  <span className="text-sm text-muted-foreground">Meta Q1 atingiu 75%</span>
-                  <span className="text-xs text-muted-foreground">1 hora atrás</span>
-                </DropdownMenuItem>
+              <div className="py-2 max-h-80 overflow-y-auto">
+                {loadingNotifications ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Bell className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                    <p className="text-sm">Nenhuma notificacao</p>
+                  </div>
+                ) : (
+                  notifications.slice(0, 5).map((notification) => {
+                    const Icon = notificationTypeIcons[notification.type] || Info;
+                    const iconColor = notificationTypeColors[notification.type] || "text-blue-500";
+
+                    return (
+                      <DropdownMenuItem
+                        key={notification.id}
+                        className={cn(
+                          "flex items-start gap-3 p-4 cursor-pointer",
+                          !notification.read && "bg-accent/5"
+                        )}
+                        onClick={() => handleNotificationClick(notification)}
+                      >
+                        <Icon className={cn("h-5 w-5 mt-0.5 shrink-0", iconColor)} />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{notification.title}</p>
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatNotificationTime(notification.created_at)}
+                          </p>
+                        </div>
+                        {!notification.read && (
+                          <div className="h-2 w-2 rounded-full bg-accent shrink-0 mt-2" />
+                        )}
+                      </DropdownMenuItem>
+                    );
+                  })
+                )}
               </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="justify-center text-accent font-medium">
-                Ver todas as notificações
-              </DropdownMenuItem>
+              {notifications.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="justify-center text-accent font-medium"
+                    onClick={() => navigate("/notificacoes")}
+                  >
+                    Ver todas as notificacoes
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
           {/* User menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3">
+              <Button variant="ghost" className="flex items-center gap-2 pl-2 pr-3 h-auto py-1.5">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={profile?.avatar_url} />
                   <AvatarFallback className="bg-accent text-accent-foreground">
                     {getInitials(profile?.display_name || profile?.full_name)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="hidden sm:block text-sm font-medium">
-                  {profile?.display_name || profile?.full_name || 'Usuário'}
-                </span>
+                <div className="hidden sm:flex flex-col items-start">
+                  <span className="text-sm font-medium">
+                    {profile?.display_name || profile?.full_name || 'Usuario'}
+                  </span>
+                  {isAdmin && (
+                    <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber-500 hover:bg-amber-600">
+                      <Shield className="w-2.5 h-2.5 mr-0.5" />
+                      Admin
+                    </Badge>
+                  )}
+                </div>
                 <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
               </Button>
             </DropdownMenuTrigger>
@@ -173,7 +272,11 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/admin/usuarios")}>
                     <Shield className="mr-2 h-4 w-4" />
-                    Gestão de Usuários
+                    Gestao de Usuarios
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/admin/notificacoes")}>
+                    <Bell className="mr-2 h-4 w-4" />
+                    Enviar Notificacao
                   </DropdownMenuItem>
                 </>
               )}

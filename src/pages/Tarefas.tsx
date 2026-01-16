@@ -58,7 +58,9 @@ import {
 } from "@/hooks/useTasks";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { TaskKanban } from "@/components/tasks/TaskKanban";
-import type { TaskPriority, TaskWithSubtasks, TaskFormData } from "@/types/tasks";
+import type { TaskPriority, TaskWithSubtasks, TaskFormData, RecurrenceType } from "@/types/tasks";
+import { RECURRENCE_LABELS } from "@/types/tasks";
+import { Repeat } from "lucide-react";
 
 const categories = [
   "Lancamento",
@@ -84,6 +86,8 @@ const emptyFormData: TaskFormData = {
   assignee: "",
   dueDate: "",
   dueTime: "",
+  recurrence: "none",
+  recurrenceEndDate: "",
 };
 
 type ViewMode = "list" | "kanban";
@@ -149,6 +153,8 @@ export default function Tarefas() {
       assignee: task.assignee || "",
       dueDate: task.due_date || "",
       dueTime: task.due_time || "",
+      recurrence: (task.recurrence as RecurrenceType) || "none",
+      recurrenceEndDate: task.recurrence_end_date || "",
     });
     setIsDialogOpen(true);
   };
@@ -193,6 +199,8 @@ export default function Tarefas() {
             assignee: formData.assignee,
             due_date: formData.dueDate,
             due_time: formData.dueTime || null,
+            recurrence: formData.recurrence,
+            recurrence_end_date: formData.recurrenceEndDate || null,
           },
         });
         toast({ title: "Tarefa atualizada" });
@@ -207,6 +215,8 @@ export default function Tarefas() {
           due_time: formData.dueTime || null,
           completed: false,
           position: 0,
+          recurrence: formData.recurrence,
+          recurrence_end_date: formData.recurrenceEndDate || null,
         });
         toast({ title: "Tarefa criada" });
       }
@@ -432,6 +442,47 @@ export default function Tarefas() {
                       className={!formData.dueDate ? "border-destructive" : ""}
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Recorrencia</Label>
+                    <Select
+                      value={formData.recurrence}
+                      onValueChange={(value: RecurrenceType) =>
+                        setFormData((prev) => ({ ...prev, recurrence: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(RECURRENCE_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.recurrence !== "none" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="recurrenceEndDate">Data limite</Label>
+                      <Input
+                        id="recurrenceEndDate"
+                        type="date"
+                        placeholder="Opcional"
+                        value={formData.recurrenceEndDate}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            recurrenceEndDate: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-2 pt-4">
@@ -781,6 +832,13 @@ function TaskItem({
             >
               <Calendar className="h-3 w-3" />
               {formatDate(task.due_date)}
+            </div>
+          )}
+
+          {task.recurrence && task.recurrence !== "none" && (
+            <div className="flex items-center gap-1 text-sm text-accent">
+              <Repeat className="h-3 w-3" />
+              {RECURRENCE_LABELS[task.recurrence as RecurrenceType]}
             </div>
           )}
         </div>

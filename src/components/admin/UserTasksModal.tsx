@@ -36,6 +36,8 @@ import {
 } from "@/hooks/useTasks";
 import type { Profile } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { RecurrenceType, RECURRENCE_LABELS } from "@/types/tasks";
+import { Repeat } from "lucide-react";
 
 interface UserTasksModalProps {
   open: boolean;
@@ -61,6 +63,8 @@ export function UserTasksModal({
     description: "",
     priority: "media" as "alta" | "media" | "baixa",
     due_date: "",
+    recurrence: "none" as RecurrenceType,
+    recurrence_end_date: "",
   });
 
   const { data: tasks = [], isLoading } = useUserTasks(user?.id ?? null);
@@ -88,6 +92,8 @@ export function UserTasksModal({
         due_date: newTask.due_date || null,
         assigned_to_id: user.id,
         assignee: user.full_name,
+        recurrence: newTask.recurrence,
+        recurrence_end_date: newTask.recurrence_end_date || null,
       });
 
       toast({
@@ -100,6 +106,8 @@ export function UserTasksModal({
         description: "",
         priority: "media",
         due_date: "",
+        recurrence: "none",
+        recurrence_end_date: "",
       });
       setShowNewTask(false);
     } catch (error: any) {
@@ -219,6 +227,42 @@ export function UserTasksModal({
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="task-recurrence">Recorrencia</Label>
+                  <Select
+                    value={newTask.recurrence}
+                    onValueChange={(value: RecurrenceType) =>
+                      setNewTask({ ...newTask, recurrence: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(RECURRENCE_LABELS).map(([value, label]) => (
+                        <SelectItem key={value} value={value}>
+                          {label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {newTask.recurrence !== "none" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="task-recurrence-end">Data Limite</Label>
+                    <Input
+                      id="task-recurrence-end"
+                      type="date"
+                      placeholder="Opcional"
+                      value={newTask.recurrence_end_date}
+                      onChange={(e) =>
+                        setNewTask({ ...newTask, recurrence_end_date: e.target.value })
+                      }
+                    />
+                  </div>
+                )}
+              </div>
               <div className="flex justify-end gap-2">
                 <Button
                   variant="ghost"
@@ -305,6 +349,12 @@ export function UserTasksModal({
                               >
                                 <Calendar className="h-3 w-3" />
                                 {formatDate(task.due_date)}
+                              </span>
+                            )}
+                            {task.recurrence && task.recurrence !== "none" && (
+                              <span className="text-xs flex items-center gap-1 text-accent">
+                                <Repeat className="h-3 w-3" />
+                                {RECURRENCE_LABELS[task.recurrence as RecurrenceType]}
                               </span>
                             )}
                           </div>
