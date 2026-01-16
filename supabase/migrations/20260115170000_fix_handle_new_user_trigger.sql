@@ -43,8 +43,10 @@ CREATE TRIGGER on_auth_user_created
 -- Also update the INSERT policy on profiles to allow service role inserts
 -- The service role bypasses RLS anyway, but let's make sure
 
--- Drop the existing restrictive policy
+-- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Admins podem criar perfis" ON profiles;
+DROP POLICY IF EXISTS "Perfis podem ser criados por admins ou trigger" ON profiles;
+DROP POLICY IF EXISTS "Service role can insert profiles" ON profiles;
 
 -- Create a new policy that also allows the trigger (via SECURITY DEFINER) to work
 CREATE POLICY "Perfis podem ser criados por admins ou trigger"

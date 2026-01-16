@@ -2,6 +2,7 @@ import { Sparkles, MessageCircle, Calendar, FileText, Receipt, Loader2 } from "l
 import { Button } from "@/components/ui/button";
 import { useTodaysTasks } from "@/hooks/useTasks";
 import { useActiveFunnelsCount } from "@/hooks/useFunnels";
+import { useAuth } from "@/contexts/AuthContext";
 
 const quickActions = [
   {
@@ -27,9 +28,11 @@ const quickActions = [
 ];
 
 export function WelcomeSection() {
+  const { profile } = useAuth();
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? "Bom dia" : currentHour < 18 ? "Boa tarde" : "Boa noite";
-  
+  const userName = profile?.display_name || profile?.full_name?.split(' ')[0] || 'usuário';
+
   const { data: tasks = [], isLoading: tasksLoading, isError: tasksError } = useTodaysTasks();
   const { data: activeFunnelsCount = 0, isLoading: funnelsLoading, isError: funnelsError } = useActiveFunnelsCount();
   
@@ -47,7 +50,7 @@ export function WelcomeSection() {
             <span className="text-xs font-medium">{greeting}</span>
           </div>
           <h1 className="text-2xl font-bold mb-1 text-foreground">
-            Bem-vindo, João!
+            Bem-vindo, {userName}!
           </h1>
           <p className="text-muted-foreground text-sm">
             {isLoading ? (

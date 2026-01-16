@@ -16,6 +16,7 @@ export const taskKeys = {
   details: () => [...taskKeys.all, "detail"] as const,
   detail: (id: string) => [...taskKeys.details(), id] as const,
   today: () => [...taskKeys.all, "today"] as const,
+  byUser: (userId: string) => [...taskKeys.all, "user", userId] as const,
 };
 
 export function useTasks(filters?: Partial<TaskFilters>) {
@@ -228,6 +229,61 @@ export function useToggleTaskComplete() {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.all });
+    },
+  });
+}
+
+export function useUserTasks(userId: string | null) {
+  return useQuery({
+    queryKey: taskKeys.byUser(userId ?? ""),
+    queryFn: async () => {
+      try {
+        const { data, error } = await supabase
+          .from("tasks")
+          .select(`
+            *,
+            subtasks (*)
+          `)
+          .eq("assigned_to_id", userId)
+          .order("completed", { ascending: true })
+          .order("due_date", { ascending: true, nullsFirst: false })
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching user tasks:", error);
+          return [];
+        }
+        return data as TaskWithSubtasks[];
+      } catch (error) {
+        console.error("Exception in useUserTasks:", error);
+        return [];
+      }
+    },
+    enabled: !!userId,
+    retry: 1,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useCreateTaskForUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (task: TaskInsert & { assigned_to_id: string }) => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert(task)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Task;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      if (variables.assigned_to_id) {
+        queryClient.invalidateQueries({ queryKey: taskKeys.byUser(variables.assigned_to_id) });
+      }
     },
   });
 }

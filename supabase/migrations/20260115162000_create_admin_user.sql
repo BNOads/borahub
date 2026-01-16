@@ -4,10 +4,30 @@
 
 -- Este script cria o usuário no auth.users e configura o perfil como admin
 
+-- Habilitar extensão pgcrypto se não existir
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 DO $$
 DECLARE
   user_id UUID;
+  existing_id UUID;
 BEGIN
+  -- Verificar se usuário já existe
+  SELECT id INTO existing_id FROM auth.users WHERE email = 'ferramentas@boranaobra.com.br';
+
+  IF existing_id IS NOT NULL THEN
+    -- Usuário já existe, apenas atualizar perfil para admin
+    UPDATE profiles
+    SET
+      role = 'admin',
+      full_name = 'Administrador',
+      display_name = 'Admin',
+      is_active = true
+    WHERE id = existing_id;
+    RAISE NOTICE 'Usuário admin já existe! ID: %', existing_id;
+    RETURN;
+  END IF;
+
   -- Criar usuário no auth.users
   INSERT INTO auth.users (
     instance_id,
@@ -31,7 +51,7 @@ BEGIN
     'authenticated',
     'authenticated',
     'ferramentas@boranaobra.com.br',
-    crypt('ferramentas@boranaobra.com.br', gen_salt('bf')),
+    extensions.crypt('ferramentas@boranaobra.com.br', extensions.gen_salt('bf')),
     NOW(),
     '{"provider":"email","providers":["email"]}',
     '{"full_name":"Administrador","display_name":"Admin"}',
@@ -46,7 +66,7 @@ BEGIN
 
   -- Atualizar o perfil criado automaticamente pelo trigger
   UPDATE profiles
-  SET 
+  SET
     role = 'admin',
     full_name = 'Administrador',
     display_name = 'Admin',

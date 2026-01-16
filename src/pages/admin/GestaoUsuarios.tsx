@@ -34,7 +34,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { NovoUsuarioModal } from '@/components/admin/NovoUsuarioModal';
 import { EditarUsuarioModal } from '@/components/admin/EditarUsuarioModal';
 import { ResetSenhaDialog } from '@/components/admin/ResetSenhaDialog';
+import { UserTasksModal } from '@/components/admin/UserTasksModal';
 import { Profile } from '@/contexts/AuthContext';
+import { ListTodo } from 'lucide-react';
 
 export default function GestaoUsuarios() {
     const { profile: currentUser } = useAuth();
@@ -49,6 +51,7 @@ export default function GestaoUsuarios() {
     const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
     const [showEditarModal, setShowEditarModal] = useState(false);
     const [showResetDialog, setShowResetDialog] = useState(false);
+    const [showTasksModal, setShowTasksModal] = useState(false);
 
     // Carregar usuários
     const loadUsuarios = async () => {
@@ -239,7 +242,14 @@ export default function GestaoUsuarios() {
                     </TableHeader>
                     <TableBody>
                         {filteredUsuarios.map((user) => (
-                            <TableRow key={user.id}>
+                            <TableRow
+                                key={user.id}
+                                className="cursor-pointer hover:bg-accent/5"
+                                onClick={() => {
+                                    setSelectedUser(user);
+                                    setShowTasksModal(true);
+                                }}
+                            >
                                 <TableCell>
                                     <div className="flex items-center gap-3">
                                         <Avatar>
@@ -269,7 +279,7 @@ export default function GestaoUsuarios() {
                                     </Badge>
                                 </TableCell>
                                 <TableCell>{formatDate(user.last_login_at)}</TableCell>
-                                <TableCell className="text-right">
+                                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="ghost" size="icon">
@@ -277,6 +287,14 @@ export default function GestaoUsuarios() {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => {
+                                                setSelectedUser(user);
+                                                setShowTasksModal(true);
+                                            }}>
+                                                <ListTodo className="w-4 h-4 mr-2" />
+                                                Ver Tarefas
+                                            </DropdownMenuItem>
+
                                             <DropdownMenuItem onClick={() => {
                                                 setSelectedUser(user);
                                                 setShowEditarModal(true);
@@ -364,6 +382,12 @@ export default function GestaoUsuarios() {
                         onOpenChange={setShowResetDialog}
                         user={selectedUser}
                         onSuccess={loadUsuarios}
+                    />
+
+                    <UserTasksModal
+                        open={showTasksModal}
+                        onOpenChange={setShowTasksModal}
+                        user={selectedUser}
                     />
                 </>
             )}

@@ -30,34 +30,72 @@ serve(async (req) => {
     }
 
     // Create Supabase client with the user's token to verify they're admin
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    // Client with user token to verify admin status
+    // Validate environment variables
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+      console.error("Missing env vars:", {
+        hasUrl: !!supabaseUrl,
+        hasAnon: !!supabaseAnonKey,
+        hasService: !!supabaseServiceKey
+      });
+      throw new Error("Server configuration error: Missing environment variables");
+    }
+
+    // Client with user token to get the user
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify the requester is an admin
+    // Verify the requester's token
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError || !user) {
-      throw new Error("Unauthorized: Invalid token");
+    if (userError) {
+      console.error("User error:", userError);
+      throw new Error(`Unauthorized: ${userError.message}`);
+    }
+    if (!user) {
+      throw new Error("Unauthorized: No user found");
     }
 
-    const { data: profile, error: profileError } = await supabaseUser
+    console.log("User authenticated:", user.id, user.email);
+
+    // Create admin client to bypass RLS when checking profile
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+
+    // Use admin client to check profile (bypasses RLS)
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .select("role, is_active")
+      .select("role, is_active, email")
       .eq("id", user.id)
       .single();
 
-    if (profileError || !profile) {
-      throw new Error("Unauthorized: Profile not found");
+    console.log("Profile query result:", { profile, profileError });
+
+    if (profileError) {
+      console.error("Profile error:", profileError);
+      throw new Error(`Profile not found: ${profileError.message}`);
     }
 
-    if (profile.role !== "admin" || !profile.is_active) {
-      throw new Error("Unauthorized: Only admins can create users");
+    if (!profile) {
+      throw new Error("Profile not found for user: " + user.email);
     }
+
+    if (profile.role !== "admin") {
+      throw new Error(`Unauthorized: User ${profile.email} is not an admin (role: ${profile.role})`);
+    }
+
+    if (!profile.is_active) {
+      throw new Error(`Unauthorized: User ${profile.email} is inactive`);
+    }
+
+    console.log("Admin verified:", profile.email);
 
     // Parse request body
     const body: CreateUserRequest = await req.json();
@@ -70,15 +108,7 @@ serve(async (req) => {
     // Generate initial password from email
     const initialPassword = email.split("@")[0];
 
-    // Create admin client with service role key
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
-
-    // Create the user
+    // Create the user (supabaseAdmin already created above)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: initialPassword,
@@ -148,12 +178,13 @@ serve(async (req) => {
         status: 200,
       }
     );
-  } catch (error) {
-    console.error("Error:", error);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Error:", errorMessage);
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message,
+        error: errorMessage,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

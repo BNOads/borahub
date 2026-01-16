@@ -107,17 +107,26 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
             });
 
             console.log('Edge Function response:', response);
+            console.log('Edge Function data:', response.data);
 
             if (response.error) {
                 console.error('Edge Function error:', response.error);
+                // Tentar extrair mensagem de erro do contexto
+                const errorContext = (response.error as any)?.context;
+                console.error('Error context:', errorContext);
+
+                // Se tiver dados mesmo com erro, pode conter a mensagem real
+                if (response.data && response.data.error) {
+                    throw new Error(response.data.error);
+                }
                 throw new Error(response.error.message || 'Erro ao criar usuário');
             }
 
             const result = response.data;
             console.log('Edge Function result:', result);
 
-            if (!result.success) {
-                throw new Error(result.error || 'Erro ao criar usuário');
+            if (!result || !result.success) {
+                throw new Error(result?.error || 'Erro ao criar usuário');
             }
 
             toast({
