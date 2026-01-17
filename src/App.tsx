@@ -25,6 +25,7 @@ import GuiaView from "./pages/GuiaView";
 import PublicDocView from "./pages/PublicDocView";
 import Agenda from "./pages/Agenda";
 import UtmCreator from "./pages/UtmCreator";
+import PatrociniosView from "./pages/PatrociniosView";
 import BoraNewsView from "./pages/BoraNewsView";
 import BoraNewsDetail from "./pages/BoraNewsDetail";
 import Login from "./pages/Login";
@@ -86,7 +87,8 @@ const App = () => (
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/funis" element={<FunisView />} />
               <Route path="/funis/:id" element={<FunnelPanel />} />
-              <Route path="/utm" element={<UtmCreator />} />
+                  <Route path="/utm" element={<UtmCreator />} />
+                  <Route path="/patrocinios" element={<PatrociniosView />} />
               <Route path="/bora-news" element={<BoraNewsView />} />
               <Route path="/bora-news/:id" element={<BoraNewsDetail />} />
               <Route path="/p/:slug" element={<PublicDocView />} />

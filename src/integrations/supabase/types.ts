@@ -1053,6 +1053,176 @@ export type Database = {
         }
         Relationships: []
       }
+      sponsor_event_links: {
+        Row: {
+          created_at: string | null
+          event_id: string
+          id: string
+          sponsor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: string
+          id?: string
+          sponsor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string
+          id?: string
+          sponsor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsor_event_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "sponsor_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sponsor_event_links_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "sponsors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sponsor_events: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          description: string | null
+          end_date: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          start_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sponsor_stage_history: {
+        Row: {
+          changed_at: string | null
+          changed_by: string | null
+          changed_by_name: string | null
+          id: string
+          new_stage: string
+          previous_stage: string | null
+          sponsor_id: string
+        }
+        Insert: {
+          changed_at?: string | null
+          changed_by?: string | null
+          changed_by_name?: string | null
+          id?: string
+          new_stage: string
+          previous_stage?: string | null
+          sponsor_id: string
+        }
+        Update: {
+          changed_at?: string | null
+          changed_by?: string | null
+          changed_by_name?: string | null
+          id?: string
+          new_stage?: string
+          previous_stage?: string | null
+          sponsor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsor_stage_history_sponsor_id_fkey"
+            columns: ["sponsor_id"]
+            isOneToOne: false
+            referencedRelation: "sponsors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sponsors: {
+        Row: {
+          additional_info: string | null
+          city: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          last_contact_date: string | null
+          last_contact_notes: string | null
+          name: string
+          next_action: string | null
+          next_followup_date: string | null
+          segment: string
+          stage: string
+          state: string
+          updated_at: string | null
+        }
+        Insert: {
+          additional_info?: string | null
+          city: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          last_contact_date?: string | null
+          last_contact_notes?: string | null
+          name: string
+          next_action?: string | null
+          next_followup_date?: string | null
+          segment: string
+          stage?: string
+          state: string
+          updated_at?: string | null
+        }
+        Update: {
+          additional_info?: string | null
+          city?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          last_contact_date?: string | null
+          last_contact_notes?: string | null
+          name?: string
+          next_action?: string | null
+          next_followup_date?: string | null
+          segment?: string
+          stage?: string
+          state?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       subtasks: {
         Row: {
           completed: boolean
