@@ -14,6 +14,7 @@ interface CreateUserRequest {
   department?: string;
   job_title?: string;
   role: "admin" | "collaborator";
+  password?: string;
 }
 
 serve(async (req) => {
@@ -67,20 +68,21 @@ serve(async (req) => {
       },
     });
 
-    // Check if user is admin using admin client
+    // Check if user is admin using admin client (use maybeSingle to handle multiple roles)
     const { data: roleData, error: roleError } = await supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
-      .single();
+      .eq("role", "admin")
+      .maybeSingle();
 
     if (roleError) {
       console.error("Role error:", roleError);
       throw new Error("Failed to verify user role");
     }
 
-    if (roleData?.role !== "admin") {
-      throw new Error(`Unauthorized: User is not an admin (role: ${roleData?.role})`);
+    if (!roleData) {
+      throw new Error(`Unauthorized: User is not an admin`);
     }
 
     // Verify user is active
@@ -103,14 +105,14 @@ serve(async (req) => {
 
     // Parse request body
     const body: CreateUserRequest = await req.json();
-    const { email, full_name, display_name, department, job_title, role } = body;
+    const { email, full_name, display_name, department, job_title, role, password } = body;
 
     if (!email || !full_name) {
       throw new Error("Email and full_name are required");
     }
 
-    // Generate initial password from email
-    const initialPassword = email.split("@")[0];
+    // Use custom password or generate from email
+    const initialPassword = password || email.split("@")[0];
 
     // Create the user
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({

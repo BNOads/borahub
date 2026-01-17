@@ -53,6 +53,7 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
         department: '',
         job_title: '',
         role: 'collaborator' as 'admin' | 'collaborator',
+        password: '',
     });
 
     // Carregar departamentos
@@ -143,9 +144,10 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
                     email: formData.email,
                     full_name: formData.full_name,
                     display_name: formData.display_name || formData.full_name,
-                    department: formData.department || null,
+                    department: formData.department === 'none' ? null : formData.department || null,
                     job_title: formData.job_title || null,
                     role: formData.role,
+                    password: formData.password || undefined,
                 },
                 headers: {
                     Authorization: `Bearer ${session.access_token}`,
@@ -211,6 +213,7 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
             department: '',
             job_title: '',
             role: 'collaborator',
+            password: '',
         });
         setAvatarFile(null);
         setAvatarPreview(null);
@@ -227,7 +230,7 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
                 <form onSubmit={handleSubmit}>
                     <DialogHeader>
                         <DialogTitle>Adicionar Usuário</DialogTitle>
@@ -237,13 +240,13 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
-                        {/* Avatar Upload */}
-                        <div className="flex flex-col items-center gap-3">
+                        {/* Avatar Upload - compacto */}
+                        <div className="flex items-center gap-3">
                             <div className="relative">
-                                <Avatar className="w-20 h-20">
+                                <Avatar className="w-14 h-14">
                                     <AvatarImage src={avatarPreview || undefined} />
-                                    <AvatarFallback className="bg-muted text-muted-foreground text-lg">
-                                        {formData.full_name ? getInitials(formData.full_name) : <User className="w-8 h-8" />}
+                                    <AvatarFallback className="bg-muted text-muted-foreground">
+                                        {formData.full_name ? getInitials(formData.full_name) : <User className="w-6 h-6" />}
                                     </AvatarFallback>
                                 </Avatar>
                                 {avatarPreview && (
@@ -256,7 +259,7 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
                                     </button>
                                 )}
                             </div>
-                            <div>
+                            <div className="flex-1">
                                 <input
                                     ref={fileInputRef}
                                     type="file"
@@ -273,84 +276,97 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
                                     disabled={isLoading}
                                 >
                                     <Upload className="w-4 h-4 mr-2" />
-                                    {avatarPreview ? 'Trocar foto' : 'Adicionar foto'}
+                                    {avatarPreview ? 'Trocar' : 'Foto'}
                                 </Button>
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Email *</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                placeholder="usuario@boranaobra.com"
-                                value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                required
-                                disabled={isLoading}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                A senha inicial será a parte antes do @
-                            </p>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2 space-y-1">
+                                <Label htmlFor="email">Email *</Label>
+                                <Input
+                                    id="email"
+                                    type="email"
+                                    placeholder="usuario@boranaobra.com"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    required
+                                    disabled={isLoading}
+                                />
+                            </div>
+
+                            <div className="col-span-2 space-y-1">
+                                <Label htmlFor="password">Senha inicial</Label>
+                                <Input
+                                    id="password"
+                                    type="text"
+                                    placeholder="Deixe vazio para usar parte do email"
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    disabled={isLoading}
+                                />
+                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="full_name">Nome completo *</Label>
-                            <Input
-                                id="full_name"
-                                placeholder="João da Silva"
-                                value={formData.full_name}
-                                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                required
-                                disabled={isLoading}
-                            />
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="col-span-2 space-y-1">
+                                <Label htmlFor="full_name">Nome completo *</Label>
+                                <Input
+                                    id="full_name"
+                                    placeholder="João da Silva"
+                                    value={formData.full_name}
+                                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                    required
+                                    disabled={isLoading}
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label htmlFor="display_name">Apelido</Label>
+                                <Input
+                                    id="display_name"
+                                    placeholder="João"
+                                    value={formData.display_name}
+                                    onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                                    disabled={isLoading}
+                                />
+                            </div>
+
+                            <div className="space-y-1">
+                                <Label htmlFor="job_title">Cargo</Label>
+                                <Input
+                                    id="job_title"
+                                    placeholder="Analista"
+                                    value={formData.job_title}
+                                    onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+                                    disabled={isLoading}
+                                />
+                            </div>
+
+                            <div className="col-span-2 space-y-1">
+                                <Label htmlFor="department">Departamento</Label>
+                                <Select
+                                    value={formData.department}
+                                    onValueChange={(value) => setFormData({ ...formData, department: value })}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Selecione" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="none">Nenhum</SelectItem>
+                                        {departments.map((dept) => (
+                                            <SelectItem key={dept.id} value={dept.id}>
+                                                {dept.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="display_name">Nome de exibição</Label>
-                            <Input
-                                id="display_name"
-                                placeholder="João (opcional)"
-                                value={formData.display_name}
-                                onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-                                disabled={isLoading}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="department">Departamento</Label>
-                            <Select
-                                value={formData.department}
-                                onValueChange={(value) => setFormData({ ...formData, department: value })}
-                                disabled={isLoading}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Selecione um departamento" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">Nenhum</SelectItem>
-                                    {departments.map((dept) => (
-                                        <SelectItem key={dept.id} value={dept.id}>
-                                            {dept.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="job_title">Cargo</Label>
-                            <Input
-                                id="job_title"
-                                placeholder="Desenvolvedor, Analista, etc."
-                                value={formData.job_title}
-                                onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
-                                disabled={isLoading}
-                            />
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <Label htmlFor="role">Permissão de Administrador</Label>
+                        <div className="flex items-center justify-between py-2">
+                            <Label htmlFor="role">Administrador</Label>
                             <Switch
                                 id="role"
                                 checked={formData.role === 'admin'}
