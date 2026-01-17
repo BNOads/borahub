@@ -105,10 +105,16 @@ export default function Tarefas() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [tabView, setTabView] = useState<TabView>("tasks");
 
+  // Buscar perfil do usuário atual
+  const { profile } = useAuth();
+
+  // Filtrar por assignee automaticamente para não-admins
   const filters = {
     search: searchQuery,
     priority: filterPriority as TaskPriority | "all",
     category: filterCategory,
+    // Se não for admin, filtrar apenas tarefas do próprio usuário
+    assignee: isAdmin ? "all" : (profile?.full_name || ""),
   };
 
   const { data: tasks = [], isLoading, error } = useTasks(filters);
