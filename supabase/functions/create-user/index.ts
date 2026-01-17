@@ -145,7 +145,7 @@ serve(async (req) => {
         display_name: display_name || full_name,
         department_id: department || null,
         job_title: job_title || null,
-        must_change_password: true,
+        must_change_password: false,
         is_active: true,
       }, {
         onConflict: 'id'

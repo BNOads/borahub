@@ -32,10 +32,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return <Navigate to="/conta-desativada" replace />;
     }
 
-    // Precisa trocar senha - redireciona para troca obrigatória
-    if (profile?.must_change_password && location.pathname !== '/troca-senha') {
-        return <Navigate to="/troca-senha" replace />;
-    }
 
     // Requer admin mas não é admin
     if (requireAdmin && !isAdmin) {
