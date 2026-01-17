@@ -108,26 +108,16 @@ export default function Tarefas() {
   // Buscar perfil do usuário atual
   const { profile } = useAuth();
 
-  // Para não-admins, buscar tarefas que contenham o nome do usuário
-  const userAssigneeName = profile?.display_name || profile?.full_name || "";
-
+  // Para não-admins, filtrar pelo full_name exato
   const filters = {
     search: searchQuery,
     priority: filterPriority as TaskPriority | "all",
     category: filterCategory,
-    // Admin vê todas, usuário comum vê só as suas
-    assignee: "all",
+    // Admin vê todas, usuário comum vê só as suas (pelo full_name)
+    assignee: isAdmin ? "all" : (profile?.full_name || ""),
   };
 
-  const { data: allTasks = [], isLoading, error } = useTasks(filters);
-  
-  // Filtrar tarefas localmente para não-admins (busca parcial no nome)
-  const tasks = isAdmin 
-    ? allTasks 
-    : allTasks.filter(t => 
-        t.assignee?.toLowerCase().includes(userAssigneeName.toLowerCase()) ||
-        userAssigneeName.toLowerCase().includes(t.assignee?.toLowerCase() || "")
-      );
+  const { data: tasks = [], isLoading, error } = useTasks(filters);
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
@@ -481,7 +471,7 @@ export default function Tarefas() {
                       </SelectTrigger>
                       <SelectContent>
                         {users.map((user) => (
-                          <SelectItem key={user.id} value={user.display_name || user.full_name}>
+                          <SelectItem key={user.id} value={user.full_name}>
                             {user.display_name || user.full_name}
                           </SelectItem>
                         ))}
