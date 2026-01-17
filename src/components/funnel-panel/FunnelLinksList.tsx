@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Link2,
   Copy,
   ExternalLink,
-  Check,
+  Plus,
   Save,
   FileSpreadsheet,
   Globe,
@@ -15,6 +15,8 @@ import {
   FileQuestion,
   Images,
   FileText,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import { FunnelLink } from "./types";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,7 +46,6 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
 
   const ensureLinksExist = async () => {
     try {
-      // Busca links existentes
       const { data: existingLinks, error: fetchError } = await supabase
         .from("funnel_links")
         .select("*")
@@ -52,11 +53,9 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
 
       if (fetchError) throw fetchError;
 
-      // Verifica quais categorias faltam
       const existingTypes = new Set(existingLinks?.map(l => l.link_type) || []);
       const missingCategories = LINK_CATEGORIES.filter(cat => !existingTypes.has(cat.type));
 
-      // Cria os links faltantes
       if (missingCategories.length > 0) {
         const linksToCreate = missingCategories.map(cat => ({
           funnel_id: funnelId,
@@ -71,7 +70,6 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
         if (insertError) throw insertError;
       }
 
-      // Busca todos os links novamente
       const { data: allLinks, error: refetchError } = await supabase
         .from("funnel_links")
         .select("*")
@@ -81,7 +79,6 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
       if (refetchError) throw refetchError;
       setLinks(allLinks || []);
 
-      // Inicializa os valores de edição
       const urls: Record<string, string> = {};
       allLinks?.forEach(link => {
         urls[link.id] = link.url || "";
@@ -117,7 +114,6 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
       if (error) throw error;
       toast.success("Link salvo!");
 
-      // Atualiza o estado local sem recarregar tudo
       setLinks(prev => prev.map(l =>
         l.id === linkId ? { ...l, url: editingUrls[linkId] } : l
       ));
@@ -133,23 +129,20 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
     toast.success("Link copiado!");
   };
 
-  const filledCount = links.filter(l => l.url).length;
-  const totalCount = LINK_CATEGORIES.length;
-
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-medium flex items-center gap-2">
-            <Link2 className="h-4 w-4 text-accent" />
-            Links do Funil
-          </CardTitle>
-          <span className="text-sm text-muted-foreground">
-            {filledCount}/{totalCount} preenchidos
-          </span>
+    <div className="rounded-2xl border bg-card">
+      <div className="p-4 border-b flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Link2 className="h-4 w-4 text-muted-foreground" />
+          <span className="font-semibold">Links Úteis do Lançamento</span>
         </div>
-      </CardHeader>
-      <CardContent>
+        <Button size="sm" className="gap-1.5 bg-emerald-500 hover:bg-emerald-600">
+          <Plus className="h-3.5 w-3.5" />
+          Link Personalizado
+        </Button>
+      </div>
+
+      <div className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4].map((i) => (
@@ -157,88 +150,111 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
             ))}
           </div>
         ) : (
-          <div className="space-y-3">
-            {LINK_CATEGORIES.map((category) => {
-              const link = getLinkByType(category.type);
-              const Icon = category.icon;
-              const hasUrl = link?.url;
-              const currentUrl = link ? (editingUrls[link.id] || "") : "";
-              const urlChanged = link && currentUrl !== (link.url || "");
+          LINK_CATEGORIES.map((category) => {
+            const link = getLinkByType(category.type);
+            const hasUrl = link?.url;
+            const currentUrl = link ? (editingUrls[link.id] || "") : "";
+            const urlChanged = link && currentUrl !== (link.url || "");
 
-              return (
-                <div
-                  key={category.type}
-                  className={cn(
-                    "p-3 rounded-lg border transition-all",
-                    hasUrl
-                      ? "bg-green-500/5 border-green-500/20"
-                      : "bg-muted/30 border-dashed border-muted-foreground/30"
-                  )}
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div
-                      className={cn(
-                        "p-1.5 rounded-lg",
-                        hasUrl
-                          ? "bg-green-500/10 text-green-600"
-                          : "bg-muted text-muted-foreground"
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{category.label}</p>
-                    </div>
-                    {hasUrl && (
-                      <Check className="h-4 w-4 text-green-500" />
+            return (
+              <div
+                key={category.type}
+                className={cn(
+                  "p-3 rounded-xl border transition-all",
+                  hasUrl ? "bg-background" : "bg-amber-50/50 dark:bg-amber-900/10 border-dashed border-amber-300 dark:border-amber-700"
+                )}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{category.label}</span>
+                    {hasUrl ? (
+                      <Badge className="bg-emerald-500 text-white text-[10px] px-1.5 py-0">
+                        OK
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0">
+                        Pendente
+                      </Badge>
                     )}
                   </div>
-                  {link && (
-                    <div className="flex items-center gap-2">
+                  {!hasUrl && (
+                    <Button size="sm" variant="default" className="h-7 gap-1 bg-emerald-500 hover:bg-emerald-600">
+                      <Plus className="h-3 w-3" />
+                      Add
+                    </Button>
+                  )}
+                </div>
+
+                {link && (
+                  <div className="flex items-center gap-2">
+                    {hasUrl ? (
+                      <>
+                        <Input
+                          value={currentUrl}
+                          onChange={(e) => handleUrlChange(link.id, e.target.value)}
+                          className="h-8 text-xs bg-muted/50 border-0"
+                          readOnly={!urlChanged}
+                        />
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => copyLink(link.url!)}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => window.open(link.url!, "_blank")}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
                       <Input
                         value={currentUrl}
                         onChange={(e) => handleUrlChange(link.id, e.target.value)}
-                        placeholder="Cole o link aqui..."
-                        className="h-9 text-sm"
+                        placeholder="Cole a URL aqui..."
+                        className="h-8 text-xs"
+                        onBlur={() => urlChanged && handleSaveUrl(link.id)}
+                        onKeyDown={(e) => e.key === "Enter" && urlChanged && handleSaveUrl(link.id)}
                       />
-                      {urlChanged && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleSaveUrl(link.id)}
-                          disabled={savingId === link.id}
-                          className="h-9 px-3"
-                        >
-                          <Save className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {hasUrl && !urlChanged && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={() => copyLink(link.url!)}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={() => window.open(link.url!, "_blank")}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    )}
+                    {urlChanged && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleSaveUrl(link.id)}
+                        disabled={savingId === link.id}
+                        className="h-8 px-3 bg-emerald-500 hover:bg-emerald-600"
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
