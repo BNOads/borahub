@@ -26,18 +26,18 @@ export interface Task {
   priority: TaskPriority;
   category: string | null;
   assignee: string | null;
-  assigned_to_id: string | null;
+  assigned_to_id?: string | null;
   due_date: string | null;
   due_time: string | null;
   completed: boolean;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
-  position: number;
-  recurrence: RecurrenceType | null;
-  recurrence_end_date: string | null;
-  parent_task_id: string | null;
-  is_recurring_instance: boolean | null;
+  position: number | null;
+  recurrence?: RecurrenceType | null;
+  recurrence_end_date?: string | null;
+  parent_task_id?: string | null;
+  is_recurring_instance?: boolean | null;
 }
 
 export interface Subtask {
@@ -69,7 +69,17 @@ export interface TaskHistory {
   created_at: string;
 }
 
-export type TaskInsert = Omit<Task, "id" | "created_at" | "updated_at" | "completed_at">;
+export type TaskInsert = {
+  title: string;
+  description?: string | null;
+  priority?: TaskPriority;
+  category?: string | null;
+  assignee?: string | null;
+  due_date?: string | null;
+  due_time?: string | null;
+  completed?: boolean;
+  position?: number | null;
+};
 
 export type TaskUpdate = Partial<Omit<Task, "id" | "created_at" | "updated_at">>;
 

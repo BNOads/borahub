@@ -101,12 +101,12 @@ export function getDateStatus(date: string | null): DateStatus {
 
 export function getNextMilestone(funnel: FunnelData): Milestone | null {
   const milestones: Milestone[] = [
-    { name: 'Início da Captação', date: funnel.captacao_start || '', status: 'future' },
-    { name: 'Fim da Captação', date: funnel.captacao_end || '', status: 'future' },
-    { name: 'Início do Aquecimento', date: funnel.aquecimento_start || '', status: 'future' },
-    { name: 'Início do CPL', date: funnel.cpl_start || '', status: 'future' },
-    { name: 'Início do Carrinho', date: funnel.carrinho_start || '', status: 'future' },
-    { name: 'Fechamento', date: funnel.fechamento_date || '', status: 'future' },
+    { name: 'Início da Captação', date: funnel.captacao_start || '', status: getDateStatus(funnel.captacao_start) },
+    { name: 'Fim da Captação', date: funnel.captacao_end || '', status: getDateStatus(funnel.captacao_end) },
+    { name: 'Início do Aquecimento', date: funnel.aquecimento_start || '', status: getDateStatus(funnel.aquecimento_start) },
+    { name: 'Início do CPL', date: funnel.cpl_start || '', status: getDateStatus(funnel.cpl_start) },
+    { name: 'Início do Carrinho', date: funnel.carrinho_start || '', status: getDateStatus(funnel.carrinho_start) },
+    { name: 'Fechamento', date: funnel.fechamento_date || '', status: getDateStatus(funnel.fechamento_date) },
   ].filter(m => m.date && new Date(m.date) > new Date());
 
   if (milestones.length === 0) return null;

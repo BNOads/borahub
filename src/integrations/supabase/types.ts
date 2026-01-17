@@ -1,4 +1,3 @@
-Initialising login role...
 export type Json =
   | string
   | number
@@ -13,38 +12,13 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       acessos_logins: {
         Row: {
           ativo: boolean | null
           categoria: string
-          created_at: string | null
+          created_at: string
           created_by: string | null
           id: string
           link_acesso: string | null
@@ -52,12 +26,12 @@ export type Database = {
           nome_acesso: string
           notas_adicionais: string | null
           senha_criptografada: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           ativo?: boolean | null
           categoria: string
-          created_at?: string | null
+          created_at?: string
           created_by?: string | null
           id?: string
           link_acesso?: string | null
@@ -65,12 +39,12 @@ export type Database = {
           nome_acesso: string
           notas_adicionais?: string | null
           senha_criptografada: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           ativo?: boolean | null
           categoria?: string
-          created_at?: string | null
+          created_at?: string
           created_by?: string | null
           id?: string
           link_acesso?: string | null
@@ -78,14 +52,14 @@ export type Database = {
           nome_acesso?: string
           notas_adicionais?: string | null
           senha_criptografada?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
       activity_logs: {
         Row: {
           action: string
-          created_at: string
+          created_at: string | null
           details: Json | null
           entity_id: string | null
           entity_type: string
@@ -95,7 +69,7 @@ export type Database = {
         }
         Insert: {
           action: string
-          created_at?: string
+          created_at?: string | null
           details?: Json | null
           entity_id?: string | null
           entity_type: string
@@ -105,7 +79,7 @@ export type Database = {
         }
         Update: {
           action?: string
-          created_at?: string
+          created_at?: string | null
           details?: Json | null
           entity_id?: string | null
           entity_type?: string
@@ -133,7 +107,7 @@ export type Database = {
           destaque: boolean | null
           id: string
           resumo: string | null
-          status_publicacao: string
+          status_publicacao: string | null
           titulo: string
           updated_at: string | null
         }
@@ -146,7 +120,7 @@ export type Database = {
           destaque?: boolean | null
           id?: string
           resumo?: string | null
-          status_publicacao?: string
+          status_publicacao?: string | null
           titulo: string
           updated_at?: string | null
         }
@@ -159,7 +133,7 @@ export type Database = {
           destaque?: boolean | null
           id?: string
           resumo?: string | null
-          status_publicacao?: string
+          status_publicacao?: string | null
           titulo?: string
           updated_at?: string | null
         }
@@ -227,144 +201,127 @@ export type Database = {
       courses: {
         Row: {
           category: string | null
-          created_at: string | null
+          created_at: string
           description: string | null
           id: string
           level: string | null
           thumbnail_url: string | null
           title: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           category?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           id?: string
           level?: string | null
           thumbnail_url?: string | null
           title: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           category?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           id?: string
           level?: string | null
           thumbnail_url?: string | null
           title?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
       departments: {
         Row: {
-          color: string
-          created_at: string
+          color: string | null
+          created_at: string | null
           description: string | null
           id: string
-          is_active: boolean
-          manager_id: string | null
+          is_active: boolean | null
           name: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
-          color?: string
-          created_at?: string
+          color?: string | null
+          created_at?: string | null
           description?: string | null
           id?: string
-          is_active?: boolean
-          manager_id?: string | null
+          is_active?: boolean | null
           name: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
-          color?: string
-          created_at?: string
+          color?: string | null
+          created_at?: string | null
           description?: string | null
           id?: string
-          is_active?: boolean
-          manager_id?: string | null
+          is_active?: boolean | null
           name?: string
-          updated_at?: string
+          updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_departments_manager"
-            columns: ["manager_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       documents: {
         Row: {
-          author_id: string | null
           category: string | null
           content: string | null
-          cover_url: string | null
-          created_at: string | null
+          created_at: string
           icon: string | null
           id: string
           is_favorite: boolean | null
           is_public: boolean | null
-          share_slug: string | null
+          slug: string | null
           title: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
-          author_id?: string | null
           category?: string | null
           content?: string | null
-          cover_url?: string | null
-          created_at?: string | null
+          created_at?: string
           icon?: string | null
           id?: string
           is_favorite?: boolean | null
           is_public?: boolean | null
-          share_slug?: string | null
-          title?: string
-          updated_at?: string | null
+          slug?: string | null
+          title: string
+          updated_at?: string
         }
         Update: {
-          author_id?: string | null
           category?: string | null
           content?: string | null
-          cover_url?: string | null
-          created_at?: string | null
+          created_at?: string
           icon?: string | null
           id?: string
           is_favorite?: boolean | null
           is_public?: boolean | null
-          share_slug?: string | null
+          slug?: string | null
           title?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
       editorial_lines: {
         Row: {
-          created_at: string | null
+          created_at: string
           day_of_week: string
           id: string
-          intention: string | null
+          intention: string
           profile_id: string | null
           week_start_date: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           day_of_week: string
           id?: string
-          intention?: string | null
+          intention: string
           profile_id?: string | null
           week_start_date: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           day_of_week?: string
           id?: string
-          intention?: string | null
+          intention?: string
           profile_id?: string | null
           week_start_date?: string
         }
@@ -381,7 +338,7 @@ export type Database = {
       events: {
         Row: {
           color: string | null
-          created_at: string
+          created_at: string | null
           created_by: string | null
           description: string | null
           duration_minutes: number | null
@@ -396,11 +353,11 @@ export type Database = {
           recurrence: Database["public"]["Enums"]["recurrence_type"] | null
           recurrence_end_date: string | null
           title: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           color?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           description?: string | null
           duration_minutes?: number | null
@@ -415,11 +372,11 @@ export type Database = {
           recurrence?: Database["public"]["Enums"]["recurrence_type"] | null
           recurrence_end_date?: string | null
           title: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           color?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           description?: string | null
           duration_minutes?: number | null
@@ -434,7 +391,7 @@ export type Database = {
           recurrence?: Database["public"]["Enums"]["recurrence_type"] | null
           recurrence_end_date?: string | null
           title?: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -498,7 +455,7 @@ export type Database = {
         }
         Insert: {
           author_id?: string | null
-          author_name: string
+          author_name?: string
           content: string
           created_at?: string | null
           funnel_id: string
@@ -565,17 +522,11 @@ export type Database = {
           aquecimento_end: string | null
           aquecimento_start: string | null
           briefing_link: string | null
-          budget_aquecimento: number | null
           budget_aquecimento_percent: number | null
-          budget_captacao: number | null
           budget_captacao_percent: number | null
-          budget_evento: number | null
           budget_evento_percent: number | null
-          budget_impulsionamento: number | null
           budget_impulsionamento_percent: number | null
-          budget_lembrete: number | null
           budget_lembrete_percent: number | null
-          budget_venda: number | null
           budget_venda_percent: number | null
           captacao_end: string | null
           captacao_start: string | null
@@ -610,17 +561,11 @@ export type Database = {
           aquecimento_end?: string | null
           aquecimento_start?: string | null
           briefing_link?: string | null
-          budget_aquecimento?: number | null
           budget_aquecimento_percent?: number | null
-          budget_captacao?: number | null
           budget_captacao_percent?: number | null
-          budget_evento?: number | null
           budget_evento_percent?: number | null
-          budget_impulsionamento?: number | null
           budget_impulsionamento_percent?: number | null
-          budget_lembrete?: number | null
           budget_lembrete_percent?: number | null
-          budget_venda?: number | null
           budget_venda_percent?: number | null
           captacao_end?: string | null
           captacao_start?: string | null
@@ -655,17 +600,11 @@ export type Database = {
           aquecimento_end?: string | null
           aquecimento_start?: string | null
           briefing_link?: string | null
-          budget_aquecimento?: number | null
           budget_aquecimento_percent?: number | null
-          budget_captacao?: number | null
           budget_captacao_percent?: number | null
-          budget_evento?: number | null
           budget_evento_percent?: number | null
-          budget_impulsionamento?: number | null
           budget_impulsionamento_percent?: number | null
-          budget_lembrete?: number | null
           budget_lembrete_percent?: number | null
-          budget_venda?: number | null
           budget_venda_percent?: number | null
           captacao_end?: string | null
           captacao_start?: string | null
@@ -705,7 +644,7 @@ export type Database = {
           id: string
           name: string
           prompt: string
-          type: string
+          type: string | null
           updated_at: string | null
         }
         Insert: {
@@ -714,7 +653,7 @@ export type Database = {
           id?: string
           name: string
           prompt: string
-          type?: string
+          type?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -723,43 +662,43 @@ export type Database = {
           id?: string
           name?: string
           prompt?: string
-          type?: string
+          type?: string | null
           updated_at?: string | null
         }
         Relationships: []
       }
       lessons: {
         Row: {
-          course_id: string | null
-          created_at: string | null
+          course_id: string
+          created_at: string
           description: string | null
-          duration: string | null
+          duration: number | null
           id: string
-          order_index: number | null
+          position: number | null
           title: string
-          updated_at: string | null
+          updated_at: string
           video_url: string | null
         }
         Insert: {
-          course_id?: string | null
-          created_at?: string | null
+          course_id: string
+          created_at?: string
           description?: string | null
-          duration?: string | null
+          duration?: number | null
           id?: string
-          order_index?: number | null
+          position?: number | null
           title: string
-          updated_at?: string | null
+          updated_at?: string
           video_url?: string | null
         }
         Update: {
-          course_id?: string | null
-          created_at?: string | null
+          course_id?: string
+          created_at?: string
           description?: string | null
-          duration?: string | null
+          duration?: number | null
           id?: string
-          order_index?: number | null
+          position?: number | null
           title?: string
-          updated_at?: string | null
+          updated_at?: string
           video_url?: string | null
         }
         Relationships: [
@@ -775,38 +714,38 @@ export type Database = {
       links: {
         Row: {
           category: string | null
-          created_at: string | null
+          created_at: string
           description: string | null
           favicon: string | null
           id: string
           is_favorite: boolean | null
           name: string
           order_index: number | null
-          updated_at: string | null
+          updated_at: string
           url: string
         }
         Insert: {
           category?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           favicon?: string | null
           id?: string
           is_favorite?: boolean | null
           name: string
           order_index?: number | null
-          updated_at?: string | null
+          updated_at?: string
           url: string
         }
         Update: {
           category?: string | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           favicon?: string | null
           id?: string
           is_favorite?: boolean | null
           name?: string
           order_index?: number | null
-          updated_at?: string | null
+          updated_at?: string
           url?: string
         }
         Relationships: []
@@ -868,27 +807,24 @@ export type Database = {
       post_comments: {
         Row: {
           content: string
-          created_at: string | null
+          created_at: string
           id: string
           is_adjustment: boolean | null
-          post_id: string | null
-          user_id: string | null
+          post_id: string
         }
         Insert: {
           content: string
-          created_at?: string | null
+          created_at?: string
           id?: string
           is_adjustment?: boolean | null
-          post_id?: string | null
-          user_id?: string | null
+          post_id: string
         }
         Update: {
           content?: string
-          created_at?: string | null
+          created_at?: string
           id?: string
           is_adjustment?: boolean | null
-          post_id?: string | null
-          user_id?: string | null
+          post_id?: string
         }
         Relationships: [
           {
@@ -903,33 +839,30 @@ export type Database = {
       post_history: {
         Row: {
           action: string
-          created_at: string | null
+          created_at: string
           field_changed: string | null
           id: string
           new_value: string | null
           old_value: string | null
-          post_id: string | null
-          user_id: string | null
+          post_id: string
         }
         Insert: {
           action: string
-          created_at?: string | null
+          created_at?: string
           field_changed?: string | null
           id?: string
           new_value?: string | null
           old_value?: string | null
-          post_id?: string | null
-          user_id?: string | null
+          post_id: string
         }
         Update: {
           action?: string
-          created_at?: string | null
+          created_at?: string
           field_changed?: string | null
           id?: string
           new_value?: string | null
           old_value?: string | null
-          post_id?: string | null
-          user_id?: string | null
+          post_id?: string
         }
         Relationships: [
           {
@@ -946,72 +879,69 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           birth_date: string | null
-          created_at: string
-          department: string | null
+          created_at: string | null
+          department_id: string | null
           display_name: string | null
           email: string
           favorite_tools: string[] | null
           full_name: string
           hire_date: string | null
           id: string
-          is_active: boolean
+          is_active: boolean | null
           job_title: string | null
           last_login_at: string | null
-          must_change_password: boolean
+          must_change_password: boolean | null
           notification_settings: Json | null
           phone: string | null
-          role: string
           theme_preference: string | null
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
           bio?: string | null
           birth_date?: string | null
-          created_at?: string
-          department?: string | null
+          created_at?: string | null
+          department_id?: string | null
           display_name?: string | null
           email: string
           favorite_tools?: string[] | null
           full_name: string
           hire_date?: string | null
           id: string
-          is_active?: boolean
+          is_active?: boolean | null
           job_title?: string | null
           last_login_at?: string | null
-          must_change_password?: boolean
+          must_change_password?: boolean | null
           notification_settings?: Json | null
           phone?: string | null
-          role?: string
           theme_preference?: string | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
           bio?: string | null
           birth_date?: string | null
-          created_at?: string
-          department?: string | null
+          created_at?: string | null
+          department_id?: string | null
           display_name?: string | null
           email?: string
           favorite_tools?: string[] | null
           full_name?: string
           hire_date?: string | null
           id?: string
-          is_active?: boolean
+          is_active?: boolean | null
           job_title?: string | null
           last_login_at?: string | null
-          must_change_password?: boolean
+          must_change_password?: boolean | null
           notification_settings?: Json | null
           phone?: string | null
-          role?: string
           theme_preference?: string | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "profiles_department_fkey"
-            columns: ["department"]
+            foreignKeyName: "profiles_department_id_fkey"
+            columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
             referencedColumns: ["id"]
@@ -1023,58 +953,58 @@ export type Database = {
           arquivos_link: string | null
           big_idea: string | null
           campos_extras: Json | null
-          created_at: string | null
+          created_at: string
           current_assignee_id: string | null
           day_of_week: string | null
           deadline: string | null
           editorial_line_id: string | null
           id: string
-          post_type: string | null
+          post_type: string
           profile_id: string | null
           roteiro: string | null
-          scheduled_date: string | null
+          scheduled_date: string
           start_date: string | null
           status: string
           theme: string | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           arquivos_link?: string | null
           big_idea?: string | null
           campos_extras?: Json | null
-          created_at?: string | null
+          created_at?: string
           current_assignee_id?: string | null
           day_of_week?: string | null
           deadline?: string | null
           editorial_line_id?: string | null
           id?: string
-          post_type?: string | null
+          post_type?: string
           profile_id?: string | null
           roteiro?: string | null
-          scheduled_date?: string | null
+          scheduled_date: string
           start_date?: string | null
           status?: string
           theme?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           arquivos_link?: string | null
           big_idea?: string | null
           campos_extras?: Json | null
-          created_at?: string | null
+          created_at?: string
           current_assignee_id?: string | null
           day_of_week?: string | null
           deadline?: string | null
           editorial_line_id?: string | null
           id?: string
-          post_type?: string | null
+          post_type?: string
           profile_id?: string | null
           roteiro?: string | null
-          scheduled_date?: string | null
+          scheduled_date?: string
           start_date?: string | null
           status?: string
           theme?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -1096,24 +1026,27 @@ export type Database = {
       social_profiles: {
         Row: {
           color: string | null
-          created_at: string | null
+          created_at: string
           icon: string | null
           id: string
           name: string
+          updated_at: string
         }
         Insert: {
           color?: string | null
-          created_at?: string | null
+          created_at?: string
           icon?: string | null
           id?: string
           name: string
+          updated_at?: string
         }
         Update: {
           color?: string | null
-          created_at?: string | null
+          created_at?: string
           icon?: string | null
           id?: string
           name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1230,7 +1163,6 @@ export type Database = {
       }
       tasks: {
         Row: {
-          assigned_to_id: string | null
           assignee: string | null
           category: string | null
           completed: boolean
@@ -1240,17 +1172,12 @@ export type Database = {
           due_date: string | null
           due_time: string | null
           id: string
-          is_recurring_instance: boolean | null
-          parent_task_id: string | null
           position: number | null
           priority: string
-          recurrence: Database["public"]["Enums"]["recurrence_type"] | null
-          recurrence_end_date: string | null
           title: string
           updated_at: string
         }
         Insert: {
-          assigned_to_id?: string | null
           assignee?: string | null
           category?: string | null
           completed?: boolean
@@ -1260,17 +1187,12 @@ export type Database = {
           due_date?: string | null
           due_time?: string | null
           id?: string
-          is_recurring_instance?: boolean | null
-          parent_task_id?: string | null
           position?: number | null
           priority?: string
-          recurrence?: Database["public"]["Enums"]["recurrence_type"] | null
-          recurrence_end_date?: string | null
           title: string
           updated_at?: string
         }
         Update: {
-          assigned_to_id?: string | null
           assignee?: string | null
           category?: string | null
           completed?: boolean
@@ -1280,51 +1202,35 @@ export type Database = {
           due_date?: string | null
           due_time?: string | null
           id?: string
-          is_recurring_instance?: boolean | null
-          parent_task_id?: string | null
           position?: number | null
           priority?: string
-          recurrence?: Database["public"]["Enums"]["recurrence_type"] | null
-          recurrence_end_date?: string | null
           title?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "tasks_assigned_to_id_fkey"
-            columns: ["assigned_to_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tasks_parent_task_id_fkey"
-            columns: ["parent_task_id"]
-            isOneToOne: false
-            referencedRelation: "tasks"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       user_lesson_progress: {
         Row: {
           completed: boolean | null
           completed_at: string | null
-          last_watched_at: string | null
+          created_at: string
+          id: string
           lesson_id: string
           user_id: string
         }
         Insert: {
           completed?: boolean | null
           completed_at?: string | null
-          last_watched_at?: string | null
+          created_at?: string
+          id?: string
           lesson_id: string
           user_id: string
         }
         Update: {
           completed?: boolean | null
           completed_at?: string | null
-          last_watched_at?: string | null
+          created_at?: string
+          id?: string
           lesson_id?: string
           user_id?: string
         }
@@ -1338,37 +1244,28 @@ export type Database = {
           },
         ]
       }
-      user_profiles: {
+      user_roles: {
         Row: {
-          avatar_url: string | null
-          created_at: string
-          display_name: string | null
           id: string
-          role: string | null
-          updated_at: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
         }
         Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          display_name?: string | null
-          id: string
-          role?: string | null
-          updated_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
         }
         Update: {
-          avatar_url?: string | null
-          created_at?: string
-          display_name?: string | null
           id?: string
-          role?: string | null
-          updated_at?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
       utm_history: {
         Row: {
           batch_id: string | null
-          created_at: string
+          created_at: string | null
           created_by: string | null
           full_url: string
           generation_type: string | null
@@ -1382,7 +1279,7 @@ export type Database = {
         }
         Insert: {
           batch_id?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           full_url: string
           generation_type?: string | null
@@ -1396,7 +1293,7 @@ export type Database = {
         }
         Update: {
           batch_id?: string | null
-          created_at?: string
+          created_at?: string | null
           created_by?: string | null
           full_url?: string
           generation_type?: string | null
@@ -1415,33 +1312,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      create_next_recurring_event: {
-        Args: { event_id: string }
-        Returns: string
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
       }
-      create_next_recurring_task: { Args: { task_id: string }; Returns: string }
-      get_next_recurrence_date: {
+      has_role: {
         Args: {
-          base_date: string
-          rec_type: Database["public"]["Enums"]["recurrence_type"]
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
         }
-        Returns: string
+        Returns: boolean
       }
-      get_user_stats: { Args: { p_user_id: string }; Returns: Json }
-      is_admin: { Args: never; Returns: boolean }
-      log_activity: {
-        Args: {
-          p_action: string
-          p_details?: Json
-          p_entity_id?: string
-          p_entity_type: string
-        }
-        Returns: string
-      }
-      reset_user_password: { Args: { p_user_id: string }; Returns: Json }
-      update_password_force: { Args: { p_new_password: string }; Returns: Json }
     }
     Enums: {
+      app_role: "admin" | "collaborator" | "manager"
       recurrence_type:
         | "none"
         | "daily"
@@ -1575,11 +1459,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
+      app_role: ["admin", "collaborator", "manager"],
       recurrence_type: [
         "none",
         "daily",
@@ -1592,5 +1474,3 @@ export const Constants = {
     },
   },
 } as const
-A new version of Supabase CLI is available: v2.72.7 (currently installed v2.67.1)
-We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

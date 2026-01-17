@@ -63,20 +63,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Função para buscar o perfil do usuário
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Buscar perfil básico
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
         return null;
       }
 
-      if (data) {
-        setProfile(data as Profile);
-        return data as Profile;
+      // Buscar role do usuário via função RPC
+      let userRole: 'admin' | 'collaborator' = 'collaborator';
+      try {
+        const { data: roleData } = await supabase.rpc('get_user_role', { _user_id: userId });
+        if (roleData) {
+          userRole = roleData as 'admin' | 'collaborator';
+        }
+      } catch (roleError) {
+        console.warn('Could not fetch user role, defaulting to collaborator:', roleError);
+      }
+
+      if (profileData) {
+        const fullProfile: Profile = {
+          ...profileData,
+          role: userRole,
+          department: profileData.department_id || undefined,
+        } as Profile;
+        setProfile(fullProfile);
+        return fullProfile;
       } else {
         console.warn('Nenhum perfil encontrado para o usuário');
         return null;
@@ -87,15 +104,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Função para registrar atividade
+  // Função para registrar atividade (inserção direta na tabela activity_logs)
   const logActivity = async (action: string, entityType: string, entityId?: string, details?: any) => {
     try {
-      await supabase.rpc('log_activity', {
-        p_action: action,
-        p_entity_type: entityType,
-        p_entity_id: entityId,
-        p_details: details
-      });
+      await supabase
+        .from('activity_logs')
+        .insert({
+          user_id: user?.id,
+          action,
+          entity_type: entityType,
+          entity_id: entityId,
+          details,
+        });
     } catch (error) {
       console.error('Error logging activity:', error);
     }

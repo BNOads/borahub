@@ -83,6 +83,8 @@ export default function TarefaDetalhe() {
         assignee: task.assignee || "",
         dueDate: task.due_date || "",
         dueTime: task.due_time || "",
+        recurrence: "none",
+        recurrenceEndDate: "",
       });
       setIsEditing(true);
     }

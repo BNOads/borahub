@@ -27,12 +27,13 @@ interface TeamMember {
   phone?: string;
   job_title?: string;
   avatar_url?: string;
-  role: "admin" | "collaborator";
+  role?: "admin" | "collaborator";
   is_active: boolean;
   department?: {
     id: string;
     name: string;
-  };
+  } | null;
+  department_id?: string | null;
 }
 
 export default function Equipe() {
@@ -61,8 +62,8 @@ export default function Equipe() {
           phone,
           job_title,
           avatar_url,
-          role,
           is_active,
+          department_id,
           department:departments(id, name)
         `)
         .eq("is_active", true)
@@ -76,9 +77,21 @@ export default function Equipe() {
           .select("*")
           .eq("is_active", true)
           .order("full_name");
-        setTeamMembers(simpleProfiles || []);
+        
+        const membersWithDefaults = (simpleProfiles || []).map((p: any) => ({
+          ...p,
+          role: 'collaborator' as const,
+        }));
+        setTeamMembers(membersWithDefaults);
+      } else if (profiles) {
+        // Add default role to profiles
+        const membersWithRoles = profiles.map((p: any) => ({
+          ...p,
+          role: 'collaborator' as const,
+        }));
+        setTeamMembers(membersWithRoles);
       } else {
-        setTeamMembers(profiles || []);
+        setTeamMembers([]);
       }
 
       // Fetch departments
