@@ -317,39 +317,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let isMounted = true;
 
-    // Inicializa a sessão
-    const initializeAuth = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-
-        if (!isMounted) return;
-
-        if (error) {
-          console.error('Session error:', error);
-          // Mesmo com erro, auth está "pronto" (não autenticado)
-        }
-
-        setSession(data.session ?? null);
-        setUser(data.session?.user ?? null);
-
-        if (data.session?.user) {
-          await fetchProfile(data.session.user.id);
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        if (isMounted) {
-          setAuthReady(true);
-        }
-      }
-    };
-
-    initializeAuth();
-
-    // Listen for auth changes
+    // Listener PRIMEIRO (evita perder eventos durante init)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!isMounted) return;
 
       setSession(session);
@@ -362,15 +333,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (session?.user) {
-        // Apenas busca perfil se já não tiver ou se mudou o user
-        // Mas para garantir atualização, buscamos sempre que loga
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          await fetchProfile(session.user.id);
-        }
+        // Nunca chame Supabase dentro do callback de auth diretamente
+        setTimeout(() => {
+          fetchProfile(session.user.id).catch(err => console.error('Error fetching profile:', err));
+        }, 0);
       } else {
         setProfile(null);
       }
     });
+
+    // Depois: pega sessão atual
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        if (!isMounted) return;
+
+        if (error) {
+          console.error('Session error:', error);
+        }
+
+        setSession(data.session ?? null);
+        setUser(data.session?.user ?? null);
+        setAuthReady(true);
+
+        if (data.session?.user) {
+          setTimeout(() => {
+            fetchProfile(data.session!.user.id).catch(err => console.error('Error fetching profile:', err));
+          }, 0);
+        } else {
+          setProfile(null);
+        }
+      })
+      .catch((error) => {
+        console.error('Error initializing auth:', error);
+        if (isMounted) setAuthReady(true);
+      });
 
     return () => {
       isMounted = false;
