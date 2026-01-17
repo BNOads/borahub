@@ -29,8 +29,8 @@ interface Course {
 interface Lesson {
     id: string;
     title: string;
-    duration: string;
-    order_index: number;
+    duration: number | null;
+    position: number;
     video_url?: string;
     completed?: boolean;
 }
@@ -71,7 +71,7 @@ export default function CursoDetalhes() {
                 .from("lessons")
                 .select("*")
                 .eq("course_id", courseId)
-                .order("order_index", { ascending: true });
+                .order("position", { ascending: true });
 
             if (lessonsError) throw lessonsError;
 
@@ -89,10 +89,11 @@ export default function CursoDetalhes() {
                 completedLessons = progressData?.map(p => p.lesson_id) || [];
             }
 
-            const lessonsWithProgress = lessonsData?.map(lesson => ({
+            const lessonsWithProgress: Lesson[] = (lessonsData || []).map((lesson: any) => ({
                 ...lesson,
+                position: lesson.position ?? 0,
                 completed: completedLessons.includes(lesson.id)
-            })) || [];
+            }));
 
             setLessons(lessonsWithProgress);
             setProgress({
@@ -235,7 +236,7 @@ export default function CursoDetalhes() {
                                             </h3>
                                             {lesson.duration && (
                                                 <p className="text-xs text-muted-foreground mt-0.5">
-                                                    {lesson.duration}
+                                                    {lesson.duration} min
                                                 </p>
                                             )}
                                         </div>

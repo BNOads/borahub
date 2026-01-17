@@ -28,10 +28,10 @@ export function useTasks(filters?: Partial<TaskFilters>) {
     queryFn: async () => {
       console.log("🔥 loadData disparado useTasks", session?.user?.id);
       try {
-        let query = supabase
+      let query = supabase
           .from("tasks")
           .select(`
-            id, title, description, priority, category, assignee, due_date, due_time, completed, position, recurrence, recurrence_end_date, assigned_to_id, created_at,
+            id, title, description, priority, category, assignee, due_date, due_time, completed, position, created_at, updated_at, completed_at,
             subtasks (id, title, completed)
           `)
           .order("position", { ascending: true })
@@ -57,7 +57,15 @@ export function useTasks(filters?: Partial<TaskFilters>) {
           console.error('Error fetching tasks:', error);
           return [];
         }
-        return data as TaskWithSubtasks[];
+        // Map data to include default values for missing columns
+        return (data || []).map((task: any) => ({
+          ...task,
+          recurrence: task.recurrence || null,
+          recurrence_end_date: task.recurrence_end_date || null,
+          assigned_to_id: task.assigned_to_id || null,
+          parent_task_id: null,
+          is_recurring_instance: false,
+        })) as TaskWithSubtasks[];
       } catch (error) {
         console.error('Exception in useTasks:', error);
         return [];
@@ -80,7 +88,7 @@ export function useTodaysTasks() {
         const { data, error } = await supabase
           .from("tasks")
           .select(`
-            id, title, description, priority, category, assignee, due_date, due_time, completed, position, recurrence, recurrence_end_date, assigned_to_id, created_at,
+            id, title, description, priority, category, assignee, due_date, due_time, completed, position, created_at, updated_at, completed_at,
             subtasks (id, title, completed)
           `)
           .lte("due_date", new Date().toISOString().split("T")[0])
@@ -92,7 +100,15 @@ export function useTodaysTasks() {
           console.error('Error fetching today tasks:', error);
           return [];
         }
-        return data as TaskWithSubtasks[];
+        // Map data to include default values for missing columns
+        return (data || []).map((task: any) => ({
+          ...task,
+          recurrence: task.recurrence || null,
+          recurrence_end_date: task.recurrence_end_date || null,
+          assigned_to_id: task.assigned_to_id || null,
+          parent_task_id: null,
+          is_recurring_instance: false,
+        })) as TaskWithSubtasks[];
       } catch (error) {
         console.error('Exception in useTodaysTasks:', error);
         return [];
@@ -262,10 +278,10 @@ export function useUserTasks(userId: string | null) {
         const { data, error } = await supabase
           .from("tasks")
           .select(`
-            id, title, description, priority, category, assignee, due_date, due_time, completed, position, recurrence, recurrence_end_date, assigned_to_id, created_at,
+            id, title, description, priority, category, assignee, due_date, due_time, completed, position, created_at, updated_at, completed_at,
             subtasks (id, title, completed)
           `)
-          .eq("assigned_to_id", userId)
+          .eq("assignee", userId)
           .order("completed", { ascending: true })
           .order("due_date", { ascending: true, nullsFirst: false })
           .order("created_at", { ascending: false });
@@ -274,7 +290,15 @@ export function useUserTasks(userId: string | null) {
           console.error("Error fetching user tasks:", error);
           return [];
         }
-        return data as TaskWithSubtasks[];
+        // Map data to include default values for missing columns
+        return (data || []).map((task: any) => ({
+          ...task,
+          recurrence: task.recurrence || null,
+          recurrence_end_date: task.recurrence_end_date || null,
+          assigned_to_id: task.assigned_to_id || null,
+          parent_task_id: null,
+          is_recurring_instance: false,
+        })) as TaskWithSubtasks[];
       } catch (error) {
         console.error("Exception in useUserTasks:", error);
         return [];
@@ -290,7 +314,7 @@ export function useCreateTaskForUser() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (task: TaskInsert & { assigned_to_id: string }) => {
+    mutationFn: async (task: TaskInsert) => {
       const { data, error } = await supabase
         .from("tasks")
         .insert(task)
@@ -303,8 +327,8 @@ export function useCreateTaskForUser() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: taskKeys.today() });
-      if (variables.assigned_to_id) {
-        queryClient.invalidateQueries({ queryKey: taskKeys.byUser(variables.assigned_to_id) });
+      if (variables.assignee) {
+        queryClient.invalidateQueries({ queryKey: taskKeys.byUser(variables.assignee) });
       }
     },
   });

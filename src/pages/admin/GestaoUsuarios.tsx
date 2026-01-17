@@ -63,8 +63,16 @@ export default function GestaoUsuarios() {
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
-            setUsuarios(data as Profile[]);
-            setFilteredUsuarios(data as Profile[]);
+            
+            // Add default role to all profiles
+            const profilesWithRoles = (data || []).map((profile: any) => ({
+                ...profile,
+                role: 'collaborator' as const,
+                department: profile.department_id || undefined,
+            }));
+            
+            setUsuarios(profilesWithRoles as Profile[]);
+            setFilteredUsuarios(profilesWithRoles as Profile[]);
         } catch (error) {
             console.error('Error loading users:', error);
             toast({
@@ -109,19 +117,30 @@ export default function GestaoUsuarios() {
         try {
             const newRole = user.role === 'admin' ? 'collaborator' : 'admin';
 
-            const { error } = await supabase
-                .from('profiles')
-                .update({ role: newRole })
-                .eq('id', user.id);
+            // Update role in user_roles table
+            const { error: deleteError } = await supabase
+                .from('user_roles')
+                .delete()
+                .eq('user_id', user.id);
 
-            if (error) throw error;
+            if (deleteError) console.warn('Error deleting old role:', deleteError);
 
-            await supabase.rpc('log_activity', {
-                p_action: 'role_changed',
-                p_entity_type: 'user',
-                p_entity_id: user.id,
-                p_details: { new_role: newRole }
-            });
+            const { error: insertError } = await supabase
+                .from('user_roles')
+                .insert({ user_id: user.id, role: newRole });
+
+            if (insertError) throw insertError;
+
+            // Log activity
+            await supabase
+                .from('activity_logs')
+                .insert({
+                    user_id: currentUser?.id,
+                    action: 'role_changed',
+                    entity_type: 'user',
+                    entity_id: user.id,
+                    details: { new_role: newRole }
+                });
 
             toast({
                 title: 'Permissão atualizada',
@@ -160,11 +179,15 @@ export default function GestaoUsuarios() {
 
             if (error) throw error;
 
-            await supabase.rpc('log_activity', {
-                p_action: newStatus ? 'user_activated' : 'user_deactivated',
-                p_entity_type: 'user',
-                p_entity_id: user.id,
-            });
+            // Log activity
+            await supabase
+                .from('activity_logs')
+                .insert({
+                    user_id: currentUser?.id,
+                    action: newStatus ? 'user_activated' : 'user_deactivated',
+                    entity_type: 'user',
+                    entity_id: user.id,
+                });
 
             toast({
                 title: 'Status atualizado',

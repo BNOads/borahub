@@ -18,8 +18,8 @@ interface Lesson {
     title: string;
     description: string;
     video_url: string;
-    duration: string;
-    order_index: number;
+    duration: number | null;
+    position: number;
 }
 
 export default function AulaView() {
@@ -56,7 +56,12 @@ export default function AulaView() {
                 .single();
 
             if (lessonError) throw lessonError;
-            setLesson(lessonData);
+            if (lessonData) {
+              setLesson({
+                ...lessonData,
+                position: lessonData.position ?? 0,
+              });
+            }
 
             // Fetch Progress
             const { data: { user } } = await supabase.auth.getUser();
@@ -164,7 +169,7 @@ export default function AulaView() {
                             </div>
                             <div className="flex items-center gap-2 text-muted-foreground bg-accent/5 px-3 py-1.5 rounded-full">
                                 <Clock className="h-4 w-4" />
-                                <span className="text-sm font-medium">Duração: {lesson.duration || "0:01"}</span>
+                                <span className="text-sm font-medium">Duração: {lesson.duration ? `${lesson.duration} min` : "Não definida"}</span>
                             </div>
                         </div>
                     </div>

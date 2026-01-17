@@ -61,7 +61,7 @@ import { NewPostModal } from "@/components/conteudo/NewPostModal";
 import { ProfileManagementModal } from "@/components/conteudo/ProfileManagementModal";
 import { DiretrizesView } from "@/components/conteudo/DiretrizesView";
 import { AgentesIAView } from "@/components/conteudo/AgentesIAView";
-import { useSocialPosts, useSocialProfiles, useUpdateSocialPost, SocialPost, SocialProfile, SOCIAL_POSTS_KEY } from "@/hooks/useSocialPosts";
+import { useSocialPosts, useSocialProfiles, useUpdateSocialPost, SocialPost as ImportedSocialPost, SocialProfile as ImportedSocialProfile, SOCIAL_POSTS_KEY } from "@/hooks/useSocialPosts";
 import { useQueryClient } from "@tanstack/react-query";
 
 // Youtube Icon Component

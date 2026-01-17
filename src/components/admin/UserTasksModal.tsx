@@ -90,10 +90,7 @@ export function UserTasksModal({
         description: newTask.description.trim() || null,
         priority: newTask.priority,
         due_date: newTask.due_date || null,
-        assigned_to_id: user.id,
         assignee: user.full_name,
-        recurrence: newTask.recurrence,
-        recurrence_end_date: newTask.recurrence_end_date || null,
       });
 
       toast({
