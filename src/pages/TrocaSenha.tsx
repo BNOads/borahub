@@ -16,13 +16,11 @@ export default function TrocaSenha() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    // Validações da senha
-    const hasMinLength = newPassword.length >= 8;
-    const hasUpperCase = /[A-Z]/.test(newPassword);
-    const hasNumber = /[0-9]/.test(newPassword);
+    // Validação simples - apenas senhas coincidem
     const passwordsMatch = newPassword === confirmPassword && confirmPassword !== '';
+    const hasMinLength = newPassword.length >= 1;
 
-    const isFormValid = hasMinLength && hasUpperCase && hasNumber && passwordsMatch;
+    const isFormValid = hasMinLength && passwordsMatch;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -94,32 +92,15 @@ export default function TrocaSenha() {
                             </div>
                         </div>
 
-                        {/* Validações visuais */}
-                        <div className="space-y-2 p-4 bg-muted rounded-lg">
-                            <p className="text-sm font-medium mb-3">Sua senha deve conter:</p>
-
-                            <ValidationItem
-                                isValid={hasMinLength}
-                                label="Mínimo 8 caracteres"
-                            />
-
-                            <ValidationItem
-                                isValid={hasUpperCase}
-                                label="Pelo menos 1 letra maiúscula"
-                            />
-
-                            <ValidationItem
-                                isValid={hasNumber}
-                                label="Pelo menos 1 número"
-                            />
-
-                            {confirmPassword && (
+                        {/* Validação visual */}
+                        {confirmPassword && (
+                            <div className="p-4 bg-muted rounded-lg">
                                 <ValidationItem
                                     isValid={passwordsMatch}
                                     label="As senhas coincidem"
                                 />
-                            )}
-                        </div>
+                            </div>
+                        )}
 
                         <Button
                             type="submit"
