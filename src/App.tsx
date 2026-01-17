@@ -94,20 +94,19 @@ const App = () => (
               <Route path="/desafio" element={<Placeholder />} />
               <Route path="/assistente" element={<Placeholder />} />
               <Route path="/perfil" element={<Perfil />} />
+              
+              {/* Rotas admin */}
+              <Route path="/admin/usuarios" element={
+                <ProtectedRoute requireAdmin>
+                  <GestaoUsuarios />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/notificacoes" element={
+                <ProtectedRoute requireAdmin>
+                  <GestaoNotificacoes />
+                </ProtectedRoute>
+              } />
             </Route>
-
-            {/* Rotas admin */}
-            <Route path="/admin/usuarios" element={
-              <ProtectedRoute requireAdmin>
-                <GestaoUsuarios />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/admin/notificacoes" element={
-              <ProtectedRoute requireAdmin>
-                <GestaoNotificacoes />
-              </ProtectedRoute>
-            } />
 
             <Route path="*" element={<NotFound />} />
           </Routes>
