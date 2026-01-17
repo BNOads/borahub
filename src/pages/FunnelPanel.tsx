@@ -105,6 +105,9 @@ export default function FunnelPanel() {
             <FunnelNextMilestone funnel={funnel} />
             <FunnelKeyDates funnel={funnel} />
           </div>
+
+          {/* Links Úteis na tela inicial */}
+          <FunnelLinksList funnelId={funnel.id} compact />
         </TabsContent>
 
         {/* Tab: Configuração */}
