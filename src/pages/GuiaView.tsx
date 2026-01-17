@@ -1,9 +1,8 @@
 
 import { useState, useEffect, useRef } from "react";
-import { Search, Plus, Star, StarOff, MoreVertical, Share2, Trash2, Globe, Lock, ChevronLeft, Save, ExternalLink } from "lucide-react";
+import { Search, Plus, Star, StarOff, Share2, Trash2, Globe, Lock, Save, FileText, Link2, Check, X, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
     DropdownMenu,
@@ -12,6 +11,7 @@ import {
     DropdownMenuTrigger,
     DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -29,6 +29,32 @@ interface Document {
     slug: string;
     category: string;
     updated_at: string;
+    google_docs_url?: string;
+}
+
+// Helper to extract Google Docs embed URL
+function getGoogleDocsEmbedUrl(url: string): string | null {
+    if (!url) return null;
+    
+    // Handle various Google Docs URL formats
+    const docMatch = url.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/);
+    if (docMatch) {
+        return `https://docs.google.com/document/d/${docMatch[1]}/preview`;
+    }
+    
+    // Handle Google Sheets
+    const sheetMatch = url.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+    if (sheetMatch) {
+        return `https://docs.google.com/spreadsheets/d/${sheetMatch[1]}/preview`;
+    }
+    
+    // Handle Google Slides
+    const slideMatch = url.match(/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/);
+    if (slideMatch) {
+        return `https://docs.google.com/presentation/d/${slideMatch[1]}/embed`;
+    }
+    
+    return null;
 }
 
 export default function GuiaView() {
@@ -42,6 +68,10 @@ export default function GuiaView() {
     // Local state for debouncing
     const [localTitle, setLocalTitle] = useState("");
     const [localContent, setLocalContent] = useState("");
+    const [googleDocsUrl, setGoogleDocsUrl] = useState("");
+    const [contentType, setContentType] = useState<"editor" | "googledocs">("editor");
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const titleInputRef = useRef<HTMLInputElement>(null);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
@@ -51,9 +81,19 @@ export default function GuiaView() {
     useEffect(() => {
         if (selectedDoc) {
             setLocalTitle(selectedDoc.title);
-            setLocalContent(selectedDoc.content);
+            setLocalContent(selectedDoc.content || "");
+            setGoogleDocsUrl(selectedDoc.google_docs_url || "");
+            setContentType(selectedDoc.google_docs_url ? "googledocs" : "editor");
+            setIsEditingTitle(false);
         }
     }, [selectedDoc?.id]);
+
+    useEffect(() => {
+        if (isEditingTitle && titleInputRef.current) {
+            titleInputRef.current.focus();
+            titleInputRef.current.select();
+        }
+    }, [isEditingTitle]);
 
     async function fetchDocuments() {
         try {
@@ -88,6 +128,7 @@ export default function GuiaView() {
             toast.success("Documento criado!");
             fetchDocuments();
             setSelectedDoc(data);
+            setIsEditingTitle(true);
         } catch (error: any) {
             toast.error("Erro ao criar documento: " + error.message);
         }
@@ -104,6 +145,9 @@ export default function GuiaView() {
             if (error) throw error;
 
             setDocuments(docs => docs.map(d => d.id === id ? { ...d, ...updates } : d));
+            if (selectedDoc?.id === id) {
+                setSelectedDoc(prev => prev ? { ...prev, ...updates } : null);
+            }
         } catch (error: any) {
             toast.error("Erro ao salvar: " + error.message);
         } finally {
@@ -118,14 +162,44 @@ export default function GuiaView() {
 
         saveTimeoutRef.current = setTimeout(() => {
             performSave(id, updates);
-        }, 2000); // 2 seconds debounce
+        }, 2000);
     };
 
     const updateDocumentImmediately = async (id: string, updates: Partial<Document>) => {
-        // For title, content, we debounce. For status (favorite, public, icon), we update immediately.
         await performSave(id, updates);
-        if (selectedDoc?.id === id) {
-            setSelectedDoc({ ...selectedDoc, ...updates });
+    };
+
+    const saveTitle = () => {
+        if (selectedDoc && localTitle.trim()) {
+            performSave(selectedDoc.id, { title: localTitle.trim() });
+            setIsEditingTitle(false);
+        }
+    };
+
+    const cancelTitleEdit = () => {
+        if (selectedDoc) {
+            setLocalTitle(selectedDoc.title);
+        }
+        setIsEditingTitle(false);
+    };
+
+    const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === "Enter") {
+            saveTitle();
+        } else if (e.key === "Escape") {
+            cancelTitleEdit();
+        }
+    };
+
+    const saveGoogleDocsUrl = () => {
+        if (selectedDoc) {
+            const embedUrl = getGoogleDocsEmbedUrl(googleDocsUrl);
+            if (googleDocsUrl && !embedUrl) {
+                toast.error("URL inválida. Use um link do Google Docs, Sheets ou Slides.");
+                return;
+            }
+            performSave(selectedDoc.id, { google_docs_url: googleDocsUrl || null });
+            toast.success(googleDocsUrl ? "Google Docs vinculado!" : "Link removido!");
         }
     };
 
@@ -157,6 +231,8 @@ export default function GuiaView() {
 
     const favoriteDocs = filteredDocs.filter(d => d.is_favorite);
     const otherDocs = filteredDocs.filter(d => !d.is_favorite);
+
+    const embedUrl = selectedDoc?.google_docs_url ? getGoogleDocsEmbedUrl(selectedDoc.google_docs_url) : null;
 
     return (
         <div className="flex h-[calc(100vh-8rem)] bg-card/30 rounded-3xl border border-border overflow-hidden animate-fade-in">
@@ -219,16 +295,50 @@ export default function GuiaView() {
                     <>
                         {/* Editor Toolbar */}
                         <div className="h-14 border-b border-border px-6 flex items-center justify-between bg-card/30 backdrop-blur-sm">
-                            <div className="flex items-center gap-4">
-                                <span className="text-2xl">{selectedDoc.icon}</span>
-                                <Input
-                                    value={localTitle}
-                                    onChange={(e) => {
-                                        setLocalTitle(e.target.value);
-                                        debouncedSave(selectedDoc.id, { title: e.target.value });
-                                    }}
-                                    className="border-none bg-transparent font-bold text-lg p-0 focus-visible:ring-0 w-64"
-                                />
+                            <div className="flex items-center gap-3">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="text-2xl p-0 h-10 w-10 hover:bg-accent/5 rounded-xl">
+                                            {selectedDoc.icon}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent className="grid grid-cols-4 p-2">
+                                        {['📄', '🎯', '🏢', '📜', '💡', '🚀', '🛠️', '⚙️', '📋', '📊', '📁', '🔗'].map(emoji => (
+                                            <DropdownMenuItem key={emoji} onClick={() => updateDocumentImmediately(selectedDoc.id, { icon: emoji })} className="text-2xl justify-center cursor-pointer">
+                                                {emoji}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+
+                                {isEditingTitle ? (
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            ref={titleInputRef}
+                                            value={localTitle}
+                                            onChange={(e) => setLocalTitle(e.target.value)}
+                                            onKeyDown={handleTitleKeyDown}
+                                            className="h-9 w-64 rounded-xl font-bold"
+                                        />
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-emerald-500" onClick={saveTitle}>
+                                            <Check className="h-4 w-4" />
+                                        </Button>
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-muted-foreground" onClick={cancelTitleEdit}>
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => isAdmin && setIsEditingTitle(true)}
+                                        className={cn(
+                                            "font-bold text-lg flex items-center gap-2 group",
+                                            isAdmin && "hover:text-accent cursor-pointer"
+                                        )}
+                                    >
+                                        {localTitle}
+                                        {isAdmin && <Pencil className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 transition-opacity" />}
+                                    </button>
+                                )}
                             </div>
                             <div className="flex items-center gap-2">
                                 <Button
@@ -237,7 +347,7 @@ export default function GuiaView() {
                                     className={cn("rounded-xl h-9 w-9", selectedDoc.is_favorite && "text-accent")}
                                     onClick={() => updateDocumentImmediately(selectedDoc.id, { is_favorite: !selectedDoc.is_favorite })}
                                 >
-                                    {selectedDoc.is_favorite ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
+                                    {selectedDoc.is_favorite ? <Star className="h-4 w-4 fill-current" /> : <Star className="h-4 w-4" />}
                                 </Button>
 
                                 <DropdownMenu>
@@ -248,7 +358,7 @@ export default function GuiaView() {
                                         </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="rounded-xl w-56">
-                                            <DropdownMenuItem onClick={() => updateDocumentImmediately(selectedDoc.id, { is_public: !selectedDoc.is_public })}>
+                                        <DropdownMenuItem onClick={() => updateDocumentImmediately(selectedDoc.id, { is_public: !selectedDoc.is_public })}>
                                             {selectedDoc.is_public ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
                                             Tornar {selectedDoc.is_public ? "Privado" : "Público"}
                                         </DropdownMenuItem>
@@ -274,39 +384,95 @@ export default function GuiaView() {
                             </div>
                         </div>
 
-                        {/* Editor */}
-                        <ScrollArea className="flex-1">
-                            <div className="max-w-4xl mx-auto p-12">
-                                <div className="mb-8 flex items-center gap-3">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" className="text-4xl p-0 h-14 w-14 hover:bg-accent/5 rounded-2xl">
-                                                {selectedDoc.icon}
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent className="grid grid-cols-4 p-2">
-                                            {['📄', '🎯', '🏢', '📜', '💡', '🚀', '🛠️', '⚙️'].map(emoji => (
-                                                <DropdownMenuItem key={emoji} onClick={() => updateDocumentImmediately(selectedDoc.id, { icon: emoji })} className="text-2xl justify-center cursor-pointer">
-                                                    {emoji}
-                                                </DropdownMenuItem>
-                                            ))}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                    <h1 className="text-4xl font-black tracking-tight flex-1">{localTitle}</h1>
+                        {/* Content Tabs */}
+                        <div className="flex-1 flex flex-col overflow-hidden">
+                            {isAdmin && (
+                                <div className="px-6 pt-4">
+                                    <Tabs value={contentType} onValueChange={(v) => setContentType(v as "editor" | "googledocs")}>
+                                        <TabsList className="rounded-xl bg-accent/5 p-1">
+                                            <TabsTrigger value="editor" className="rounded-lg gap-2 data-[state=active]:bg-background">
+                                                <FileText className="h-4 w-4" />
+                                                Editor
+                                            </TabsTrigger>
+                                            <TabsTrigger value="googledocs" className="rounded-lg gap-2 data-[state=active]:bg-background">
+                                                <Link2 className="h-4 w-4" />
+                                                Google Docs
+                                            </TabsTrigger>
+                                        </TabsList>
+                                    </Tabs>
                                 </div>
+                            )}
 
-                                <ReactQuill
-                                    theme="snow"
-                                    value={localContent}
-                                    onChange={(content) => {
-                                        setLocalContent(content);
-                                        debouncedSave(selectedDoc.id, { content });
-                                    }}
-                                    className="guia-editor"
-                                    placeholder="Comece a escrever aqui..."
-                                />
-                            </div>
-                        </ScrollArea>
+                            {contentType === "googledocs" && isAdmin && (
+                                <div className="px-6 pt-4">
+                                    <div className="flex items-center gap-2 bg-accent/5 p-3 rounded-xl">
+                                        <Link2 className="h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Cole aqui o link do Google Docs, Sheets ou Slides..."
+                                            value={googleDocsUrl}
+                                            onChange={(e) => setGoogleDocsUrl(e.target.value)}
+                                            className="flex-1 border-none bg-transparent focus-visible:ring-0 placeholder:text-muted-foreground/50"
+                                        />
+                                        <Button size="sm" className="rounded-lg" onClick={saveGoogleDocsUrl}>
+                                            Salvar
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <ScrollArea className="flex-1">
+                                {contentType === "googledocs" && embedUrl ? (
+                                    <div className="h-full p-6">
+                                        <iframe
+                                            src={embedUrl}
+                                            className="w-full h-[calc(100vh-16rem)] rounded-xl border border-border"
+                                            frameBorder="0"
+                                            allowFullScreen
+                                        />
+                                    </div>
+                                ) : contentType === "googledocs" && !embedUrl ? (
+                                    <div className="flex-1 flex items-center justify-center text-muted-foreground flex-col gap-4 py-20">
+                                        <div className="h-16 w-16 bg-accent/5 rounded-3xl flex items-center justify-center text-accent/20">
+                                            <Link2 className="h-8 w-8" />
+                                        </div>
+                                        <p>Nenhum documento do Google vinculado</p>
+                                        {isAdmin && <p className="text-sm">Cole o link acima para embedar um documento</p>}
+                                    </div>
+                                ) : (
+                                    <div className="max-w-4xl mx-auto p-12">
+                                        <div className="mb-8 flex items-center gap-3">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" className="text-4xl p-0 h-14 w-14 hover:bg-accent/5 rounded-2xl">
+                                                        {selectedDoc.icon}
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent className="grid grid-cols-4 p-2">
+                                                    {['📄', '🎯', '🏢', '📜', '💡', '🚀', '🛠️', '⚙️'].map(emoji => (
+                                                        <DropdownMenuItem key={emoji} onClick={() => updateDocumentImmediately(selectedDoc.id, { icon: emoji })} className="text-2xl justify-center cursor-pointer">
+                                                            {emoji}
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                            <h1 className="text-4xl font-black tracking-tight flex-1">{localTitle}</h1>
+                                        </div>
+
+                                        <ReactQuill
+                                            theme="snow"
+                                            value={localContent}
+                                            onChange={(content) => {
+                                                setLocalContent(content);
+                                                debouncedSave(selectedDoc.id, { content });
+                                            }}
+                                            className="guia-editor"
+                                            placeholder="Comece a escrever aqui..."
+                                            readOnly={!isAdmin}
+                                        />
+                                    </div>
+                                )}
+                            </ScrollArea>
+                        </div>
                     </>
                 ) : (
                     <div className="flex-1 flex items-center justify-center text-muted-foreground flex-col gap-4">
@@ -375,6 +541,7 @@ function DocListItem({ doc, active, onClick }: { doc: Document, active: boolean,
         >
             <span className="text-base">{doc.icon}</span>
             <span className="truncate flex-1 text-left">{doc.title}</span>
+            {doc.google_docs_url && <Link2 className="h-3 w-3 text-blue-500 opacity-60" />}
             {doc.is_public && <Globe className="h-3 w-3 text-emerald-500 opacity-60" />}
         </button>
     );

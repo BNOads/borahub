@@ -266,6 +266,7 @@ export type Database = {
           category: string | null
           content: string | null
           created_at: string
+          google_docs_url: string | null
           icon: string | null
           id: string
           is_favorite: boolean | null
@@ -278,6 +279,7 @@ export type Database = {
           category?: string | null
           content?: string | null
           created_at?: string
+          google_docs_url?: string | null
           icon?: string | null
           id?: string
           is_favorite?: boolean | null
@@ -290,6 +292,7 @@ export type Database = {
           category?: string | null
           content?: string | null
           created_at?: string
+          google_docs_url?: string | null
           icon?: string | null
           id?: string
           is_favorite?: boolean | null
