@@ -22,19 +22,22 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useCreateBoraNews, BoraNewsInsert } from "@/hooks/useBoraNews";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCreateNotification } from "@/hooks/useNotifications";
 
 interface FormData {
   titulo: string;
   conteudo: string;
   resumo?: string;
-  autor_nome: string;
   status_publicacao: 'publicado' | 'rascunho';
   destaque: boolean;
 }
 
 export function CreateBoraNewsModal() {
   const [open, setOpen] = useState(false);
+  const { profile } = useAuth();
   const createNews = useCreateBoraNews();
+  const createNotification = useCreateNotification();
 
   const {
     register,
@@ -48,7 +51,6 @@ export function CreateBoraNewsModal() {
       titulo: "",
       conteudo: "",
       resumo: "",
-      autor_nome: "Admin",
       status_publicacao: "rascunho",
       destaque: false,
     },
@@ -59,21 +61,33 @@ export function CreateBoraNewsModal() {
 
   const onSubmit = async (data: FormData) => {
     try {
+      const autorNome = profile?.full_name || profile?.display_name || "Admin";
       const newsData: BoraNewsInsert = {
         titulo: data.titulo,
         conteudo: data.conteudo,
         resumo: data.resumo || undefined,
-        autor_nome: data.autor_nome,
+        autor_nome: autorNome,
         status_publicacao: data.status_publicacao,
         destaque: data.destaque,
         data_publicacao: new Date().toISOString(),
       };
       await createNews.mutateAsync(newsData);
-      toast.success("Noticia criada com sucesso!");
+      
+      // Send notification to all users when news is published
+      if (data.status_publicacao === 'publicado') {
+        await createNotification.mutateAsync({
+          title: "Nova notícia no Bora News",
+          message: data.titulo,
+          type: "info",
+          recipient_id: null, // null means all users
+        });
+      }
+      
+      toast.success("Notícia criada com sucesso!");
       setOpen(false);
       reset();
     } catch (error) {
-      toast.error("Erro ao criar noticia");
+      toast.error("Erro ao criar notícia");
       console.error(error);
     }
   };
@@ -124,11 +138,6 @@ export function CreateBoraNewsModal() {
             {errors.conteudo && (
               <span className="text-sm text-destructive">{errors.conteudo.message}</span>
             )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="autor_nome">Autor</Label>
-            <Input id="autor_nome" placeholder="Nome do autor" {...register("autor_nome")} />
           </div>
 
           <div className="space-y-2">
