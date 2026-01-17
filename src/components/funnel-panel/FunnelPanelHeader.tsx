@@ -18,15 +18,15 @@ interface FunnelPanelHeaderProps {
 }
 
 const statusColors: Record<string, string> = {
-  active: "bg-green-500/10 text-green-500 border-green-500/20",
-  finished: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  archived: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+  active: "bg-emerald-500 text-white",
+  finished: "bg-blue-500 text-white",
+  archived: "bg-gray-500 text-white",
 };
 
 const statusLabels: Record<string, string> = {
-  active: "Ativo",
-  finished: "Finalizado",
-  archived: "Arquivado",
+  active: "EM CAPTAÇÃO",
+  finished: "FINALIZADO",
+  archived: "ARQUIVADO",
 };
 
 export function FunnelPanelHeader({ funnel, onUpdate }: FunnelPanelHeaderProps) {
@@ -68,75 +68,78 @@ export function FunnelPanelHeader({ funnel, onUpdate }: FunnelPanelHeaderProps) 
   };
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-6 border-b">
-      <div className="flex items-start gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/funis")} className="mt-1">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
+    <div className="bg-card rounded-2xl border p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => navigate("/funis")} 
+            className="gap-2 shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
+          </Button>
+          
           <div className="flex items-center gap-3 flex-wrap">
-            <div>
-              <h1 className="text-2xl font-bold">{funnel.name}</h1>
-              {funnel.product_name && (
-                <p className="text-sm text-muted-foreground mt-0.5">{funnel.product_name}</p>
+            <h1 className="text-xl sm:text-2xl font-bold">
+              {funnel.name}
+              {funnel.code && <span className="text-muted-foreground"> | {funnel.code}</span>}
+            </h1>
+            
+            <div className="flex items-center gap-2">
+              <Badge className={statusColors[funnel.status || "active"]}>
+                {statusLabels[funnel.status || "active"]}
+              </Badge>
+              
+              <Badge variant="outline" className="uppercase text-xs">
+                {funnel.visibility === "public" ? "Público" : "Interno"}
+              </Badge>
+              
+              {funnel.predicted_investment && funnel.predicted_investment > 0 && (
+                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                  {formatCurrency(funnel.predicted_investment)}
+                </Badge>
               )}
             </div>
-            {funnel.code && (
-              <Badge variant="outline" className="text-xs">
-                {funnel.code}
-              </Badge>
-            )}
-            <Badge
-              variant="outline"
-              className={statusColors[funnel.status || "active"]}
-            >
-              {statusLabels[funnel.status || "active"]}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
-            {funnel.category && <span>{funnel.category}</span>}
-            <span className="font-medium text-foreground">
-              {formatCurrency(funnel.predicted_investment)}
-            </span>
           </div>
         </div>
-      </div>
 
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={copyLink} className="gap-2">
-          <Copy className="h-4 w-4" />
-          Copiar Link
-        </Button>
-        <Button variant="outline" size="sm" onClick={shareLink} className="gap-2">
-          <Share2 className="h-4 w-4" />
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              {funnel.visibility === "public" ? (
-                <Globe className="h-4 w-4" />
-              ) : (
-                <Lock className="h-4 w-4" />
-              )}
-              {funnel.visibility === "public" ? "Público" : "Privado"}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={toggleVisibility}>
-              {funnel.visibility === "public" ? (
-                <>
-                  <Lock className="h-4 w-4 mr-2" />
-                  Tornar Privado
-                </>
-              ) : (
-                <>
-                  <Globe className="h-4 w-4 mr-2" />
-                  Tornar Público
-                </>
-              )}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={copyLink} className="gap-2">
+            <Copy className="h-4 w-4" />
+            <span className="hidden sm:inline">Copiar Link</span>
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                {funnel.visibility === "public" ? (
+                  <Globe className="h-4 w-4" />
+                ) : (
+                  <Lock className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {funnel.visibility === "public" ? "Público" : "Privado"}
+                </span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={toggleVisibility}>
+                {funnel.visibility === "public" ? (
+                  <>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Tornar Privado
+                  </>
+                ) : (
+                  <>
+                    <Globe className="h-4 w-4 mr-2" />
+                    Tornar Público
+                  </>
+                )}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </div>
   );
