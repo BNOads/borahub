@@ -269,6 +269,7 @@ export default function GuiaView() {
                                         doc={doc}
                                         active={selectedDoc?.id === doc.id}
                                         onClick={() => setSelectedDoc(doc)}
+                                        onDelete={isAdmin ? () => deleteDocument(doc.id) : undefined}
                                     />
                                 ))}
                             </div>
@@ -282,6 +283,7 @@ export default function GuiaView() {
                                     doc={doc}
                                     active={selectedDoc?.id === doc.id}
                                     onClick={() => setSelectedDoc(doc)}
+                                    onDelete={isAdmin ? () => deleteDocument(doc.id) : undefined}
                                 />
                             ))}
                         </div>
@@ -528,21 +530,35 @@ export default function GuiaView() {
     );
 }
 
-function DocListItem({ doc, active, onClick }: { doc: Document, active: boolean, onClick: () => void }) {
+function DocListItem({ doc, active, onClick, onDelete }: { doc: Document, active: boolean, onClick: () => void, onDelete?: () => void }) {
     return (
-        <button
-            onClick={onClick}
-            className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all group relative",
-                active
-                    ? "bg-accent/10 text-accent font-bold shadow-sm"
-                    : "text-muted-foreground hover:bg-accent/5 hover:text-foreground"
+        <div className="relative group">
+            <button
+                onClick={onClick}
+                className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2 pr-8 rounded-xl text-sm transition-all relative",
+                    active
+                        ? "bg-accent/10 text-accent font-bold shadow-sm"
+                        : "text-muted-foreground hover:bg-accent/5 hover:text-foreground"
+                )}
+            >
+                <span className="text-base">{doc.icon}</span>
+                <span className="truncate flex-1 text-left">{doc.title}</span>
+                {doc.google_docs_url && <Link2 className="h-3 w-3 text-blue-500 opacity-60" />}
+                {doc.is_public && <Globe className="h-3 w-3 text-emerald-500 opacity-60" />}
+            </button>
+            {onDelete && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete();
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
+                    title="Excluir documento"
+                >
+                    <Trash2 className="h-3.5 w-3.5" />
+                </button>
             )}
-        >
-            <span className="text-base">{doc.icon}</span>
-            <span className="truncate flex-1 text-left">{doc.title}</span>
-            {doc.google_docs_url && <Link2 className="h-3 w-3 text-blue-500 opacity-60" />}
-            {doc.is_public && <Globe className="h-3 w-3 text-emerald-500 opacity-60" />}
-        </button>
+        </div>
     );
 }
