@@ -57,6 +57,7 @@ import {
   useToggleTaskComplete,
 } from "@/hooks/useTasks";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
+import { AdminTasksPanel } from "@/components/tasks/AdminTasksPanel";
 import { TaskKanban } from "@/components/tasks/TaskKanban";
 import type { TaskPriority, TaskWithSubtasks, TaskFormData, RecurrenceType } from "@/types/tasks";
 import { RECURRENCE_LABELS } from "@/types/tasks";
@@ -86,6 +87,7 @@ const emptyFormData: TaskFormData = {
 };
 
 type ViewMode = "list" | "kanban";
+type TabView = "tasks" | "admin";
 
 export default function Tarefas() {
   const { toast } = useToast();
@@ -100,6 +102,7 @@ export default function Tarefas() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [formData, setFormData] = useState<TaskFormData>(emptyFormData);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [tabView, setTabView] = useState<TabView>("tasks");
 
   const filters = {
     search: searchQuery,
@@ -311,25 +314,51 @@ export default function Tarefas() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Admin Tab Toggle (only for admins) */}
+          {isAdmin && (
+            <div className="flex rounded-lg border border-border p-1">
+              <Button
+                variant={tabView === "tasks" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setTabView("tasks")}
+                className="h-8 px-3 gap-1.5"
+              >
+                <ListTodo className="h-4 w-4" />
+                <span className="hidden sm:inline">Tarefas</span>
+              </Button>
+              <Button
+                variant={tabView === "admin" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setTabView("admin")}
+                className="h-8 px-3 gap-1.5"
+              >
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">Por Equipe</span>
+              </Button>
+            </div>
+          )}
+
           {/* View Mode Toggle */}
-          <div className="flex rounded-lg border border-border p-1">
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("list")}
-              className="h-8 px-3"
-            >
-              <LayoutList className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "kanban" ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("kanban")}
-              className="h-8 px-3"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
-          </div>
+          {tabView === "tasks" && (
+            <div className="flex rounded-lg border border-border p-1">
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className="h-8 px-3"
+              >
+                <LayoutList className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "kanban" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("kanban")}
+                className="h-8 px-3"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
 
           {isAdmin && (
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -515,163 +544,170 @@ export default function Tarefas() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar tarefas..."
-            className="pl-9"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex gap-2">
-          <Select value={filterPriority} onValueChange={setFilterPriority}>
-            <SelectTrigger className="w-[140px]">
-              <Flag className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Prioridade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              <SelectItem value="alta">Alta</SelectItem>
-              <SelectItem value="media">Media</SelectItem>
-              <SelectItem value="baixa">Baixa</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="w-[160px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Circle className="h-4 w-4" />
-            <span className="text-sm">Pendentes</span>
-          </div>
-          <p className="text-2xl font-bold">
-            {isLoading ? <Skeleton className="h-8 w-8" /> : pendingTasks.length}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <CheckCircle2 className="h-4 w-4" />
-            <span className="text-sm">Concluidas</span>
-          </div>
-          <p className="text-2xl font-bold">
-            {isLoading ? (
-              <Skeleton className="h-8 w-8" />
-            ) : (
-              completedTasks.length
-            )}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-destructive mb-1">
-            <Clock className="h-4 w-4" />
-            <span className="text-sm">Atrasadas</span>
-          </div>
-          <p className="text-2xl font-bold">
-            {isLoading ? <Skeleton className="h-8 w-8" /> : overdueCount}
-          </p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Flag className="h-4 w-4 text-destructive" />
-            <span className="text-sm">Alta prioridade</span>
-          </div>
-          <p className="text-2xl font-bold">
-            {isLoading ? <Skeleton className="h-8 w-8" /> : highPriorityCount}
-          </p>
-        </div>
-      </div>
-
-      {/* Content based on view mode */}
-      {viewMode === "kanban" ? (
-        <TaskKanban
-          tasks={tasks}
-          onToggleComplete={handleToggleComplete}
-          isLoading={isLoading}
-        />
+      {/* Admin Panel View */}
+      {isAdmin && tabView === "admin" ? (
+        <AdminTasksPanel tasks={tasks} users={users} isLoading={isLoading} />
       ) : (
-        <div className="space-y-6">
-          {isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-24 w-full rounded-lg" />
-              ))}
+        <>
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar tarefas..."
+                className="pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
+            <div className="flex gap-2">
+              <Select value={filterPriority} onValueChange={setFilterPriority}>
+                <SelectTrigger className="w-[140px]">
+                  <Flag className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Prioridade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="alta">Alta</SelectItem>
+                  <SelectItem value="media">Media</SelectItem>
+                  <SelectItem value="baixa">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterCategory} onValueChange={setFilterCategory}>
+                <SelectTrigger className="w-[160px]">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <Circle className="h-4 w-4" />
+                <span className="text-sm">Pendentes</span>
+              </div>
+              <p className="text-2xl font-bold">
+                {isLoading ? <Skeleton className="h-8 w-8" /> : pendingTasks.length}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="text-sm">Concluidas</span>
+              </div>
+              <p className="text-2xl font-bold">
+                {isLoading ? (
+                  <Skeleton className="h-8 w-8" />
+                ) : (
+                  completedTasks.length
+                )}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-destructive mb-1">
+                <Clock className="h-4 w-4" />
+                <span className="text-sm">Atrasadas</span>
+              </div>
+              <p className="text-2xl font-bold">
+                {isLoading ? <Skeleton className="h-8 w-8" /> : overdueCount}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <Flag className="h-4 w-4 text-destructive" />
+                <span className="text-sm">Alta prioridade</span>
+              </div>
+              <p className="text-2xl font-bold">
+                {isLoading ? <Skeleton className="h-8 w-8" /> : highPriorityCount}
+              </p>
+            </div>
+          </div>
+
+          {/* Content based on view mode */}
+          {viewMode === "kanban" ? (
+            <TaskKanban
+              tasks={tasks}
+              onToggleComplete={handleToggleComplete}
+              isLoading={isLoading}
+            />
           ) : (
-            <>
-              {/* Pending Tasks */}
-              {pendingTasks.length > 0 && (
+            <div className="space-y-6">
+              {isLoading ? (
                 <div className="space-y-3">
-                  <h2 className="text-lg font-semibold">Pendentes</h2>
-                  <div className="space-y-2">
-                    {pendingTasks.map((task) => (
-                      <TaskItem
-                        key={task.id}
-                        task={task}
-                        onToggle={handleToggleComplete}
-                        onEdit={handleEditTask}
-                        onDelete={handleDeleteTask}
-                        onViewDetail={handleOpenDetail}
-                        getPriorityColor={getPriorityColor}
-                        formatDate={formatDate}
-                        isOverdue={isOverdue}
-                      />
-                    ))}
-                  </div>
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-24 w-full rounded-lg" />
+                  ))}
                 </div>
-              )}
+              ) : (
+                <>
+                  {/* Pending Tasks */}
+                  {pendingTasks.length > 0 && (
+                    <div className="space-y-3">
+                      <h2 className="text-lg font-semibold">Pendentes</h2>
+                      <div className="space-y-2">
+                        {pendingTasks.map((task) => (
+                          <TaskItem
+                            key={task.id}
+                            task={task}
+                            onToggle={handleToggleComplete}
+                            onEdit={handleEditTask}
+                            onDelete={handleDeleteTask}
+                            onViewDetail={handleOpenDetail}
+                            getPriorityColor={getPriorityColor}
+                            formatDate={formatDate}
+                            isOverdue={isOverdue}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-              {/* Completed Tasks */}
-              {completedTasks.length > 0 && (
-                <div className="space-y-3">
-                  <h2 className="text-lg font-semibold text-muted-foreground">
-                    Concluidas
-                  </h2>
-                  <div className="space-y-2">
-                    {completedTasks.map((task) => (
-                      <TaskItem
-                        key={task.id}
-                        task={task}
-                        onToggle={handleToggleComplete}
-                        onEdit={handleEditTask}
-                        onDelete={handleDeleteTask}
-                        onViewDetail={handleOpenDetail}
-                        getPriorityColor={getPriorityColor}
-                        formatDate={formatDate}
-                        isOverdue={isOverdue}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+                  {/* Completed Tasks */}
+                  {completedTasks.length > 0 && (
+                    <div className="space-y-3">
+                      <h2 className="text-lg font-semibold text-muted-foreground">
+                        Concluidas
+                      </h2>
+                      <div className="space-y-2">
+                        {completedTasks.map((task) => (
+                          <TaskItem
+                            key={task.id}
+                            task={task}
+                            onToggle={handleToggleComplete}
+                            onEdit={handleEditTask}
+                            onDelete={handleDeleteTask}
+                            onViewDetail={handleOpenDetail}
+                            getPriorityColor={getPriorityColor}
+                            formatDate={formatDate}
+                            isOverdue={isOverdue}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-              {tasks.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <p>Nenhuma tarefa encontrada</p>
-                </div>
+                  {tasks.length === 0 && (
+                    <div className="text-center py-12 text-muted-foreground">
+                      <p>Nenhuma tarefa encontrada</p>
+                    </div>
+                  )}
+                </>
               )}
-            </>
+            </div>
           )}
-        </div>
+        </>
       )}
 
       {/* Task Detail Dialog */}
