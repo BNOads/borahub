@@ -1,4 +1,4 @@
-import { ArrowRight, Rocket, TrendingUp } from "lucide-react";
+import { ArrowRight, Rocket, TrendingUp, Calendar, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
+import { differenceInDays, parseISO, isAfter } from "date-fns";
 
 type Funnel = Database["public"]["Tables"]["funnels"]["Row"];
 
@@ -18,8 +19,43 @@ const categoryColors: Record<string, string> = {
   "Reabertura": "border-orange-500 text-orange-500 bg-orange-500/10",
 };
 
+// Helper to calculate days until next milestone
+function getNextMilestone(funnel: Funnel): { name: string; daysUntil: number } | null {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const milestones: { name: string; date: string | null }[] = [
+    { name: "Captação", date: funnel.captacao_start },
+    { name: "Fim Captação", date: funnel.captacao_end },
+    { name: "Aquecimento", date: funnel.aquecimento_start },
+    { name: "Fim Aquecimento", date: funnel.aquecimento_end },
+    { name: "CPL", date: funnel.cpl_start },
+    { name: "Fim CPL", date: funnel.cpl_end },
+    { name: "Lembrete", date: funnel.lembrete_start },
+    { name: "Carrinho", date: funnel.carrinho_start },
+    { name: "Fechamento", date: funnel.fechamento_date },
+  ];
+
+  // Filter future milestones and sort by date
+  const futureMilestones = milestones
+    .filter(m => m.date && isAfter(parseISO(m.date), today))
+    .map(m => ({
+      name: m.name,
+      date: parseISO(m.date!),
+      daysUntil: differenceInDays(parseISO(m.date!), today),
+    }))
+    .sort((a, b) => a.daysUntil - b.daysUntil);
+
+  if (futureMilestones.length === 0) return null;
+
+  return {
+    name: futureMilestones[0].name,
+    daysUntil: futureMilestones[0].daysUntil,
+  };
+}
+
 export function ActiveLaunches() {
-  const { authReady, session } = useAuth();
+  const { authReady, session, isAdmin } = useAuth();
   const { data: funnels = [], isLoading: loading } = useQuery({
     queryKey: ['funnels', 'active', session?.user?.id],
     queryFn: async () => {
@@ -77,54 +113,75 @@ export function ActiveLaunches() {
         </div>
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
-          {funnels.map((funnel) => (
-            <div
-              key={funnel.id}
-              className="min-w-[280px] flex-shrink-0 p-4 rounded-lg border border-border hover:border-accent/50 transition-all hover:shadow-sm"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-accent/10">
-                    <Rocket className="h-4 w-4 text-accent" />
-                  </div>
-                  <div>
-                    <Link to={`/funis/${funnel.id}`} className="hover:text-accent transition-colors">
-                      <h3 className="font-medium truncate max-w-[150px]" title={funnel.name}>{funnel.name}</h3>
-                    </Link>
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(funnel.created_at).toLocaleDateString()}
-                    </p>
+          {funnels.map((funnel) => {
+            const nextMilestone = getNextMilestone(funnel);
+            
+            return (
+              <div
+                key={funnel.id}
+                className="min-w-[280px] flex-shrink-0 p-4 rounded-lg border border-border hover:border-accent/50 transition-all hover:shadow-sm"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-accent/10">
+                      <Rocket className="h-4 w-4 text-accent" />
+                    </div>
+                    <div>
+                      <Link to={`/funis/${funnel.id}`} className="hover:text-accent transition-colors">
+                        <h3 className="font-medium truncate max-w-[150px]" title={funnel.name}>{funnel.name}</h3>
+                      </Link>
+                      {funnel.product_name && (
+                        <p className="text-sm text-muted-foreground truncate max-w-[150px]" title={funnel.product_name}>
+                          {funnel.product_name}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex flex-wrap gap-2 mb-3">
-                {funnel.category && (
-                  <Badge
-                    variant="outline"
-                    className={categoryColors[funnel.category] || "border-muted-foreground text-muted-foreground"}
-                  >
-                    {funnel.category}
-                  </Badge>
-                )}
-                {funnel.product_name && (
-                  <Badge variant="outline" className="border-muted-foreground text-muted-foreground truncate max-w-[120px]">
-                    {funnel.product_name}
-                  </Badge>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center gap-1 text-accent font-semibold">
-                  <TrendingUp className="h-4 w-4" />
-                  {funnel.predicted_investment
-                    ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(funnel.predicted_investment)
-                    : "R$ 0,00"
-                  }
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {funnel.category && (
+                    <Badge
+                      variant="outline"
+                      className={categoryColors[funnel.category] || "border-muted-foreground text-muted-foreground"}
+                    >
+                      {funnel.category}
+                    </Badge>
+                  )}
                 </div>
+
+                {/* Next milestone countdown */}
+                {nextMilestone && (
+                  <div className="flex items-center gap-2 mb-3 p-2 rounded-lg bg-muted/50">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground">{nextMilestone.name}</p>
+                      <p className={`text-sm font-semibold ${nextMilestone.daysUntil <= 3 ? 'text-destructive' : nextMilestone.daysUntil <= 7 ? 'text-yellow-600' : 'text-foreground'}`}>
+                        {nextMilestone.daysUntil === 0 
+                          ? "Hoje!" 
+                          : nextMilestone.daysUntil === 1 
+                            ? "Amanhã" 
+                            : `${nextMilestone.daysUntil} dias`}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Investment - only for admins */}
+                {isAdmin && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-1 text-accent font-semibold">
+                      <TrendingUp className="h-4 w-4" />
+                      {funnel.predicted_investment
+                        ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(funnel.predicted_investment)
+                        : "R$ 0,00"
+                      }
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
