@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
     Dialog,
@@ -19,8 +19,9 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/components/ui/use-toast';
-import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, Upload, User, X } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface Department {
     id: string;
@@ -41,6 +42,9 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [departments, setDepartments] = useState<Department[]>([]);
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [formData, setFormData] = useState({
         email: '',
@@ -73,6 +77,55 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
         }
     };
 
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                toast({
+                    title: 'Arquivo muito grande',
+                    description: 'A imagem deve ter no máximo 2MB.',
+                    variant: 'destructive',
+                });
+                return;
+            }
+
+            setAvatarFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setAvatarPreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeAvatar = () => {
+        setAvatarFile(null);
+        setAvatarPreview(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const uploadAvatar = async (userId: string): Promise<string | null> => {
+        if (!avatarFile) return null;
+
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `${userId}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, avatarFile, { upsert: true });
+
+        if (uploadError) {
+            console.error('Error uploading avatar:', uploadError);
+            return null;
+        }
+
+        const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+        return data.publicUrl;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
@@ -85,13 +138,6 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
             }
 
             // Call the Edge Function to create the user
-            console.log('Calling create-user Edge Function with:', {
-                email: formData.email,
-                full_name: formData.full_name,
-                role: formData.role,
-                token: session.access_token.substring(0, 20) + '...',
-            });
-
             const response = await supabase.functions.invoke('create-user', {
                 body: {
                     email: formData.email,
@@ -106,16 +152,7 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
                 },
             });
 
-            console.log('Edge Function response:', response);
-            console.log('Edge Function data:', response.data);
-
             if (response.error) {
-                console.error('Edge Function error:', response.error);
-                // Tentar extrair mensagem de erro do contexto
-                const errorContext = (response.error as any)?.context;
-                console.error('Error context:', errorContext);
-
-                // Se tiver dados mesmo com erro, pode conter a mensagem real
                 if (response.data && response.data.error) {
                     throw new Error(response.data.error);
                 }
@@ -123,10 +160,21 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
             }
 
             const result = response.data;
-            console.log('Edge Function result:', result);
 
             if (!result || !result.success) {
                 throw new Error(result?.error || 'Erro ao criar usuário');
+            }
+
+            // Upload avatar if provided
+            if (avatarFile && result.user?.id) {
+                const avatarUrl = await uploadAvatar(result.user.id);
+                if (avatarUrl) {
+                    // Update the profile with the avatar URL using admin-level access
+                    await supabase
+                        .from('profiles')
+                        .update({ avatar_url: avatarUrl })
+                        .eq('id', result.user.id);
+                }
             }
 
             toast({
@@ -142,11 +190,12 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
             onSuccess();
             onOpenChange(false);
             resetForm();
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro ao criar o usuário.';
             console.error('Error creating user:', error);
             toast({
                 title: 'Erro ao criar usuário',
-                description: error.message || 'Ocorreu um erro ao criar o usuário.',
+                description: errorMessage,
                 variant: 'destructive',
             });
         } finally {
@@ -163,6 +212,17 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
             job_title: '',
             role: 'collaborator',
         });
+        setAvatarFile(null);
+        setAvatarPreview(null);
+    };
+
+    const getInitials = (name: string) => {
+        return name
+            .split(' ')
+            .map((n) => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
     };
 
     return (
@@ -177,6 +237,47 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">
+                        {/* Avatar Upload */}
+                        <div className="flex flex-col items-center gap-3">
+                            <div className="relative">
+                                <Avatar className="w-20 h-20">
+                                    <AvatarImage src={avatarPreview || undefined} />
+                                    <AvatarFallback className="bg-muted text-muted-foreground text-lg">
+                                        {formData.full_name ? getInitials(formData.full_name) : <User className="w-8 h-8" />}
+                                    </AvatarFallback>
+                                </Avatar>
+                                {avatarPreview && (
+                                    <button
+                                        type="button"
+                                        onClick={removeAvatar}
+                                        className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-1 hover:bg-destructive/90"
+                                    >
+                                        <X className="w-3 h-3" />
+                                    </button>
+                                )}
+                            </div>
+                            <div>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleAvatarChange}
+                                    className="hidden"
+                                    id="avatar-upload"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isLoading}
+                                >
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    {avatarPreview ? 'Trocar foto' : 'Adicionar foto'}
+                                </Button>
+                            </div>
+                        </div>
+
                         <div className="space-y-2">
                             <Label htmlFor="email">Email *</Label>
                             <Input
@@ -227,6 +328,7 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
                                     <SelectValue placeholder="Selecione um departamento" />
                                 </SelectTrigger>
                                 <SelectContent>
+                                    <SelectItem value="none">Nenhum</SelectItem>
                                     {departments.map((dept) => (
                                         <SelectItem key={dept.id} value={dept.id}>
                                             {dept.name}
