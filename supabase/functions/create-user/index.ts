@@ -23,18 +23,16 @@ serve(async (req) => {
   }
 
   try {
-    // Get the authorization header to verify the requester
+    // Get the authorization header
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Missing authorization header");
+    if (!authHeader?.startsWith("Bearer ")) {
+      throw new Error("Missing or invalid authorization header");
     }
 
-    // Create Supabase client with the user's token to verify they're admin
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-    // Validate environment variables
     if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
       console.error("Missing env vars:", {
         hasUrl: !!supabaseUrl,
@@ -44,24 +42,24 @@ serve(async (req) => {
       throw new Error("Server configuration error: Missing environment variables");
     }
 
-    // Client with user token to get the user
+    // Create client with user's auth header to validate token
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify the requester's token
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-    if (userError) {
-      console.error("User error:", userError);
-      throw new Error(`Unauthorized: ${userError.message}`);
-    }
-    if (!user) {
-      throw new Error("Unauthorized: No user found");
+    // Validate the JWT token using getClaims
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseUser.auth.getClaims(token);
+
+    if (claimsError || !claimsData?.claims) {
+      console.error("Claims error:", claimsError);
+      throw new Error("Unauthorized: Invalid token");
     }
 
-    console.log("User authenticated:", user.id, user.email);
+    const userId = claimsData.claims.sub;
+    console.log("User authenticated via claims:", userId);
 
-    // Create admin client to bypass RLS when checking profile
+    // Create admin client to bypass RLS
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -69,26 +67,32 @@ serve(async (req) => {
       },
     });
 
-    // Use admin client to check profile (bypasses RLS)
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("role, is_active, email")
-      .eq("id", user.id)
+    // Check if user is admin using admin client
+    const { data: roleData, error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
       .single();
 
-    console.log("Profile query result:", { profile, profileError });
+    if (roleError) {
+      console.error("Role error:", roleError);
+      throw new Error("Failed to verify user role");
+    }
 
-    if (profileError) {
+    if (roleData?.role !== "admin") {
+      throw new Error(`Unauthorized: User is not an admin (role: ${roleData?.role})`);
+    }
+
+    // Verify user is active
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("is_active, email")
+      .eq("id", userId)
+      .single();
+
+    if (profileError || !profile) {
       console.error("Profile error:", profileError);
-      throw new Error(`Profile not found: ${profileError.message}`);
-    }
-
-    if (!profile) {
-      throw new Error("Profile not found for user: " + user.email);
-    }
-
-    if (profile.role !== "admin") {
-      throw new Error(`Unauthorized: User ${profile.email} is not an admin (role: ${profile.role})`);
+      throw new Error("Profile not found");
     }
 
     if (!profile.is_active) {
@@ -108,7 +112,7 @@ serve(async (req) => {
     // Generate initial password from email
     const initialPassword = email.split("@")[0];
 
-    // Create the user (supabaseAdmin already created above)
+    // Create the user
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: initialPassword,
@@ -127,7 +131,9 @@ serve(async (req) => {
       throw new Error("Failed to create user: No user returned");
     }
 
-    // Try to create or update the profile manually (in case trigger didn't work)
+    console.log("User created:", authData.user.id);
+
+    // Create or update the profile
     const { error: upsertError } = await supabaseAdmin
       .from("profiles")
       .upsert({
@@ -135,9 +141,8 @@ serve(async (req) => {
         email: email,
         full_name,
         display_name: display_name || full_name,
-        department: department || null,
+        department_id: department || null,
         job_title: job_title || null,
-        role,
         must_change_password: true,
         is_active: true,
       }, {
@@ -146,15 +151,28 @@ serve(async (req) => {
 
     if (upsertError) {
       console.error("Failed to upsert profile:", upsertError);
-      // Don't throw - user was created, profile might exist from trigger
     }
 
-    // Log the activity (ignore errors)
+    // Assign role in user_roles table
+    const { error: roleInsertError } = await supabaseAdmin
+      .from("user_roles")
+      .upsert({
+        user_id: authData.user.id,
+        role: role,
+      }, {
+        onConflict: 'user_id'
+      });
+
+    if (roleInsertError) {
+      console.error("Failed to insert role:", roleInsertError);
+    }
+
+    // Log the activity
     try {
       await supabaseAdmin
         .from("activity_logs")
         .insert({
-          user_id: user.id, // admin who created the user
+          user_id: userId,
           action: "user_created",
           entity_type: "user",
           entity_id: authData.user.id,

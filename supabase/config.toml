@@ -1,1 +1,10 @@
-project_id = "qxqvwqrfweadlnxfargy"
+project_id = "xvgermmegyipzmiwewzo"
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.reset-password]
+verify_jwt = false
+
+[functions.bootstrap-admin]
+verify_jwt = false
