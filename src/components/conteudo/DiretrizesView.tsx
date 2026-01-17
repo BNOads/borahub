@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     FileText,
     Edit3,
@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useContentSetting, useUpdateContentSetting } from "@/hooks/useContentSettings";
 
 const DEFAULT_DIRETRIZES = `# Diretrizes de Criação de Conteúdo
 
@@ -114,22 +115,27 @@ interface DiretrizesViewProps {
 }
 
 export function DiretrizesView({ className }: DiretrizesViewProps) {
+    const { data: setting, isLoading: loading } = useContentSetting("diretrizes");
+    const updateSetting = useUpdateContentSetting();
+
     const [isEditing, setIsEditing] = useState(false);
-    const [content, setContent] = useState(DEFAULT_DIRETRIZES);
-    const [editContent, setEditContent] = useState(DEFAULT_DIRETRIZES);
-    const [saving, setSaving] = useState(false);
+    const [editContent, setEditContent] = useState("");
+
+    const content = setting?.value || DEFAULT_DIRETRIZES;
+    const saving = updateSetting.isPending;
+
+    useEffect(() => {
+        setEditContent(content);
+    }, [content]);
 
     async function handleSave() {
         try {
-            setSaving(true);
-            // Salva localmente já que a tabela content_settings não existe
-            setContent(editContent);
+            await updateSetting.mutateAsync({ key: "diretrizes", value: editContent });
             setIsEditing(false);
             toast.success("Diretrizes salvas com sucesso!");
-        } catch (error: any) {
-            toast.error("Erro ao salvar diretrizes: " + error.message);
-        } finally {
-            setSaving(false);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Erro desconhecido";
+            toast.error("Erro ao salvar diretrizes: " + message);
         }
     }
 
@@ -231,6 +237,14 @@ export function DiretrizesView({ className }: DiretrizesViewProps) {
 
         flushList();
         return elements;
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-[500px]">
+                <Loader2 className="h-8 w-8 animate-spin text-accent" />
+            </div>
+        );
     }
 
     return (

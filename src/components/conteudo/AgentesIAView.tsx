@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
     Bot,
     Plus,
@@ -17,6 +16,7 @@ import {
     ExternalLink,
     Link as LinkIcon
 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useIAAgents, useCreateIAAgent, useUpdateIAAgent, useDeleteIAAgent, type IAAgent } from "@/hooks/useIAAgents";
 
 const AGENT_TYPES = {
     'Copywriter': { icon: PenTool, color: 'bg-purple-500', description: 'Criação de textos e legendas' },
@@ -52,46 +53,26 @@ const AGENT_TYPES = {
     'Outro': { icon: Sparkles, color: 'bg-slate-500', description: 'Outros tipos de assistência' },
 };
 
-interface IAAgent {
-    id: string;
-    name: string;
-    type: string;
-    description: string;
-    link: string;
-    created_at: string;
-    updated_at: string;
-}
-
 interface AgentesIAViewProps {
     className?: string;
 }
 
-// Mock data - tabela ia_agents não existe no banco externo
-const mockAgents: IAAgent[] = [
-    {
-        id: '1',
-        name: 'Assistente de Copywriting',
-        type: 'Copywriter',
-        description: 'Ajuda na criação de textos e legendas para posts',
-        link: 'https://chat.openai.com',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-    },
-];
-
 export function AgentesIAView({ className }: AgentesIAViewProps) {
-    const [agents, setAgents] = useState<IAAgent[]>(mockAgents);
-    const [loading] = useState(false);
+    const { data: agents = [], isLoading: loading } = useIAAgents();
+    const createAgent = useCreateIAAgent();
+    const updateAgent = useUpdateIAAgent();
+    const deleteAgent = useDeleteIAAgent();
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAgent, setEditingAgent] = useState<IAAgent | null>(null);
-    const [saving, setSaving] = useState(false);
+    const saving = createAgent.isPending || updateAgent.isPending;
 
     // Form state
     const [formData, setFormData] = useState({
         name: '',
         type: 'Copywriter',
         description: '',
-        link: ''
+        prompt: ''
     });
 
     function handleOpenModal(agent?: IAAgent) {
@@ -99,9 +80,9 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
             setEditingAgent(agent);
             setFormData({
                 name: agent.name,
-                type: agent.type,
-                description: agent.description,
-                link: agent.link
+                type: agent.type || 'Copywriter',
+                description: agent.description || '',
+                prompt: agent.prompt
             });
         } else {
             setEditingAgent(null);
@@ -109,7 +90,7 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
                 name: '',
                 type: 'Copywriter',
                 description: '',
-                link: ''
+                prompt: ''
             });
         }
         setIsModalOpen(true);
@@ -122,7 +103,7 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
             name: '',
             type: 'Copywriter',
             description: '',
-            link: ''
+            prompt: ''
         });
     }
 
@@ -131,47 +112,47 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
             toast.error("Nome do agente é obrigatório");
             return;
         }
-        if (!formData.link.trim()) {
-            toast.error("Link do agente é obrigatório");
+        if (!formData.prompt.trim()) {
+            toast.error("Link/Prompt do agente é obrigatório");
             return;
         }
 
         try {
-            setSaving(true);
-
             if (editingAgent) {
-                // Atualiza localmente
-                setAgents(prev => prev.map(a => 
-                    a.id === editingAgent.id 
-                        ? { ...a, ...formData, updated_at: new Date().toISOString() }
-                        : a
-                ));
+                await updateAgent.mutateAsync({
+                    id: editingAgent.id,
+                    name: formData.name,
+                    type: formData.type,
+                    description: formData.description,
+                    prompt: formData.prompt,
+                });
                 toast.success("Agente atualizado com sucesso!");
             } else {
-                // Adiciona localmente
-                const newAgent: IAAgent = {
-                    id: crypto.randomUUID(),
-                    ...formData,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                };
-                setAgents(prev => [newAgent, ...prev]);
+                await createAgent.mutateAsync({
+                    name: formData.name,
+                    type: formData.type,
+                    description: formData.description,
+                    prompt: formData.prompt,
+                });
                 toast.success("Agente criado com sucesso!");
             }
-
             handleCloseModal();
-        } catch (error: any) {
-            toast.error("Erro ao salvar agente: " + error.message);
-        } finally {
-            setSaving(false);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Erro desconhecido";
+            toast.error("Erro ao salvar agente: " + message);
         }
     }
 
-    function handleDelete(agent: IAAgent) {
+    async function handleDelete(agent: IAAgent) {
         if (!confirm(`Tem certeza que deseja excluir o agente "${agent.name}"?`)) return;
 
-        setAgents(prev => prev.filter(a => a.id !== agent.id));
-        toast.success("Agente excluído com sucesso!");
+        try {
+            await deleteAgent.mutateAsync(agent.id);
+            toast.success("Agente excluído com sucesso!");
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Erro desconhecido";
+            toast.error("Erro ao excluir agente: " + message);
+        }
     }
 
     function handleOpenLink(link: string) {
@@ -245,7 +226,7 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
                                         <div>
                                             <h3 className="font-black text-sm tracking-tight">{agent.name}</h3>
                                             <Badge variant="outline" className="text-[9px] font-bold mt-1 border-accent/20">
-                                                {agent.type}
+                                                {agent.type || 'Outro'}
                                             </Badge>
                                         </div>
                                     </div>
@@ -260,7 +241,7 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="rounded-xl">
-                                            <DropdownMenuItem onClick={() => handleOpenLink(agent.link)} className="gap-2">
+                                            <DropdownMenuItem onClick={() => handleOpenLink(agent.prompt)} className="gap-2">
                                                 <ExternalLink className="h-4 w-4" />
                                                 Acessar
                                             </DropdownMenuItem>
@@ -289,7 +270,7 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
                                         <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Link</span>
                                     </div>
                                     <p className="text-[11px] text-muted-foreground/80 truncate">
-                                        {agent.link}
+                                        {agent.prompt}
                                     </p>
                                 </div>
 
@@ -298,7 +279,7 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
                                         variant="default"
                                         size="sm"
                                         className="flex-1 rounded-xl h-9 text-xs font-bold gap-1.5"
-                                        onClick={() => handleOpenLink(agent.link)}
+                                        onClick={() => handleOpenLink(agent.prompt)}
                                     >
                                         <ExternalLink className="h-3 w-3" />
                                         Acessar Agente
@@ -389,14 +370,14 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
                                 Link do Agente
                             </label>
                             <Input
-                                value={formData.link}
-                                onChange={(e) => setFormData(prev => ({ ...prev, link: e.target.value }))}
+                                value={formData.prompt}
+                                onChange={(e) => setFormData(prev => ({ ...prev, prompt: e.target.value }))}
                                 placeholder="https://..."
                                 className="rounded-xl h-11 border-accent/10"
                             />
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-4">
+                        <div className="flex justify-end gap-3 pt-4 border-t border-accent/10">
                             <Button
                                 variant="ghost"
                                 className="rounded-xl"
@@ -406,7 +387,6 @@ export function AgentesIAView({ className }: AgentesIAViewProps) {
                                 Cancelar
                             </Button>
                             <Button
-                                variant="default"
                                 className="rounded-xl gap-2 font-black"
                                 onClick={handleSave}
                                 disabled={saving}

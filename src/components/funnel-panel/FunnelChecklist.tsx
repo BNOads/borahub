@@ -4,43 +4,63 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { CheckSquare, Plus, Trash2 } from "lucide-react";
-import { FunnelChecklistItem } from "./types";
+import { CheckSquare, Plus, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { 
+  useFunnelChecklist, 
+  useCreateChecklistItem, 
+  useUpdateChecklistItem, 
+  useDeleteChecklistItem 
+} from "@/hooks/useFunnelExtras";
 
 interface FunnelChecklistProps {
   funnelId: string;
 }
 
 export function FunnelChecklist({ funnelId }: FunnelChecklistProps) {
-  const [items, setItems] = useState<FunnelChecklistItem[]>([]);
+  const { data: items = [], isLoading } = useFunnelChecklist(funnelId);
+  const createItem = useCreateChecklistItem();
+  const updateItem = useUpdateChecklistItem();
+  const deleteItem = useDeleteChecklistItem();
+
   const [newItem, setNewItem] = useState("");
 
-  const toggleItem = (item: FunnelChecklistItem) => {
-    setItems(items.map((i) => (i.id === item.id ? { ...i, is_completed: !i.is_completed } : i)));
+  const toggleItem = async (item: { id: string; is_completed: boolean | null }) => {
+    try {
+      await updateItem.mutateAsync({
+        id: item.id,
+        funnelId,
+        is_completed: !item.is_completed,
+      });
+    } catch {
+      toast.error("Erro ao atualizar item");
+    }
   };
 
-  const addItem = () => {
+  const addItem = async () => {
     if (!newItem.trim()) return;
-    const maxOrder = items.length > 0 ? Math.max(...items.map((i) => i.order_index)) : -1;
-    const newChecklistItem: FunnelChecklistItem = {
-      id: crypto.randomUUID(),
-      funnel_id: funnelId,
-      title: newItem.trim(),
-      description: null,
-      is_completed: false,
-      order_index: maxOrder + 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    setItems([...items, newChecklistItem]);
-    setNewItem("");
-    toast.success("Item adicionado!");
+
+    try {
+      const maxOrder = items.length > 0 ? Math.max(...items.map((i) => i.order_index || 0)) : -1;
+      await createItem.mutateAsync({
+        funnel_id: funnelId,
+        title: newItem.trim(),
+        order_index: maxOrder + 1,
+      });
+      setNewItem("");
+      toast.success("Item adicionado!");
+    } catch {
+      toast.error("Erro ao adicionar item");
+    }
   };
 
-  const deleteItem = (id: string) => {
-    setItems(items.filter((i) => i.id !== id));
-    toast.success("Item removido!");
+  const handleDeleteItem = async (id: string) => {
+    try {
+      await deleteItem.mutateAsync({ id, funnelId });
+      toast.success("Item removido!");
+    } catch {
+      toast.error("Erro ao remover item");
+    }
   };
 
   const completedCount = items.filter((i) => i.is_completed).length;
@@ -68,12 +88,24 @@ export function FunnelChecklist({ funnelId }: FunnelChecklistProps) {
             placeholder="Adicionar item..."
             onKeyDown={(e) => e.key === "Enter" && addItem()}
           />
-          <Button size="icon" onClick={addItem} disabled={!newItem.trim()}>
-            <Plus className="h-4 w-4" />
+          <Button 
+            size="icon" 
+            onClick={addItem} 
+            disabled={!newItem.trim() || createItem.isPending}
+          >
+            {createItem.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
           </Button>
         </div>
 
-        {items.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-accent" />
+          </div>
+        ) : items.length === 0 ? (
           <div className="text-center py-6 text-muted-foreground">
             <CheckSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p>Checklist vazio</p>
@@ -86,7 +118,7 @@ export function FunnelChecklist({ funnelId }: FunnelChecklistProps) {
                 className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent/5 transition-colors group border border-transparent hover:border-border"
               >
                 <Checkbox
-                  checked={item.is_completed}
+                  checked={item.is_completed || false}
                   onCheckedChange={() => toggleItem(item)}
                   className="mt-0.5"
                 />
@@ -99,7 +131,7 @@ export function FunnelChecklist({ funnelId }: FunnelChecklistProps) {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive flex-shrink-0"
-                  onClick={() => deleteItem(item.id)}
+                  onClick={() => handleDeleteItem(item.id)}
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
