@@ -104,7 +104,7 @@ export default function Perfil() {
 
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
-        .from('profile_icons')
+        .from('avatars')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true,
@@ -114,7 +114,7 @@ export default function Perfil() {
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('profile_icons')
+        .from('avatars')
         .getPublicUrl(filePath);
 
       console.log('Avatar URL:', publicUrl);
