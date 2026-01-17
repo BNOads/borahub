@@ -3,6 +3,7 @@ import { useEvents, useDeleteEvent, type Event } from "@/hooks/useEvents";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Calendar,
   Plus,
@@ -14,13 +15,20 @@ import {
   Edit,
   Trash2,
   X,
+  CalendarDays,
+  CalendarRange,
+  LayoutGrid,
 } from "lucide-react";
 import { RecurrenceType, RECURRENCE_LABELS } from "@/types/tasks";
 import { useToast } from "@/components/ui/use-toast";
 import { EventModal } from "@/components/events/EventModal";
 import { YearCalendar } from "@/components/calendar/YearCalendar";
+import { MonthCalendar } from "@/components/calendar/MonthCalendar";
+import { WeekCalendar } from "@/components/calendar/WeekCalendar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+
+type ViewMode = "year" | "month" | "week";
 
 const eventTypeColors: Record<string, string> = {
   reuniao: "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -45,6 +53,8 @@ export default function Agenda() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [defaultDate, setDefaultDate] = useState<string | undefined>();
+  const [viewMode, setViewMode] = useState<ViewMode>("year");
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const { data: events = [], isLoading } = useEvents();
   const deleteEvent = useDeleteEvent();
@@ -137,25 +147,70 @@ export default function Agenda() {
             {events.length} evento(s) cadastrado(s)
           </p>
         </div>
-        {isAdmin && (
-          <Button onClick={() => handleNewEvent()} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Novo Evento
-          </Button>
-        )}
+        <div className="flex items-center gap-3">
+          <ToggleGroup
+            type="single"
+            value={viewMode}
+            onValueChange={(value) => value && setViewMode(value as ViewMode)}
+            className="bg-muted/50 p-1 rounded-lg"
+          >
+            <ToggleGroupItem value="week" aria-label="Semana" className="gap-1.5 px-3">
+              <CalendarDays className="h-4 w-4" />
+              <span className="hidden sm:inline">Semana</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="month" aria-label="Mês" className="gap-1.5 px-3">
+              <CalendarRange className="h-4 w-4" />
+              <span className="hidden sm:inline">Mês</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="year" aria-label="Ano" className="gap-1.5 px-3">
+              <LayoutGrid className="h-4 w-4" />
+              <span className="hidden sm:inline">Ano</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
+          {isAdmin && (
+            <Button onClick={() => handleNewEvent()} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Novo Evento
+            </Button>
+          )}
+        </div>
       </div>
 
-      <div className="grid lg:grid-cols-[1fr,320px] gap-6">
+      <div className={cn(
+        "grid gap-6",
+        viewMode === "week" ? "" : "lg:grid-cols-[1fr,320px]"
+      )}>
         {/* Calendario */}
         <div className="bg-card/30 rounded-2xl border p-4">
-          <YearCalendar
-            events={events}
-            onDateClick={handleDateClick}
-            onEventClick={handleEventClick}
-          />
+          {viewMode === "year" && (
+            <YearCalendar
+              events={events}
+              onDateClick={handleDateClick}
+              onEventClick={handleEventClick}
+            />
+          )}
+          {viewMode === "month" && (
+            <MonthCalendar
+              events={events}
+              currentDate={currentDate}
+              onDateChange={setCurrentDate}
+              onDateClick={handleDateClick}
+              onEventClick={handleEventClick}
+            />
+          )}
+          {viewMode === "week" && (
+            <WeekCalendar
+              events={events}
+              currentDate={currentDate}
+              onDateChange={setCurrentDate}
+              onDateClick={handleDateClick}
+              onEventClick={handleEventClick}
+            />
+          )}
         </div>
 
         {/* Painel lateral - eventos do dia */}
+        {viewMode !== "week" && (
         <div className="bg-card rounded-2xl border">
           {selectedDate ? (
             <>
@@ -352,6 +407,7 @@ export default function Agenda() {
             </div>
           )}
         </div>
+        )}
       </div>
 
       <EventModal
