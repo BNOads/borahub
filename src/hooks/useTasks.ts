@@ -299,13 +299,13 @@ export function useToggleTaskComplete() {
   });
 }
 
-export function useUserTasks(userId: string | null) {
+export function useUserTasks(userFullName: string | null) {
   const { authReady, session } = useAuth();
 
   return useQuery({
-    queryKey: taskKeys.byUser(userId ?? ""),
+    queryKey: taskKeys.byUser(userFullName ?? ""),
     queryFn: async () => {
-      console.log("🔥 loadData disparado useUserTasks", session?.user?.id);
+      console.log("🔥 loadData disparado useUserTasks", userFullName);
       try {
         const { data, error } = await supabase
           .from("tasks")
@@ -313,7 +313,7 @@ export function useUserTasks(userId: string | null) {
             id, title, description, priority, category, assignee, due_date, due_time, completed, position, created_at, updated_at, completed_at,
             subtasks (id, title, completed)
           `)
-          .eq("assignee", userId)
+          .eq("assignee", userFullName)
           .order("completed", { ascending: true })
           .order("due_date", { ascending: true, nullsFirst: false })
           .order("created_at", { ascending: false });
@@ -336,7 +336,7 @@ export function useUserTasks(userId: string | null) {
         return [];
       }
     },
-    enabled: authReady && !!session && !!userId,
+    enabled: authReady && !!session && !!userFullName,
     retry: 1,
     staleTime: 5 * 60 * 1000,
   });
