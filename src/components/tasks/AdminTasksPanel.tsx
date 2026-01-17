@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   ChartContainer,
   ChartTooltip,
@@ -17,19 +17,19 @@ import { Link } from "react-router-dom";
 
 interface AdminTasksPanelProps {
   tasks: TaskWithSubtasks[];
-  users: { id: string; full_name: string; display_name: string | null }[];
+  users: { id: string; full_name: string; display_name: string | null; avatar_url?: string | null }[];
   isLoading: boolean;
 }
 
 const CHART_COLORS = [
-  "hsl(var(--primary))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-  "hsl(142, 76%, 36%)",
-  "hsl(262, 83%, 58%)",
-  "hsl(30, 100%, 50%)",
+  "hsl(221, 83%, 53%)",   // Blue
+  "hsl(142, 76%, 36%)",   // Green
+  "hsl(30, 100%, 50%)",   // Orange
+  "hsl(280, 87%, 65%)",   // Purple
+  "hsl(350, 89%, 60%)",   // Red/Pink
+  "hsl(190, 95%, 39%)",   // Cyan
+  "hsl(45, 93%, 47%)",    // Yellow
+  "hsl(330, 81%, 60%)",   // Magenta
 ];
 
 export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProps) {
@@ -295,12 +295,17 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
                 ? Math.round((completedTasks.length / userTasks.length) * 100)
                 : 0;
 
+              // Find user by full_name to get avatar_url
+              const user = users.find((u) => u.full_name === assignee);
+              const avatarUrl = user?.avatar_url;
+
               return (
                 <Card key={assignee} className="overflow-hidden">
                   <CardHeader className="pb-3 bg-muted/30">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10">
+                          {avatarUrl && <AvatarImage src={avatarUrl} alt={assignee} />}
                           <AvatarFallback className="bg-primary/10 text-primary font-medium">
                             {assignee.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
                           </AvatarFallback>
