@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar } from "lucide-react";
+import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar, ChevronDown, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,6 +10,7 @@ import { useTasks, useToggleTaskComplete } from "@/hooks/useTasks";
 import { useToast } from "@/hooks/use-toast";
 import type { TaskWithSubtasks, TaskStatus, RecurrenceType } from "@/types/tasks";
 import { RECURRENCE_LABELS } from "@/types/tasks";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const priorityColors = {
   alta: "bg-destructive/10 text-destructive border-destructive/20",
@@ -26,6 +28,19 @@ export function TodaysTasks() {
   const { toast } = useToast();
   const { data: tasks = [], isLoading } = useTasks();
   const toggleComplete = useToggleTaskComplete();
+
+  // State for collapsible sections - all collapsed by default
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    overdue: false,
+    today: false,
+    upcoming: false,
+    "no-date": false,
+    completed: false,
+  });
+
+  const toggleSection = (section: string) => {
+    setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
 
   const getTaskStatus = (task: TaskWithSubtasks): TaskStatus => {
     if (!task.due_date) return "no-date";
@@ -111,110 +126,115 @@ export function TodaysTasks() {
           </Button>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Overdue tasks */}
           {groupedTasks.overdue.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
+            <Collapsible open={openSections.overdue} onOpenChange={() => toggleSection("overdue")}>
+              <CollapsibleTrigger className="flex items-center gap-2 w-full hover:bg-muted/50 rounded-lg p-2 -ml-2 transition-colors">
+                {openSections.overdue ? (
+                  <ChevronDown className="h-4 w-4 text-destructive" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-destructive" />
+                )}
                 <AlertCircle className="h-4 w-4 text-destructive" />
                 <span className="text-sm font-medium text-destructive">
                   Em atraso ({groupedTasks.overdue.length})
                 </span>
-              </div>
-              <div className="space-y-2">
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-2 mt-2">
                 {groupedTasks.overdue.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={handleToggle}
-                  />
+                  <TaskItem key={task.id} task={task} onToggle={handleToggle} />
                 ))}
-              </div>
-            </div>
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {/* Today's tasks */}
           {groupedTasks.today.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
+            <Collapsible open={openSections.today} onOpenChange={() => toggleSection("today")}>
+              <CollapsibleTrigger className="flex items-center gap-2 w-full hover:bg-muted/50 rounded-lg p-2 -ml-2 transition-colors">
+                {openSections.today ? (
+                  <ChevronDown className="h-4 w-4 text-accent" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-accent" />
+                )}
                 <Clock className="h-4 w-4 text-accent" />
                 <span className="text-sm font-medium">
                   Hoje ({groupedTasks.today.length})
                 </span>
-              </div>
-              <div className="space-y-2">
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-2 mt-2">
                 {groupedTasks.today.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={handleToggle}
-                  />
+                  <TaskItem key={task.id} task={task} onToggle={handleToggle} />
                 ))}
-              </div>
-            </div>
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {/* Upcoming tasks */}
           {groupedTasks.upcoming.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
+            <Collapsible open={openSections.upcoming} onOpenChange={() => toggleSection("upcoming")}>
+              <CollapsibleTrigger className="flex items-center gap-2 w-full hover:bg-muted/50 rounded-lg p-2 -ml-2 transition-colors">
+                {openSections.upcoming ? (
+                  <ChevronDown className="h-4 w-4 text-blue-500" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-blue-500" />
+                )}
                 <Clock className="h-4 w-4 text-blue-500" />
                 <span className="text-sm font-medium">
                   Próximas ({groupedTasks.upcoming.length})
                 </span>
-              </div>
-              <div className="space-y-2">
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-2 mt-2">
                 {groupedTasks.upcoming.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={handleToggle}
-                  />
+                  <TaskItem key={task.id} task={task} onToggle={handleToggle} />
                 ))}
-              </div>
-            </div>
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {/* No date tasks */}
           {groupedTasks["no-date"].length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
+            <Collapsible open={openSections["no-date"]} onOpenChange={() => toggleSection("no-date")}>
+              <CollapsibleTrigger className="flex items-center gap-2 w-full hover:bg-muted/50 rounded-lg p-2 -ml-2 transition-colors">
+                {openSections["no-date"] ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-muted-foreground">
                   Sem data ({groupedTasks["no-date"].length})
                 </span>
-              </div>
-              <div className="space-y-2">
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-2 mt-2">
                 {groupedTasks["no-date"].map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={handleToggle}
-                  />
+                  <TaskItem key={task.id} task={task} onToggle={handleToggle} />
                 ))}
-              </div>
-            </div>
+              </CollapsibleContent>
+            </Collapsible>
           )}
 
           {/* Completed tasks */}
           {groupedTasks.completed.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-3">
+            <Collapsible open={openSections.completed} onOpenChange={() => toggleSection("completed")}>
+              <CollapsibleTrigger className="flex items-center gap-2 w-full hover:bg-muted/50 rounded-lg p-2 -ml-2 transition-colors">
+                {openSections.completed ? (
+                  <ChevronDown className="h-4 w-4 text-success" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-success" />
+                )}
                 <CheckCircle2 className="h-4 w-4 text-success" />
                 <span className="text-sm font-medium text-success">
                   Concluidas ({groupedTasks.completed.length})
                 </span>
-              </div>
-              <div className="space-y-2">
+              </CollapsibleTrigger>
+              <CollapsibleContent className="space-y-2 mt-2">
                 {groupedTasks.completed.map((task) => (
-                  <TaskItem
-                    key={task.id}
-                    task={task}
-                    onToggle={handleToggle}
-                  />
+                  <TaskItem key={task.id} task={task} onToggle={handleToggle} />
                 ))}
-              </div>
-            </div>
+              </CollapsibleContent>
+            </Collapsible>
           )}
         </div>
       )}

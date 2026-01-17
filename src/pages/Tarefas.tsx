@@ -100,6 +100,7 @@ export default function Tarefas() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [previousAssignee, setPreviousAssignee] = useState<string | null>(null);
   const [formData, setFormData] = useState<TaskFormData>(emptyFormData);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [tabView, setTabView] = useState<TabView>("tasks");
@@ -161,6 +162,7 @@ export default function Tarefas() {
 
   const handleEditTask = (task: TaskWithSubtasks) => {
     setEditingTaskId(task.id);
+    setPreviousAssignee(task.assignee || null);
     setFormData({
       title: task.title,
       description: task.description || "",
@@ -218,6 +220,8 @@ export default function Tarefas() {
             recurrence: formData.recurrence,
             recurrence_end_date: formData.recurrenceEndDate || null,
           },
+          previousAssignee,
+          taskTitle: formData.title,
         });
         toast({ title: "Tarefa atualizada" });
       } else {
@@ -246,6 +250,7 @@ export default function Tarefas() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingTaskId(null);
+    setPreviousAssignee(null);
     setFormData(emptyFormData);
   };
 

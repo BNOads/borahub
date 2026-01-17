@@ -140,6 +140,8 @@ export function TaskDetailDialog({
           assignee: formData.assignee.trim(),
           due_date: formData.dueDate,
         },
+        previousAssignee: task.assignee,
+        taskTitle: formData.title.trim(),
       });
       setIsEditing(false);
       toast({ title: "Tarefa atualizada" });

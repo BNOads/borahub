@@ -170,7 +170,17 @@ export function useUpdateTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: TaskUpdate }) => {
+    mutationFn: async ({ 
+      id, 
+      updates, 
+      previousAssignee,
+      taskTitle 
+    }: { 
+      id: string; 
+      updates: TaskUpdate;
+      previousAssignee?: string | null;
+      taskTitle?: string;
+    }) => {
       const { data, error } = await supabase
         .from("tasks")
         .update({
@@ -182,6 +192,28 @@ export function useUpdateTask() {
         .single();
 
       if (error) throw error;
+      
+      // If assignee changed, send notification to the new assignee
+      if (updates.assignee && updates.assignee !== previousAssignee) {
+        // Find user id by full_name
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("full_name", updates.assignee)
+          .single();
+        
+        if (profileData?.id) {
+          await supabase
+            .from("notifications")
+            .insert({
+              title: "Nova tarefa atribuída",
+              message: `Você foi atribuído à tarefa: "${taskTitle || data.title}"`,
+              type: "info",
+              recipient_id: profileData.id,
+            });
+        }
+      }
+      
       return data as Task;
     },
     onSuccess: (_, variables) => {
