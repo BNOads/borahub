@@ -108,16 +108,26 @@ export default function Tarefas() {
   // Buscar perfil do usuário atual
   const { profile } = useAuth();
 
-  // Filtrar por assignee automaticamente para não-admins
+  // Para não-admins, buscar tarefas que contenham o nome do usuário
+  const userAssigneeName = profile?.display_name || profile?.full_name || "";
+
   const filters = {
     search: searchQuery,
     priority: filterPriority as TaskPriority | "all",
     category: filterCategory,
-    // Se não for admin, filtrar apenas tarefas do próprio usuário
-    assignee: isAdmin ? "all" : (profile?.full_name || ""),
+    // Admin vê todas, usuário comum vê só as suas
+    assignee: "all",
   };
 
-  const { data: tasks = [], isLoading, error } = useTasks(filters);
+  const { data: allTasks = [], isLoading, error } = useTasks(filters);
+  
+  // Filtrar tarefas localmente para não-admins (busca parcial no nome)
+  const tasks = isAdmin 
+    ? allTasks 
+    : allTasks.filter(t => 
+        t.assignee?.toLowerCase().includes(userAssigneeName.toLowerCase()) ||
+        userAssigneeName.toLowerCase().includes(t.assignee?.toLowerCase() || "")
+      );
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
