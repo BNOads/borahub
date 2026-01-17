@@ -29,14 +29,18 @@ import {
   Edit,
   Save,
   X,
+  CheckCircle2,
 } from "lucide-react";
-import { useTask, useUpdateTask } from "@/hooks/useTasks";
+import { useTask, useUpdateTask, useToggleTaskComplete } from "@/hooks/useTasks";
 import { SubtaskList } from "./SubtaskList";
 import { CommentSection } from "./CommentSection";
 import { HistoryTimeline } from "./HistoryTimeline";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import type { TaskPriority } from "@/types/tasks";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface TaskDetailDialogProps {
   taskId: string | null;
@@ -59,8 +63,26 @@ export function TaskDetailDialog({
   onOpenChange,
 }: TaskDetailDialogProps) {
   const { toast } = useToast();
+  const { authReady, session } = useAuth();
   const { data: task, isLoading } = useTask(taskId);
   const updateTask = useUpdateTask();
+  const toggleComplete = useToggleTaskComplete();
+
+  // Fetch real users from database
+  const { data: users = [] } = useQuery({
+    queryKey: ["profiles-for-task-detail"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, display_name")
+        .eq("is_active", true)
+        .order("full_name");
+
+      if (error) return [];
+      return data;
+    },
+    enabled: authReady && !!session && open,
+  });
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<EditFormData>({
@@ -138,6 +160,16 @@ export function TaskDetailDialog({
       });
     }
     setIsEditing(false);
+  };
+
+  const handleToggleComplete = async () => {
+    if (!taskId || !task) return;
+    try {
+      await toggleComplete.mutateAsync({ id: taskId, completed: !task.completed });
+      toast({ title: task.completed ? "Tarefa reaberta" : "Tarefa concluída!" });
+    } catch {
+      toast({ title: "Erro ao atualizar tarefa", variant: "destructive" });
+    }
   };
 
   const getPriorityColor = (priority: string) => {
@@ -258,14 +290,28 @@ export function TaskDetailDialog({
                       </Button>
                     </>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setIsEditing(true)}
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Editar
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant={task.completed ? "outline" : "default"}
+                        onClick={handleToggleComplete}
+                        disabled={toggleComplete.isPending}
+                        className={cn(
+                          !task.completed && "bg-green-600 hover:bg-green-700"
+                        )}
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-1" />
+                        {task.completed ? "Reabrir" : "Concluir"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsEditing(true)}
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Editar
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -324,16 +370,26 @@ export function TaskDetailDialog({
                           <label className="text-sm font-medium mb-2 block">
                             Responsavel *
                           </label>
-                          <Input
+                          <Select
                             value={formData.assignee}
-                            onChange={(e) =>
+                            onValueChange={(value) =>
                               setFormData((prev) => ({
                                 ...prev,
-                                assignee: e.target.value,
+                                assignee: value,
                               }))
                             }
-                            placeholder="Nome do responsavel"
-                          />
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o responsável" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {users.map((user) => (
+                                <SelectItem key={user.id} value={user.full_name}>
+                                  {user.full_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <div>
