@@ -346,9 +346,13 @@ function SortableLinkCard({ link, viewMode, onToggleFavorite, onEdit, onDelete }
           <button {...attributes} {...listeners} className="cursor-grab hover:text-accent">
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </button>
-          <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent font-bold text-xs">
-            {link.favicon || link.name[0]}
-          </div>
+          {link.favicon && link.favicon.startsWith('http') ? (
+            <img src={link.favicon} alt={link.name} className="h-8 w-8 rounded-lg object-contain" />
+          ) : (
+            <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center text-accent font-bold text-xs">
+              {link.name[0]}
+            </div>
+          )}
           <div>
             <h3 className="font-medium text-sm">{link.name}</h3>
             <p className="text-xs text-muted-foreground line-clamp-1 max-w-[400px]">{link.description}</p>
@@ -424,9 +428,13 @@ function SortableLinkCard({ link, viewMode, onToggleFavorite, onEdit, onDelete }
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-bold">
-            {link.favicon || link.name[0]}
-          </div>
+          {link.favicon && link.favicon.startsWith('http') ? (
+            <img src={link.favicon} alt={link.name} className="h-10 w-10 rounded-xl object-contain" />
+          ) : (
+            <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-bold">
+              {link.name[0]}
+            </div>
+          )}
           <div>
             <h3 className="font-semibold group-hover:text-accent transition-colors leading-tight">
               {link.name}

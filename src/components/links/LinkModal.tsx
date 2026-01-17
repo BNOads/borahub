@@ -29,6 +29,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect } from "react";
 
+// Helper to extract favicon URL from a website URL
+function getFaviconUrl(url: string): string {
+    try {
+        const urlObj = new URL(url);
+        // Use Google's favicon service for reliability
+        return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
+    } catch {
+        return "";
+    }
+}
+
 const linkSchema = z.object({
     name: z.string().min(1, "Nome é obrigatório"),
     url: z.string().url("URL inválida"),
@@ -82,17 +93,24 @@ export function LinkModal({ isOpen, onClose, link, onSuccess }: LinkModalProps) 
 
     async function onSubmit(values: LinkFormValues) {
         try {
+            // Auto-generate favicon URL from the website
+            const faviconUrl = getFaviconUrl(values.url);
+            const dataToSave = {
+                ...values,
+                favicon: faviconUrl,
+            };
+
             if (link) {
                 const { error } = await supabase
                     .from("links")
-                    .update(values)
+                    .update(dataToSave)
                     .eq("id", link.id);
                 if (error) throw error;
                 toast.success("Link atualizado com sucesso!");
             } else {
                 const { error } = await supabase
                     .from("links")
-                    .insert([{ ...values, name: values.name, url: values.url }]);
+                    .insert([{ name: values.name, url: values.url, description: values.description, category: values.category, favicon: faviconUrl }]);
                 if (error) throw error;
                 toast.success("Link criado com sucesso!");
             }
@@ -174,19 +192,7 @@ export function LinkModal({ isOpen, onClose, link, onSuccess }: LinkModalProps) 
                                 </FormItem>
                             )}
                         />
-                        <FormField
-                            control={form.control}
-                            name="favicon"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Ícone (Letra ou Emoji)</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Ex: T" {...field} maxLength={2} className="rounded-xl" />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        {/* Favicon is now auto-generated from URL */}
                         <DialogFooter>
                             <Button type="submit" className="w-full rounded-xl bg-accent hover:bg-accent/90">
                                 {link ? "Salvar Alterações" : "Criar Link"}
