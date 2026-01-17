@@ -123,7 +123,7 @@ export default function Tarefas() {
       console.log("🔥 loadData disparado Tarefas(users)", session?.user?.id);
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, display_name")
+        .select("id, full_name, display_name, avatar_url")
         .eq("is_active", true)
         .order("full_name");
 
