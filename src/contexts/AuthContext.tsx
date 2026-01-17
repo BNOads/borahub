@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 
 export interface Profile {
   id: string;
@@ -216,8 +216,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (!user?.email) throw new Error('Usuário não autenticado');
 
-      // Se não for troca obrigatória, verifica senha atual
-      if (currentPassword && !profile?.must_change_password) {
+      // Se não for troca obrigatória E tiver senha atual, verifica
+      if (currentPassword && currentPassword.length > 0) {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: user.email,
           password: currentPassword,
@@ -234,25 +234,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (updateError) throw updateError;
 
       // Remove flag de must_change_password
-      await supabase
+      const { error: profileUpdateError } = await supabase
         .from('profiles')
         .update({ must_change_password: false })
         .eq('id', user.id);
 
+      if (profileUpdateError) {
+        console.error('Error updating must_change_password:', profileUpdateError);
+      }
+
       // Registra atividade
       await logActivity('password_change', 'auth');
 
-      await refreshProfile();
+      // Atualiza o profile localmente
+      setProfile(prev => prev ? { ...prev, must_change_password: false } : null);
 
       toast({
         title: 'Senha atualizada!',
         description: 'Sua senha foi alterada com sucesso.',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Ocorreu um erro ao atualizar a senha.';
       console.error('Error updating password:', error);
       toast({
         title: 'Erro ao atualizar senha',
-        description: error.message || 'Ocorreu um erro ao atualizar a senha.',
+        description: errorMessage,
         variant: 'destructive',
       });
       throw error;
