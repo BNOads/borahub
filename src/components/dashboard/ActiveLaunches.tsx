@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
 import { ArrowRight, Rocket, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Funnel = Database["public"]["Tables"]["funnels"]["Row"];
 
@@ -18,38 +19,32 @@ const categoryColors: Record<string, string> = {
 };
 
 export function ActiveLaunches() {
-  const [funnels, setFunnels] = useState<Funnel[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { authReady, session } = useAuth();
+  const { data: funnels = [], isLoading: loading } = useQuery({
+    queryKey: ['funnels', 'active', session?.user?.id],
+    queryFn: async () => {
+      console.log("🔥 loadData disparado ActiveLaunches(funnels)", session?.user?.id);
+      const { data, error } = await supabase
+        .from("funnels")
+        .select("*")
+        .eq("status", "active")
+        .eq("is_active", true)
+        .order("predicted_investment", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(10);
 
-  useEffect(() => {
-    const fetchFunnels = async () => {
-      try {
-        setLoading(true);
-        // Fetch funnels that are marked as status='active' AND is_active=true
-        const { data, error } = await supabase
-          .from("funnels")
-          .select("*")
-          .eq("status", "active")
-          .eq("is_active", true)
-          .order("predicted_investment", { ascending: false, nullsFirst: false })
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Error fetching funnels:", error);
-          setFunnels([]);
-        } else {
-          setFunnels(data || []);
-        }
-      } catch (error) {
+      if (error) {
         console.error("Error fetching funnels:", error);
-        setFunnels([]);
-      } finally {
-        setLoading(false);
+        throw error;
       }
-    };
-
-    fetchFunnels();
-  }, []);
+      console.log("✅ Funis carregados:", data?.length);
+      return data || [];
+    },
+    staleTime: 0,
+    refetchOnMount: "always",
+    retry: false,
+    enabled: authReady && !!session,
+  });
 
   if (loading) {
     return (

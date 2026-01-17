@@ -34,11 +34,12 @@ export const notificationKeys = {
 };
 
 export function useNotifications() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
 
   return useQuery({
     queryKey: notificationKeys.list(),
     queryFn: async () => {
+      console.log("🔥 loadData disparado useNotifications", user?.id);
       const { data, error } = await supabase
         .from("notifications")
         .select(`
@@ -55,18 +56,19 @@ export function useNotifications() {
       }
       return data as Notification[];
     },
-    enabled: !!user,
+    enabled: authReady && !!user,
     staleTime: 2 * 60 * 1000, // 2 minutos
     refetchInterval: false, // Desabilitar refetch automatico
   });
 }
 
 export function useUnreadNotifications() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
 
   return useQuery({
     queryKey: notificationKeys.unread(),
     queryFn: async () => {
+      console.log("🔥 loadData disparado useUnreadNotifications", user?.id);
       const { data, error } = await supabase
         .from("notifications")
         .select(`
@@ -84,18 +86,19 @@ export function useUnreadNotifications() {
       }
       return data as Notification[];
     },
-    enabled: !!user,
-    staleTime: 60 * 1000, // 1 minuto
-    refetchInterval: 2 * 60 * 1000, // Refetch a cada 2 minutos
+    enabled: authReady && !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    refetchInterval: false, // Desabilitado para performance
   });
 }
 
 export function useUnreadCount() {
-  const { user } = useAuth();
+  const { user, authReady } = useAuth();
 
   return useQuery({
     queryKey: notificationKeys.unreadCount(),
     queryFn: async () => {
+      console.log("🔥 loadData disparado useUnreadCount", user?.id);
       const { count, error } = await supabase
         .from("notifications")
         .select("*", { count: "exact", head: true })
@@ -108,9 +111,9 @@ export function useUnreadCount() {
       }
       return count ?? 0;
     },
-    enabled: !!user,
-    staleTime: 60 * 1000, // 1 minuto
-    refetchInterval: 2 * 60 * 1000, // Refetch a cada 2 minutos
+    enabled: authReady && !!user,
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    refetchInterval: false, // Desabilitado para performance
   });
 }
 
@@ -127,7 +130,9 @@ export function useMarkAsRead() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unread() });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() });
     },
   });
 }
@@ -147,7 +152,9 @@ export function useMarkAllAsRead() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unread() });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() });
     },
   });
 }
@@ -174,7 +181,9 @@ export function useCreateNotification() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unread() });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() });
     },
   });
 }
@@ -192,7 +201,9 @@ export function useDeleteNotification() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: notificationKeys.all });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.list() });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unread() });
+      queryClient.invalidateQueries({ queryKey: notificationKeys.unreadCount() });
     },
   });
 }

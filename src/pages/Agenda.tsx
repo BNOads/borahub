@@ -1,38 +1,25 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useEvents, useDeleteEvent, type Event } from "@/hooks/useEvents";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Calendar,
   Plus,
-  Search,
-  MoreVertical,
-  Edit,
-  Trash2,
+  Loader2,
+  Repeat,
   Clock,
   MapPin,
   Video,
-  Loader2,
-  Repeat,
+  Edit,
+  Trash2,
+  X,
 } from "lucide-react";
 import { RecurrenceType, RECURRENCE_LABELS } from "@/types/tasks";
 import { useToast } from "@/components/ui/use-toast";
 import { EventModal } from "@/components/events/EventModal";
+import { YearCalendar } from "@/components/calendar/YearCalendar";
+import { cn } from "@/lib/utils";
 
 const eventTypeColors: Record<string, string> = {
   reuniao: "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -52,15 +39,19 @@ const eventTypeLabels: Record<string, string> = {
 
 export default function Agenda() {
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState("");
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [defaultDate, setDefaultDate] = useState<string | undefined>();
 
-  const { data: events = [], isLoading } = useEvents({
-    search: searchTerm || undefined,
-  });
-
+  const { data: events = [], isLoading } = useEvents();
   const deleteEvent = useDeleteEvent();
+
+  // Eventos do dia selecionado
+  const selectedDateEvents = useMemo(() => {
+    if (!selectedDate) return [];
+    return events.filter((e) => e.event_date === selectedDate);
+  }, [events, selectedDate]);
 
   const handleEdit = (event: Event) => {
     setSelectedEvent(event);
@@ -76,7 +67,7 @@ export default function Agenda() {
         title: "Evento excluido",
         description: "O evento foi excluido com sucesso.",
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Erro ao excluir",
         description: "Nao foi possivel excluir o evento.",
@@ -85,16 +76,28 @@ export default function Agenda() {
     }
   };
 
-  const handleNewEvent = () => {
+  const handleNewEvent = (date?: string) => {
     setSelectedEvent(null);
+    setDefaultDate(date);
+    setShowEventModal(true);
+  };
+
+  const handleDateClick = (date: string) => {
+    setSelectedDate(date);
+  };
+
+  const handleEventClick = (event: Event) => {
+    setSelectedDate(event.event_date);
+    setSelectedEvent(event);
     setShowEventModal(true);
   };
 
   const formatDate = (dateStr: string) => {
     return new Date(dateStr + "T00:00:00").toLocaleDateString("pt-BR", {
-      weekday: "short",
+      weekday: "long",
       day: "2-digit",
-      month: "short",
+      month: "long",
+      year: "numeric",
     });
   };
 
@@ -102,184 +105,192 @@ export default function Agenda() {
     return timeStr.slice(0, 5);
   };
 
-  const isEventPast = (dateStr: string) => {
-    const today = new Date().toISOString().split("T")[0];
-    return dateStr < today;
-  };
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-300">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Agenda</h1>
           <p className="text-muted-foreground mt-1">
-            Gerencie seus eventos e compromissos
+            {events.length} evento(s) cadastrado(s)
           </p>
         </div>
-        <Button onClick={handleNewEvent} className="gap-2">
+        <Button onClick={() => handleNewEvent()} className="gap-2">
           <Plus className="h-4 w-4" />
           Novo Evento
         </Button>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar eventos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+      <div className="grid lg:grid-cols-[1fr,320px] gap-6">
+        {/* Calendario */}
+        <div className="bg-card/30 rounded-2xl border p-4">
+          <YearCalendar
+            events={events}
+            onDateClick={handleDateClick}
+            onEventClick={handleEventClick}
           />
         </div>
-      </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center h-[400px]">
-          <Loader2 className="h-8 w-8 animate-spin text-accent" />
-        </div>
-      ) : events.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-[400px] bg-card/30 rounded-[2rem] border border-border">
-          <div className="p-4 bg-accent/10 rounded-3xl mb-4">
-            <Calendar className="h-12 w-12 text-accent/50" />
-          </div>
-          <h3 className="text-lg font-black text-muted-foreground mb-2">
-            Nenhum evento encontrado
-          </h3>
-          <p className="text-sm text-muted-foreground/60 text-center max-w-md mb-4">
-            {searchTerm
-              ? "Nenhum evento corresponde a sua busca."
-              : "Voce ainda nao tem eventos cadastrados."}
-          </p>
-          <Button onClick={handleNewEvent} variant="outline" className="gap-2">
-            <Plus className="h-4 w-4" />
-            Criar primeiro evento
-          </Button>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Evento</TableHead>
-                <TableHead>Data</TableHead>
-                <TableHead>Horario</TableHead>
-                <TableHead>Local</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {events.map((event) => (
-                <TableRow
-                  key={event.id}
-                  className={isEventPast(event.event_date) ? "opacity-50" : ""}
+        {/* Painel lateral - eventos do dia */}
+        <div className="bg-card rounded-2xl border">
+          {selectedDate ? (
+            <>
+              <div className="p-4 border-b flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-muted-foreground">Eventos em</p>
+                  <p className="font-semibold text-sm">{formatDate(selectedDate)}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setSelectedDate(null)}
                 >
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{event.title}</span>
-                        {event.recurrence && event.recurrence !== "none" && (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] px-1.5 py-0 h-5 bg-accent/10 text-accent border-accent/30"
-                          >
-                            <Repeat className="h-3 w-3 mr-1" />
-                            {RECURRENCE_LABELS[event.recurrence as RecurrenceType]}
-                          </Badge>
-                        )}
-                      </div>
-                      {event.description && (
-                        <span className="text-sm text-muted-foreground truncate max-w-[300px]">
-                          {event.description}
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>{formatDate(event.event_date)}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>{formatTime(event.event_time)}</span>
-                      {event.duration_minutes && (
-                        <span className="text-muted-foreground text-sm">
-                          ({event.duration_minutes}min)
-                        </span>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {event.meeting_link ? (
-                      <a
-                        href={event.meeting_link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-accent hover:underline"
-                      >
-                        <Video className="h-4 w-4" />
-                        Online
-                      </a>
-                    ) : event.location ? (
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span className="truncate max-w-[150px]">
-                          {event.location}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <ScrollArea className="h-[400px]">
+                {selectedDateEvents.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                    <Calendar className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum evento nesta data
+                    </p>
+                    <Button
                       variant="outline"
-                      className={
-                        eventTypeColors[event.event_type || "outro"] ||
-                        eventTypeColors.outro
-                      }
+                      size="sm"
+                      className="mt-3 gap-1"
+                      onClick={() => handleNewEvent(selectedDate)}
                     >
-                      {eventTypeLabels[event.event_type || "outro"] || "Outro"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(event)}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(event)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                      <Plus className="h-3 w-3" />
+                      Criar evento
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-3 space-y-2">
+                    {selectedDateEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="p-3 rounded-lg border bg-background hover:border-accent/50 transition-colors cursor-pointer group"
+                        onClick={() => handleEdit(event)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm truncate">
+                                {event.title}
+                              </span>
+                              {event.recurrence && event.recurrence !== "none" && (
+                                <Repeat className="h-3 w-3 text-accent shrink-0" />
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                              <Clock className="h-3 w-3" />
+                              {formatTime(event.event_time)}
+                              {event.duration_minutes && (
+                                <span>({event.duration_minutes}min)</span>
+                              )}
+                            </div>
+
+                            {(event.location || event.meeting_link) && (
+                              <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                                {event.meeting_link ? (
+                                  <>
+                                    <Video className="h-3 w-3" />
+                                    <span>Online</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <MapPin className="h-3 w-3" />
+                                    <span className="truncate">{event.location}</span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-[10px] px-1.5 py-0",
+                                eventTypeColors[event.event_type || "outro"]
+                              )}
+                            >
+                              {eventTypeLabels[event.event_type || "outro"]}
+                            </Badge>
+
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(event);
+                                }}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(event);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2 gap-1"
+                      onClick={() => handleNewEvent(selectedDate)}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Novo evento nesta data
+                    </Button>
+                  </div>
+                )}
+              </ScrollArea>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-[460px] p-6 text-center">
+              <Calendar className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <p className="text-sm text-muted-foreground">
+                Clique em uma data no calendario para ver os eventos
+              </p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       <EventModal
         open={showEventModal}
         onOpenChange={setShowEventModal}
         event={selectedEvent}
-        onSuccess={() => setShowEventModal(false)}
+        onSuccess={() => {
+          setShowEventModal(false);
+          setSelectedEvent(null);
+        }}
+        defaultDate={defaultDate}
       />
     </div>
   );

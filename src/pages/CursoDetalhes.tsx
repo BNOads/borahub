@@ -16,6 +16,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getVideoInfo } from "@/lib/videoUtils";
 
 interface Course {
     id: string;
@@ -30,6 +31,7 @@ interface Lesson {
     title: string;
     duration: string;
     order_index: number;
+    video_url?: string;
     completed?: boolean;
 }
 
@@ -181,75 +183,108 @@ export default function CursoDetalhes() {
 
                 <div className="space-y-3">
                     {lessons.length > 0 ? (
-                        lessons.map((lesson, index) => (
-                            <Card
-                                key={lesson.id}
-                                className="group p-5 rounded-2xl border-accent/5 hover:border-accent/40 transition-all hover:bg-accent/5 cursor-pointer shadow-sm hover:shadow-md"
-                            >
-                                <div className="flex items-center gap-5">
-                                    <div
-                                        className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center text-accent font-black text-lg cursor-pointer"
-                                        onClick={() => navigate(`/treinamentos/${courseId}/aula/${lesson.id}`)}
-                                    >
-                                        {index + 1}
-                                    </div>
+                        lessons.map((lesson, index) => {
+                            const videoInfo = lesson.video_url ? getVideoInfo(lesson.video_url) : null;
+                            const thumbnail = videoInfo?.thumbnailUrl;
 
-                                    <div
-                                        className="flex-1 flex items-center gap-3 min-w-0 cursor-pointer"
-                                        onClick={() => navigate(`/treinamentos/${courseId}/aula/${lesson.id}`)}
-                                    >
-                                        <h3 className="text-lg font-bold truncate group-hover:text-accent transition-colors">
-                                            {lesson.title}
-                                        </h3>
-                                        {lesson.completed && (
-                                            <CheckCircle2 className="h-5 w-5 text-emerald-500 fill-emerald-500/10 flex-shrink-0" />
-                                        )}
-                                    </div>
-
+                            return (
+                                <Card
+                                    key={lesson.id}
+                                    className="group p-4 rounded-2xl border-accent/5 hover:border-accent/40 transition-all hover:bg-accent/5 cursor-pointer shadow-sm hover:shadow-md"
+                                >
                                     <div className="flex items-center gap-4">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-foreground">
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="rounded-xl">
-                                                <DropdownMenuItem onClick={() => {
-                                                    setSelectedLesson(lesson);
-                                                    setIsLessonModalOpen(true);
-                                                }}>
-                                                    <Edit className="h-4 w-4 mr-2" />
-                                                    Editar Aula
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    className="text-destructive"
-                                                    onClick={async () => {
-                                                        if (confirm("Deseja realmente excluir esta aula?")) {
-                                                            const { error } = await supabase.from("lessons").delete().eq("id", lesson.id);
-                                                            if (error) toast.error("Erro ao excluir aula");
-                                                            else {
-                                                                toast.success("Aula excluída");
-                                                                fetchCourseDetails();
-                                                            }
-                                                        }
-                                                    }}
-                                                >
-                                                    <Trash2 className="h-4 w-4 mr-2" />
-                                                    Excluir Aula
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-
+                                        {/* Thumbnail ou numero */}
                                         <div
-                                            className="h-9 w-9 rounded-xl border-accent/20 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-accent-foreground transition-all cursor-pointer"
+                                            className="relative h-16 w-28 rounded-xl bg-accent/10 flex items-center justify-center overflow-hidden cursor-pointer shrink-0"
                                             onClick={() => navigate(`/treinamentos/${courseId}/aula/${lesson.id}`)}
                                         >
-                                            <Play className="h-4 w-4 fill-current" />
+                                            {thumbnail ? (
+                                                <>
+                                                    <img
+                                                        src={thumbnail}
+                                                        alt={lesson.title}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                                        }}
+                                                    />
+                                                    <div className="hidden absolute inset-0 bg-accent/10 flex items-center justify-center">
+                                                        <span className="text-accent font-black text-xl">{index + 1}</span>
+                                                    </div>
+                                                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Play className="h-6 w-6 text-white fill-white" />
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <span className="text-accent font-black text-xl">{index + 1}</span>
+                                            )}
+                                            {lesson.completed && (
+                                                <div className="absolute top-1 right-1">
+                                                    <CheckCircle2 className="h-4 w-4 text-emerald-500 fill-emerald-500/20" />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div
+                                            className="flex-1 min-w-0 cursor-pointer"
+                                            onClick={() => navigate(`/treinamentos/${courseId}/aula/${lesson.id}`)}
+                                        >
+                                            <h3 className="text-base font-bold truncate group-hover:text-accent transition-colors">
+                                                {lesson.title}
+                                            </h3>
+                                            {lesson.duration && (
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    {lesson.duration}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="rounded-xl">
+                                                    <DropdownMenuItem onClick={() => {
+                                                        setSelectedLesson(lesson);
+                                                        setIsLessonModalOpen(true);
+                                                    }}>
+                                                        <Edit className="h-4 w-4 mr-2" />
+                                                        Editar Aula
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        className="text-destructive"
+                                                        onClick={async () => {
+                                                            if (confirm("Deseja realmente excluir esta aula?")) {
+                                                                const { error } = await supabase.from("lessons").delete().eq("id", lesson.id);
+                                                                if (error) toast.error("Erro ao excluir aula");
+                                                                else {
+                                                                    toast.success("Aula excluída");
+                                                                    fetchCourseDetails();
+                                                                }
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                        Excluir Aula
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+
+                                            <div
+                                                className="h-8 w-8 rounded-lg border border-accent/20 flex items-center justify-center text-accent group-hover:bg-accent group-hover:text-accent-foreground transition-all cursor-pointer"
+                                                onClick={() => navigate(`/treinamentos/${courseId}/aula/${lesson.id}`)}
+                                            >
+                                                <Play className="h-3.5 w-3.5 fill-current" />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </Card>
-                        ))
+                                </Card>
+                            );
+                        })
                     ) : (
                         <div className="text-center py-12 bg-accent/5 rounded-[2.5rem] border border-dashed border-accent/20">
                             <p className="text-muted-foreground">Nenhuma aula cadastrada ainda.</p>

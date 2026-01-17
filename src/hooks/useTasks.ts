@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import type {
   Task,
   TaskInsert,
@@ -20,15 +21,18 @@ export const taskKeys = {
 };
 
 export function useTasks(filters?: Partial<TaskFilters>) {
+  const { authReady, session } = useAuth();
+
   return useQuery({
     queryKey: taskKeys.list(filters ?? {}),
     queryFn: async () => {
+      console.log("🔥 loadData disparado useTasks", session?.user?.id);
       try {
         let query = supabase
           .from("tasks")
           .select(`
-            *,
-            subtasks (*)
+            id, title, description, priority, category, assignee, due_date, due_time, completed, position, recurrence, recurrence_end_date, assigned_to_id, created_at,
+            subtasks (id, title, completed)
           `)
           .order("position", { ascending: true })
           .order("created_at", { ascending: false });
@@ -46,6 +50,8 @@ export function useTasks(filters?: Partial<TaskFilters>) {
           query = query.ilike("title", `%${filters.search}%`);
         }
 
+        query = query.limit(100);
+
         const { data, error } = await query;
         if (error) {
           console.error('Error fetching tasks:', error);
@@ -59,23 +65,28 @@ export function useTasks(filters?: Partial<TaskFilters>) {
     },
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutos
+    enabled: authReady && !!session,
   });
 }
 
 export function useTodaysTasks() {
+  const { authReady, session } = useAuth();
+
   return useQuery({
     queryKey: taskKeys.today(),
     queryFn: async () => {
+      console.log("🔥 loadData disparado useTodaysTasks", session?.user?.id);
       try {
         const { data, error } = await supabase
           .from("tasks")
           .select(`
-            *,
-            subtasks (*)
+            id, title, description, priority, category, assignee, due_date, due_time, completed, position, recurrence, recurrence_end_date, assigned_to_id, created_at,
+            subtasks (id, title, completed)
           `)
           .lte("due_date", new Date().toISOString().split("T")[0])
           .order("due_date", { ascending: true, nullsFirst: false })
-          .order("priority", { ascending: true });
+          .order("priority", { ascending: true })
+          .limit(20);
 
         if (error) {
           console.error('Error fetching today tasks:', error);
@@ -90,10 +101,13 @@ export function useTodaysTasks() {
     retry: 1,
     staleTime: 5 * 60 * 1000, // 5 minutos
     gcTime: 30 * 60 * 1000, // 30 minutos (antes era cacheTime)
+    enabled: authReady && !!session,
   });
 }
 
 export function useTask(id: string | null) {
+  const { authReady, session } = useAuth();
+
   return useQuery({
     queryKey: taskKeys.detail(id ?? ""),
     queryFn: async () => {
@@ -111,7 +125,7 @@ export function useTask(id: string | null) {
       if (error) throw error;
       return data as TaskWithRelations;
     },
-    enabled: !!id,
+    enabled: authReady && !!session && !!id,
   });
 }
 
@@ -130,7 +144,8 @@ export function useCreateTask() {
       return data as Task;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.today() });
     },
   });
 }
@@ -154,7 +169,8 @@ export function useUpdateTask() {
       return data as Task;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.today() });
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(variables.id) });
     },
   });
@@ -173,7 +189,8 @@ export function useDeleteTask() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.today() });
     },
   });
 }
@@ -228,21 +245,25 @@ export function useToggleTaskComplete() {
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.today() });
     },
   });
 }
 
 export function useUserTasks(userId: string | null) {
+  const { authReady, session } = useAuth();
+
   return useQuery({
     queryKey: taskKeys.byUser(userId ?? ""),
     queryFn: async () => {
+      console.log("🔥 loadData disparado useUserTasks", session?.user?.id);
       try {
         const { data, error } = await supabase
           .from("tasks")
           .select(`
-            *,
-            subtasks (*)
+            id, title, description, priority, category, assignee, due_date, due_time, completed, position, recurrence, recurrence_end_date, assigned_to_id, created_at,
+            subtasks (id, title, completed)
           `)
           .eq("assigned_to_id", userId)
           .order("completed", { ascending: true })
@@ -259,7 +280,7 @@ export function useUserTasks(userId: string | null) {
         return [];
       }
     },
-    enabled: !!userId,
+    enabled: authReady && !!session && !!userId,
     retry: 1,
     staleTime: 5 * 60 * 1000,
   });
@@ -280,7 +301,8 @@ export function useCreateTaskForUser() {
       return data as Task;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.today() });
       if (variables.assigned_to_id) {
         queryClient.invalidateQueries({ queryKey: taskKeys.byUser(variables.assigned_to_id) });
       }

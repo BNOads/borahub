@@ -152,26 +152,29 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
                                 </FormItem>
                             )}
                         />
+                        <FormField
+                            control={form.control}
+                            name="video_url"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>URL do Video</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="YouTube, Google Drive ou Vimeo" {...field} className="rounded-xl" />
+                                    </FormControl>
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                        Suporta: YouTube, Google Drive (compartilhado) e Vimeo
+                                    </p>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField
-                                control={form.control}
-                                name="video_url"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>URL do Vídeo</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="YouTube/Vimeo link" {...field} className="rounded-xl" />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
                             <FormField
                                 control={form.control}
                                 name="duration"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Duração</FormLabel>
+                                        <FormLabel>Duracao</FormLabel>
                                         <FormControl>
                                             <Input placeholder="Ex: 15:00" {...field} className="rounded-xl" />
                                         </FormControl>
@@ -179,20 +182,20 @@ export function LessonModal({ isOpen, onClose, courseId, lesson, onSuccess }: Le
                                     </FormItem>
                                 )}
                             />
+                            <FormField
+                                control={form.control}
+                                name="order_index"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Ordem</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" {...field} className="rounded-xl" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         </div>
-                        <FormField
-                            control={form.control}
-                            name="order_index"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Ordem</FormLabel>
-                                    <FormControl>
-                                        <Input type="number" {...field} className="rounded-xl" />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
                         <DialogFooter className="pt-4">
                             <Button type="button" variant="ghost" onClick={onClose} className="rounded-xl">
                                 Cancelar

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export const funnelKeys = {
   all: ["funnels"] as const,
@@ -14,9 +15,12 @@ const queryOptions = {
 };
 
 export function useActiveFunnelsCount() {
+  const { authReady, session } = useAuth();
+
   return useQuery({
     queryKey: funnelKeys.activeCount(),
     queryFn: async () => {
+      console.log("🔥 loadData disparado useActiveFunnelsCount", session?.user?.id);
       try {
         const { count, error } = await supabase
           .from("funnels")
@@ -34,17 +38,21 @@ export function useActiveFunnelsCount() {
       }
     },
     ...queryOptions,
+    enabled: authReady && !!session,
   });
 }
 
 export function useActiveFunnels() {
+  const { authReady, session } = useAuth();
+
   return useQuery({
     queryKey: funnelKeys.active(),
     queryFn: async () => {
+      console.log("🔥 loadData disparado useActiveFunnels", session?.user?.id);
       try {
         const { data, error } = await supabase
           .from("funnels")
-          .select("*")
+          .select("id, name, created_at, category, product_name, predicted_investment")
           .eq("is_active", true)
           .order("created_at", { ascending: false });
 
@@ -59,5 +67,6 @@ export function useActiveFunnels() {
       }
     },
     ...queryOptions,
+    enabled: authReady && !!session,
   });
 }

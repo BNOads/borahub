@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, Clock, CheckCircle, Video } from "lucide-react";
@@ -6,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+import { getVideoInfo } from "@/lib/videoUtils";
 
 interface Course {
     id: string;
@@ -102,16 +102,8 @@ export default function AulaView() {
         }
     }
 
-    // Extract YouTube ID if applicable
-    const getEmbedUrl = (url: string) => {
-        if (!url) return "";
-        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-        const match = url.match(regExp);
-        if (match && match[2].length === 11) {
-            return `https://www.youtube.com/embed/${match[2]}`;
-        }
-        return url;
-    };
+    // Obter URL de embed do video (YouTube, Google Drive, Vimeo)
+    const videoInfo = lesson?.video_url ? getVideoInfo(lesson.video_url) : null;
 
     if (loading) return <div className="p-8">Carregando...</div>;
     if (!lesson) return <div className="p-8">Aula não encontrada.</div>;
@@ -137,11 +129,11 @@ export default function AulaView() {
 
             {/* Video Player */}
             <div className="aspect-video w-full rounded-[2.5rem] overflow-hidden bg-slate-100 dark:bg-slate-900 border border-border shadow-2xl relative">
-                {lesson.video_url ? (
+                {videoInfo?.embedUrl ? (
                     <iframe
-                        src={getEmbedUrl(lesson.video_url)}
+                        src={videoInfo.embedUrl}
                         className="w-full h-full border-0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                         allowFullScreen
                     />
                 ) : (

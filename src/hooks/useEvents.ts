@@ -23,10 +23,14 @@ export const eventKeys = {
   upcoming: () => [...eventKeys.all, "upcoming"] as const,
 };
 
+import { useAuth } from "@/contexts/AuthContext";
+
 export function useEvents(filters?: Partial<EventFilters>) {
+  const { authReady, session } = useAuth();
   return useQuery({
     queryKey: eventKeys.list(filters ?? {}),
     queryFn: async () => {
+      console.log("🔥 loadData disparado useEvents", session?.user?.id);
       try {
         let query = supabase
           .from("events")
@@ -47,6 +51,8 @@ export function useEvents(filters?: Partial<EventFilters>) {
           query = query.ilike("title", `%${filters.search}%`);
         }
 
+        query = query.limit(200);
+
         const { data, error } = await query;
         if (error) {
           console.error("Error fetching events:", error);
@@ -58,15 +64,18 @@ export function useEvents(filters?: Partial<EventFilters>) {
         return [];
       }
     },
-    retry: 1,
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    retry: 0,
+    staleTime: 15 * 60 * 1000, // 15 minutos
+    enabled: authReady && !!session,
   });
 }
 
 export function useUpcomingEvents(limit: number = 5) {
+  const { authReady, session } = useAuth();
   return useQuery({
     queryKey: eventKeys.upcoming(),
     queryFn: async () => {
+      console.log("🔥 loadData disparado useUpcomingEvents", session?.user?.id);
       try {
         const today = new Date().toISOString().split("T")[0];
         const { data, error } = await supabase
@@ -87,12 +96,14 @@ export function useUpcomingEvents(limit: number = 5) {
         return [];
       }
     },
-    retry: 1,
-    staleTime: 5 * 60 * 1000,
+    retry: 0,
+    staleTime: 15 * 60 * 1000,
+    enabled: authReady && !!session,
   });
 }
 
 export function useEvent(id: string | null) {
+  const { authReady, session } = useAuth();
   return useQuery({
     queryKey: eventKeys.detail(id ?? ""),
     queryFn: async () => {
@@ -105,7 +116,7 @@ export function useEvent(id: string | null) {
       if (error) throw error;
       return data as Event;
     },
-    enabled: !!id,
+    enabled: authReady && !!session && !!id,
   });
 }
 
@@ -124,7 +135,8 @@ export function useCreateEvent() {
       return data as Event;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: eventKeys.all });
+      queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.upcoming() });
     },
   });
 }
@@ -145,7 +157,8 @@ export function useUpdateEvent() {
       return data as Event;
     },
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: eventKeys.all });
+      queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.upcoming() });
       queryClient.invalidateQueries({ queryKey: eventKeys.detail(variables.id) });
     },
   });
@@ -164,7 +177,8 @@ export function useDeleteEvent() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: eventKeys.all });
+      queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.upcoming() });
     },
   });
 }

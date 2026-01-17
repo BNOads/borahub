@@ -63,6 +63,7 @@ import { RECURRENCE_LABELS } from "@/types/tasks";
 import { Repeat } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const categories = [
   "Lancamento",
@@ -88,6 +89,7 @@ type ViewMode = "list" | "kanban";
 
 export default function Tarefas() {
   const { toast } = useToast();
+  const { authReady, session } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPriority, setFilterPriority] = useState<string>("all");
@@ -115,6 +117,7 @@ export default function Tarefas() {
   const { data: users = [] } = useQuery({
     queryKey: ["profiles-for-tasks"],
     queryFn: async () => {
+      console.log("🔥 loadData disparado Tarefas(users)", session?.user?.id);
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, display_name")
@@ -124,6 +127,7 @@ export default function Tarefas() {
       if (error) return [];
       return data;
     },
+    enabled: authReady && !!session,
   });
 
   const pendingTasks = tasks.filter((t) => !t.completed);
@@ -817,8 +821,8 @@ function TaskItem({
             {task.priority === "alta"
               ? "Alta"
               : task.priority === "media"
-              ? "Media"
-              : "Baixa"}
+                ? "Media"
+                : "Baixa"}
           </Badge>
 
           {task.category && <Badge variant="secondary">{task.category}</Badge>}

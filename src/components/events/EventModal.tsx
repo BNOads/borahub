@@ -160,22 +160,17 @@ export function EventModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[480px]">
         <form onSubmit={handleSubmit}>
-          <DialogHeader>
+          <DialogHeader className="pb-2">
             <DialogTitle>
               {isEditing ? "Editar Evento" : "Novo Evento"}
             </DialogTitle>
-            <DialogDescription>
-              {isEditing
-                ? "Atualize as informacoes do evento."
-                : "Preencha os dados para criar um novo evento."}
-            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Titulo *</Label>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="title" className="text-xs">Titulo *</Label>
               <Input
                 id="title"
                 placeholder="Nome do evento"
@@ -185,26 +180,28 @@ export function EventModal({
                 }
                 disabled={isLoading}
                 required
+                className="h-9"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Descricao</Label>
+            <div className="space-y-1">
+              <Label htmlFor="description" className="text-xs">Descricao</Label>
               <Textarea
                 id="description"
-                placeholder="Descricao do evento (opcional)"
+                placeholder="Descricao (opcional)"
                 value={formData.description}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
                 disabled={isLoading}
-                rows={3}
+                rows={2}
+                className="resize-none"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="event_date">Data *</Label>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="event_date" className="text-xs">Data *</Label>
                 <Input
                   id="event_date"
                   type="date"
@@ -214,10 +211,11 @@ export function EventModal({
                   }
                   disabled={isLoading}
                   required
+                  className="h-9"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="event_time">Horario *</Label>
+              <div className="space-y-1">
+                <Label htmlFor="event_time" className="text-xs">Horario *</Label>
                 <Input
                   id="event_time"
                   type="time"
@@ -227,13 +225,11 @@ export function EventModal({
                   }
                   disabled={isLoading}
                   required
+                  className="h-9"
                 />
               </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duracao (min)</Label>
+              <div className="space-y-1">
+                <Label htmlFor="duration" className="text-xs">Duracao (min)</Label>
                 <Input
                   id="duration"
                   type="number"
@@ -248,10 +244,14 @@ export function EventModal({
                   disabled={isLoading}
                   min={5}
                   max={480}
+                  className="h-9"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="event_type">Tipo</Label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="event_type" className="text-xs">Tipo</Label>
                 <Select
                   value={formData.event_type}
                   onValueChange={(value) =>
@@ -259,8 +259,8 @@ export function EventModal({
                   }
                   disabled={isLoading}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo" />
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
                     {eventTypes.map((type) => (
@@ -271,23 +271,23 @@ export function EventModal({
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1">
+                <Label htmlFor="location" className="text-xs">Local</Label>
+                <Input
+                  id="location"
+                  placeholder="Endereco ou sala"
+                  value={formData.location}
+                  onChange={(e) =>
+                    setFormData({ ...formData, location: e.target.value })
+                  }
+                  disabled={isLoading}
+                  className="h-9"
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="location">Local</Label>
-              <Input
-                id="location"
-                placeholder="Endereco ou sala"
-                value={formData.location}
-                onChange={(e) =>
-                  setFormData({ ...formData, location: e.target.value })
-                }
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="meeting_link">Link da Reuniao</Label>
+            <div className="space-y-1">
+              <Label htmlFor="meeting_link" className="text-xs">Link da Reuniao</Label>
               <Input
                 id="meeting_link"
                 type="url"
@@ -297,12 +297,13 @@ export function EventModal({
                   setFormData({ ...formData, meeting_link: e.target.value })
                 }
                 disabled={isLoading}
+                className="h-9"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="recurrence">Recorrencia</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="recurrence" className="text-xs">Recorrencia</Label>
                 <Select
                   value={formData.recurrence}
                   onValueChange={(value: RecurrenceType) =>
@@ -310,7 +311,7 @@ export function EventModal({
                   }
                   disabled={isLoading}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
@@ -324,42 +325,43 @@ export function EventModal({
               </div>
 
               {formData.recurrence !== "none" && (
-                <div className="space-y-2">
-                  <Label htmlFor="recurrence_end_date">Data Limite</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="recurrence_end_date" className="text-xs">Data Limite</Label>
                   <Input
                     id="recurrence_end_date"
                     type="date"
-                    placeholder="Opcional"
                     value={formData.recurrence_end_date}
                     onChange={(e) =>
                       setFormData({ ...formData, recurrence_end_date: e.target.value })
                     }
                     disabled={isLoading}
+                    className="h-9"
                   />
                 </div>
               )}
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="pt-2">
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={() => onOpenChange(false)}
               disabled={isLoading}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" size="sm" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Salvando...
                 </>
               ) : isEditing ? (
-                "Salvar alteracoes"
+                "Salvar"
               ) : (
-                "Criar evento"
+                "Criar"
               )}
             </Button>
           </DialogFooter>

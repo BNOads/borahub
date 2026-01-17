@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { Header } from "./Header";
 import { BottomNav } from "./BottomNav";
+import { NotificationPopup } from "@/components/notifications/NotificationPopup";
 
 export function MainLayout() {
   const [isDark, setIsDark] = useState(() => {
@@ -30,6 +31,7 @@ export function MainLayout() {
         <Outlet />
       </main>
       <BottomNav />
+      <NotificationPopup />
     </div>
   );
 }

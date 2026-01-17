@@ -31,6 +31,7 @@ interface AuthContextType {
   profile: Profile | null;
   session: Session | null;
   isLoading: boolean;
+  authReady: boolean;
   isAdmin: boolean;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
@@ -51,41 +52,29 @@ export const useAuth = () => {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const isLoading = !authReady;
   const { toast } = useToast();
 
   const isAdmin = profile?.role === 'admin' && profile?.is_active;
 
-  // Função para buscar o perfil do usuário com timeout
+  // Função para buscar o perfil do usuário
   const fetchProfile = async (userId: string) => {
-    console.log('fetchProfile: Starting for userId:', userId);
     try {
-      console.log('fetchProfile: Querying Supabase...');
-
-      // Adiciona timeout de 10 segundos para evitar travamento
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);
-      });
-
-      const queryPromise = supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
-
-      console.log('fetchProfile: Query result:', { data: !!data, error });
-
       if (error) {
         console.error('Error fetching profile:', error);
-        throw error;
+        return null;
       }
 
       if (data) {
-        console.log('fetchProfile: Setting profile data');
         setProfile(data as Profile);
         return data as Profile;
       } else {
@@ -272,7 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       refreshProfile().catch(err => console.error('Error refreshing profile:', err));
 
       // Registra atividade
-      logActivity('user_updated', 'user', user.id, { updates: safeUpdates }).catch(err => 
+      logActivity('user_updated', 'user', user.id, { updates: safeUpdates }).catch(err =>
         console.error('Error logging activity:', err)
       );
 
@@ -302,49 +291,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let isMounted = true;
 
+    // Inicializa a sessão
     const initializeAuth = async () => {
-      console.log('AuthContext: Starting initialization...');
       try {
-        console.log('AuthContext: Getting session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        console.log('AuthContext: Got session:', { hasSession: !!session, error });
+        const { data, error } = await supabase.auth.getSession();
 
         if (!isMounted) return;
 
-        // Se houver erro de token inválido, limpa a sessão
         if (error) {
           console.error('Session error:', error);
-          await supabase.auth.signOut();
-          setSession(null);
-          setUser(null);
-          setProfile(null);
-          setIsLoading(false);
-          return;
+          // Mesmo com erro, auth está "pronto" (não autenticado)
         }
 
-        setSession(session);
-        setUser(session?.user ?? null);
+        setSession(data.session ?? null);
+        setUser(data.session?.user ?? null);
 
-        if (session?.user) {
-          console.log('AuthContext: Fetching profile for user:', session.user.id);
-          await fetchProfile(session.user.id);
-          console.log('AuthContext: Profile fetched');
-        } else {
-          console.log('AuthContext: No session, skipping profile fetch');
+        if (data.session?.user) {
+          await fetchProfile(data.session.user.id);
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error initializing auth:', error);
-        // Em caso de erro, limpa tudo
-        if (error.message?.includes('Refresh Token') || error.message?.includes('JWT')) {
-          await supabase.auth.signOut();
-        }
-        setSession(null);
-        setUser(null);
-        setProfile(null);
       } finally {
-        console.log('AuthContext: Initialization complete, setting isLoading to false');
         if (isMounted) {
-          setIsLoading(false);
+          setAuthReady(true);
         }
       }
     };
@@ -357,26 +326,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
 
-      // Se o token expirou ou foi invalidado, limpa tudo
-      if (event === 'TOKEN_REFRESHED' && !session) {
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        return;
-      }
-
-      if (event === 'SIGNED_OUT') {
-        setSession(null);
-        setUser(null);
-        setProfile(null);
-        return;
-      }
-
       setSession(session);
       setUser(session?.user ?? null);
+      setAuthReady(true);
+
+      if (event === 'SIGNED_OUT') {
+        setProfile(null);
+        return;
+      }
 
       if (session?.user) {
-        await fetchProfile(session.user.id);
+        // Apenas busca perfil se já não tiver ou se mudou o user
+        // Mas para garantir atualização, buscamos sempre que loga
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          await fetchProfile(session.user.id);
+        }
       } else {
         setProfile(null);
       }
@@ -393,6 +357,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     profile,
     session,
     isLoading,
+    authReady,
     isAdmin,
     signIn,
     signOut,

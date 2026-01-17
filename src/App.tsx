@@ -37,11 +37,10 @@ import GestaoNotificacoes from "./pages/admin/GestaoNotificacoes";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutos - dados considerados frescos
-      gcTime: 30 * 60 * 1000, // 30 minutos - tempo no cache
-      refetchOnWindowFocus: false, // Nao refetch ao focar janela
-      refetchOnReconnect: false, // Nao refetch ao reconectar
-      retry: 1, // Apenas 1 retry em caso de erro
+      staleTime: 5 * 60 * 1000, // 5 minutos
+      gcTime: 30 * 60 * 1000, // 30 minutos
+      refetchOnWindowFocus: false,
+      retry: 1,
     },
   },
 });

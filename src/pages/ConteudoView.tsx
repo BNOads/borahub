@@ -61,11 +61,13 @@ import { NewPostModal } from "@/components/conteudo/NewPostModal";
 import { ProfileManagementModal } from "@/components/conteudo/ProfileManagementModal";
 import { DiretrizesView } from "@/components/conteudo/DiretrizesView";
 import { AgentesIAView } from "@/components/conteudo/AgentesIAView";
+import { useSocialPosts, useSocialProfiles, useUpdateSocialPost, SocialPost, SocialProfile, SOCIAL_POSTS_KEY } from "@/hooks/useSocialPosts";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Youtube Icon Component
 const YoutubeIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
     </svg>
 );
 
@@ -130,9 +132,6 @@ interface SocialPost {
 
 export default function ConteudoView() {
     const [view, setView] = useState<"grid" | "kanban" | "diretrizes" | "agentes">("grid");
-    const [profiles, setProfiles] = useState<SocialProfile[]>([]);
-    const [posts, setPosts] = useState<SocialPost[]>([]);
-    const [loading, setLoading] = useState(true);
     const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -144,6 +143,19 @@ export default function ConteudoView() {
     const [isProfilesOpen, setIsProfilesOpen] = useState(false);
     const [activeId, setActiveId] = useState<string | null>(null);
     const [newPostInitialData, setNewPostInitialData] = useState<{ date?: Date, profileId?: string, status?: string }>({});
+
+    const queryClient = useQueryClient();
+    const handleRefresh = () => {
+        queryClient.invalidateQueries({ queryKey: [SOCIAL_POSTS_KEY] });
+    };
+
+    const weekEnd = addDays(currentWeekStart, 6);
+    const weekStartStr = format(currentWeekStart, 'yyyy-MM-dd');
+    const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+
+    const { data: profiles = [] } = useSocialProfiles();
+    const { data: posts = [], isLoading: loading } = useSocialPosts(weekStartStr, weekEndStr);
+    const updatePost = useUpdateSocialPost();
 
     const daysOfWeek = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
@@ -160,43 +172,6 @@ export default function ConteudoView() {
             return countB - countA;
         });
     }, [profiles, posts]);
-
-    useEffect(() => {
-        fetchInitialData();
-    }, [currentWeekStart]);
-
-    async function fetchInitialData() {
-        try {
-            setLoading(true);
-            const [profilesRes, postsRes] = await Promise.all([
-                supabase.from("social_profiles").select("*"),
-                supabase.from("social_posts")
-                    .select(`
-                        *,
-                        profiles:social_profiles(*),
-                        post_comments(id),
-                        post_history(id)
-                    `)
-                    .gte("scheduled_date", format(currentWeekStart, 'yyyy-MM-dd'))
-                    .lte("scheduled_date", format(addDays(currentWeekStart, 6), 'yyyy-MM-dd'))
-            ]);
-
-            if (profilesRes.error) throw profilesRes.error;
-            if (postsRes.error) throw postsRes.error;
-
-            setProfiles(profilesRes.data || []);
-            const formattedPosts = (postsRes.data || []).map((p: any) => ({
-                ...p,
-                comments_count: p.post_comments?.length || 0,
-                history_count: p.post_history?.length || 0
-            }));
-            setPosts(formattedPosts);
-        } catch (error: any) {
-            toast.error("Erro ao carregar dados: " + error.message);
-        } finally {
-            setLoading(false);
-        }
-    }
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -227,13 +202,10 @@ export default function ConteudoView() {
             const newStatus = over.id;
             if (activePost.status === newStatus) return;
 
-            setPosts(prev => prev.map(p => p.id === String(active.id) ? { ...p, status: newStatus } : p));
-
-            const { error } = await supabase.from('social_posts').update({ status: newStatus }).eq('id', String(active.id));
-            if (error) {
-                toast.error("Erro ao atualizar status");
-                fetchInitialData();
-            }
+            updatePost.mutate({
+                id: String(active.id),
+                updates: { status: newStatus }
+            });
         }
 
         // Grid logic: Update date and profile
@@ -242,17 +214,10 @@ export default function ConteudoView() {
 
             if (activePost.scheduled_date === dateStr && activePost.profile_id === profileId) return;
 
-            setPosts(prev => prev.map(p => p.id === String(active.id) ? { ...p, scheduled_date: dateStr, profile_id: profileId } : p));
-
-            const { error } = await supabase.from('social_posts').update({
-                scheduled_date: dateStr,
-                profile_id: profileId
-            }).eq('id', String(active.id));
-
-            if (error) {
-                toast.error("Erro ao atualizar data/perfil");
-                fetchInitialData();
-            }
+            updatePost.mutate({
+                id: String(active.id),
+                updates: { scheduled_date: dateStr, profile_id: profileId }
+            });
         }
     };
 
@@ -421,20 +386,20 @@ export default function ConteudoView() {
                 isOpen={isDetailsOpen}
                 onClose={() => setIsDetailsOpen(false)}
                 post={selectedPost}
-                onUpdate={fetchInitialData}
+                onUpdate={handleRefresh}
             />
 
             <EditorialLineModal
                 isOpen={isEditorialOpen}
                 onClose={() => setIsEditorialOpen(false)}
                 profiles={profiles}
-                onSuccess={fetchInitialData}
+                onSuccess={handleRefresh}
             />
 
             <NewPostModal
                 isOpen={isNewPostOpen}
                 onClose={() => setIsNewPostOpen(false)}
-                onSuccess={fetchInitialData}
+                onSuccess={handleRefresh}
                 profiles={profiles}
                 initialDate={newPostInitialData.date}
                 initialProfileId={newPostInitialData.profileId}
@@ -444,7 +409,7 @@ export default function ConteudoView() {
             <ProfileManagementModal
                 isOpen={isProfilesOpen}
                 onClose={() => setIsProfilesOpen(false)}
-                onSuccess={fetchInitialData}
+                onSuccess={handleRefresh}
             />
         </>
     );

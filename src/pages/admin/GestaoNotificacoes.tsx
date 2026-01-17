@@ -46,6 +46,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 const notificationTypes = [
   { value: "info", label: "Informacao", icon: Info, color: "text-blue-500 bg-blue-500/10" },
@@ -57,6 +58,7 @@ const notificationTypes = [
 export default function GestaoNotificacoes() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { authReady, session } = useAuth();
 
   const [formData, setFormData] = useState<CreateNotificationInput>({
     title: "",
@@ -73,6 +75,7 @@ export default function GestaoNotificacoes() {
   const { data: users = [] } = useQuery({
     queryKey: ["profiles-list"],
     queryFn: async () => {
+      console.log("🔥 loadData disparado GestaoNotificacoes(users)", session?.user?.id);
       const { data, error } = await supabase
         .from("profiles")
         .select("id, full_name, display_name, email")
@@ -82,6 +85,7 @@ export default function GestaoNotificacoes() {
       if (error) return [];
       return data;
     },
+    enabled: authReady && !!session,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
