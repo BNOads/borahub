@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { LinkModal } from "@/components/links/LinkModal";
 import {
@@ -63,6 +64,7 @@ const categoryColors: Record<string, string> = {
 const categoriesList = ["Todas", "Geral", "Produtividade", "Armazenamento", "Design", "Marketing", "Análise", "Vendas"];
 
 export default function Links() {
+  const { isAdmin } = useAuth();
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todas");
@@ -193,10 +195,12 @@ export default function Links() {
               Lista
             </Button>
           </div>
-          <Button onClick={() => { setSelectedLink(null); setIsIdOpen(true); }} className="rounded-xl bg-accent hover:bg-accent/90">
-            <Plus className="h-4 w-4 mr-2" />
-            Novo Link
-          </Button>
+          {isAdmin && (
+            <Button onClick={() => { setSelectedLink(null); setIsIdOpen(true); }} className="rounded-xl bg-accent hover:bg-accent/90">
+              <Plus className="h-4 w-4 mr-2" />
+              Novo Link
+            </Button>
+          )}
         </div>
       </div>
 

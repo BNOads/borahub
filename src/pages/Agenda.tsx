@@ -20,6 +20,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { EventModal } from "@/components/events/EventModal";
 import { YearCalendar } from "@/components/calendar/YearCalendar";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 const eventTypeColors: Record<string, string> = {
   reuniao: "bg-blue-500/20 text-blue-400 border-blue-500/30",
@@ -39,6 +40,7 @@ const eventTypeLabels: Record<string, string> = {
 
 export default function Agenda() {
   const { toast } = useToast();
+  const { isAdmin } = useAuth();
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -122,10 +124,12 @@ export default function Agenda() {
             {events.length} evento(s) cadastrado(s)
           </p>
         </div>
-        <Button onClick={() => handleNewEvent()} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Novo Evento
-        </Button>
+        {isAdmin && (
+          <Button onClick={() => handleNewEvent()} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Novo Evento
+          </Button>
+        )}
       </div>
 
       <div className="grid lg:grid-cols-[1fr,320px] gap-6">
@@ -164,15 +168,17 @@ export default function Agenda() {
                     <p className="text-sm text-muted-foreground">
                       Nenhum evento nesta data
                     </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 gap-1"
-                      onClick={() => handleNewEvent(selectedDate)}
-                    >
-                      <Plus className="h-3 w-3" />
-                      Criar evento
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-3 gap-1"
+                        onClick={() => handleNewEvent(selectedDate)}
+                      >
+                        <Plus className="h-3 w-3" />
+                        Criar evento
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div className="p-3 space-y-2">
@@ -258,15 +264,17 @@ export default function Agenda() {
                       </div>
                     ))}
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-2 gap-1"
-                      onClick={() => handleNewEvent(selectedDate)}
-                    >
-                      <Plus className="h-3 w-3" />
-                      Novo evento nesta data
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-2 gap-1"
+                        onClick={() => handleNewEvent(selectedDate)}
+                      >
+                        <Plus className="h-3 w-3" />
+                        Novo evento nesta data
+                      </Button>
+                    )}
                   </div>
                 )}
               </ScrollArea>

@@ -3,10 +3,7 @@ import {
   Newspaper,
   Circle,
   Check,
-  Plus,
-  Filter,
   Trash2,
-  Edit,
   Eye,
   EyeOff,
   Star,
@@ -36,12 +33,13 @@ import {
   BoraNewsWithLeitura,
 } from "@/hooks/useBoraNews";
 import { CreateBoraNewsModal } from "@/components/bora-news/CreateBoraNewsModal";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function BoraNewsView() {
   const [activeTab, setActiveTab] = useState("todas");
-  const [showAdmin, setShowAdmin] = useState(false);
+  const { isAdmin } = useAuth();
 
-  const { data: allNews, isLoading } = useBoraNewsList(!showAdmin);
+  const { data: allNews, isLoading } = useBoraNewsList(!isAdmin);
   const toggleRead = useToggleRead();
   const deleteNews = useDeleteBoraNews();
   const updateNews = useUpdateBoraNews();
@@ -120,15 +118,7 @@ export default function BoraNewsView() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant={showAdmin ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowAdmin(!showAdmin)}
-          >
-            <Filter className="h-4 w-4 mr-1" />
-            {showAdmin ? "Modo Admin" : "Modo Usuario"}
-          </Button>
-          {showAdmin && <CreateBoraNewsModal />}
+          {isAdmin && <CreateBoraNewsModal />}
         </div>
       </div>
 
@@ -242,7 +232,7 @@ export default function BoraNewsView() {
                               Destaque
                             </Badge>
                           )}
-                          {showAdmin && item.status_publicacao === "rascunho" && (
+                          {isAdmin && item.status_publicacao === "rascunho" && (
                             <Badge variant="secondary">Rascunho</Badge>
                           )}
                         </div>
@@ -278,7 +268,7 @@ export default function BoraNewsView() {
                                 <Check className="h-4 w-4" />
                               )}
                             </Button>
-                            {showAdmin && (
+                            {isAdmin && (
                               <>
                                 <Button
                                   variant="ghost"

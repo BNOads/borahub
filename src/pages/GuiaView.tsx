@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Document {
     id: string;
@@ -31,6 +32,7 @@ interface Document {
 }
 
 export default function GuiaView() {
+    const { isAdmin } = useAuth();
     const [documents, setDocuments] = useState<Document[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
@@ -163,9 +165,11 @@ export default function GuiaView() {
                 <div className="p-4 space-y-4">
                     <div className="flex items-center justify-between">
                         <h2 className="font-bold text-lg">Arquivos</h2>
-                        <Button size="icon" variant="ghost" className="rounded-xl" onClick={createDocument}>
-                            <Plus className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                            <Button size="icon" variant="ghost" className="rounded-xl" onClick={createDocument}>
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -310,9 +314,11 @@ export default function GuiaView() {
                             <Plus className="h-8 w-8" />
                         </div>
                         <p>Selecione ou crie um documento para começar</p>
-                        <Button onClick={createDocument} variant="outline" className="rounded-xl border-accent/20">
-                            Criar Primeiro Documento
-                        </Button>
+                        {isAdmin && (
+                            <Button onClick={createDocument} variant="outline" className="rounded-xl border-accent/20">
+                                Criar Primeiro Documento
+                            </Button>
+                        )}
                     </div>
                 )}
             </div>
