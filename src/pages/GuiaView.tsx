@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useRef } from "react";
-import { Search, Plus, Star, StarOff, Share2, Trash2, Globe, Lock, Save, FileText, Link2, Check, X, Pencil } from "lucide-react";
+import { Search, Plus, Star, Share2, Trash2, Globe, Lock, Save, FileText, Link2, Check, X, Pencil, FolderPlus, Folder, FolderOpen, ChevronRight, ChevronDown, MoreHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,8 +10,12 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
     DropdownMenuSeparator,
+    DropdownMenuSub,
+    DropdownMenuSubTrigger,
+    DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -27,33 +31,19 @@ interface Document {
     is_favorite: boolean;
     is_public: boolean;
     slug: string;
-    category: string;
+    category: string | null;
     updated_at: string;
     google_docs_url?: string;
 }
 
-// Helper to extract Google Docs embed URL
 function getGoogleDocsEmbedUrl(url: string): string | null {
     if (!url) return null;
-    
-    // Handle various Google Docs URL formats
     const docMatch = url.match(/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/);
-    if (docMatch) {
-        return `https://docs.google.com/document/d/${docMatch[1]}/preview`;
-    }
-    
-    // Handle Google Sheets
+    if (docMatch) return `https://docs.google.com/document/d/${docMatch[1]}/preview`;
     const sheetMatch = url.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
-    if (sheetMatch) {
-        return `https://docs.google.com/spreadsheets/d/${sheetMatch[1]}/preview`;
-    }
-    
-    // Handle Google Slides
+    if (sheetMatch) return `https://docs.google.com/spreadsheets/d/${sheetMatch[1]}/preview`;
     const slideMatch = url.match(/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/);
-    if (slideMatch) {
-        return `https://docs.google.com/presentation/d/${slideMatch[1]}/embed`;
-    }
-    
+    if (slideMatch) return `https://docs.google.com/presentation/d/${slideMatch[1]}/embed`;
     return null;
 }
 
@@ -64,14 +54,19 @@ export default function GuiaView() {
     const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(["__favorites__", "__root__"]));
+    const [newFolderName, setNewFolderName] = useState("");
+    const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+    const [editingFolderName, setEditingFolderName] = useState<string | null>(null);
+    const [editedFolderName, setEditedFolderName] = useState("");
 
-    // Local state for debouncing
     const [localTitle, setLocalTitle] = useState("");
     const [localContent, setLocalContent] = useState("");
     const [googleDocsUrl, setGoogleDocsUrl] = useState("");
     const [contentType, setContentType] = useState<"editor" | "googledocs">("editor");
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const titleInputRef = useRef<HTMLInputElement>(null);
+    const folderInputRef = useRef<HTMLInputElement>(null);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
@@ -95,6 +90,12 @@ export default function GuiaView() {
         }
     }, [isEditingTitle]);
 
+    useEffect(() => {
+        if (isCreatingFolder && folderInputRef.current) {
+            folderInputRef.current.focus();
+        }
+    }, [isCreatingFolder]);
+
     async function fetchDocuments() {
         try {
             setLoading(true);
@@ -116,11 +117,11 @@ export default function GuiaView() {
         }
     }
 
-    const createDocument = async () => {
+    const createDocument = async (folder?: string) => {
         try {
             const { data, error } = await supabase
                 .from("documents")
-                .insert([{ title: "Novo Documento", content: "", icon: "📄" }])
+                .insert([{ title: "Novo Documento", content: "", icon: "📄", category: folder || null }])
                 .select()
                 .single();
 
@@ -129,21 +130,75 @@ export default function GuiaView() {
             fetchDocuments();
             setSelectedDoc(data);
             setIsEditingTitle(true);
+            if (folder) {
+                setExpandedFolders(prev => new Set([...prev, folder]));
+            }
         } catch (error: any) {
             toast.error("Erro ao criar documento: " + error.message);
+        }
+    };
+
+    const createFolder = async () => {
+        if (!newFolderName.trim()) {
+            setIsCreatingFolder(false);
+            return;
+        }
+        // Folders are just categories, we create a placeholder doc or just use the category
+        // For now, we'll just set the folder and it will appear when docs are assigned to it
+        setExpandedFolders(prev => new Set([...prev, newFolderName.trim()]));
+        toast.success(`Pasta "${newFolderName.trim()}" criada!`);
+        setNewFolderName("");
+        setIsCreatingFolder(false);
+    };
+
+    const renameFolder = async (oldName: string, newName: string) => {
+        if (!newName.trim() || oldName === newName) {
+            setEditingFolderName(null);
+            return;
+        }
+        try {
+            const docsInFolder = documents.filter(d => d.category === oldName);
+            for (const doc of docsInFolder) {
+                await supabase.from("documents").update({ category: newName.trim() }).eq("id", doc.id);
+            }
+            toast.success(`Pasta renomeada para "${newName.trim()}"`);
+            fetchDocuments();
+            setEditingFolderName(null);
+        } catch (error: any) {
+            toast.error("Erro ao renomear pasta: " + error.message);
+        }
+    };
+
+    const deleteFolder = async (folderName: string) => {
+        if (!confirm(`Excluir pasta "${folderName}"? Os documentos serão movidos para a raiz.`)) return;
+        try {
+            const docsInFolder = documents.filter(d => d.category === folderName);
+            for (const doc of docsInFolder) {
+                await supabase.from("documents").update({ category: null }).eq("id", doc.id);
+            }
+            toast.success("Pasta excluída");
+            fetchDocuments();
+        } catch (error: any) {
+            toast.error("Erro ao excluir pasta: " + error.message);
+        }
+    };
+
+    const moveDocToFolder = async (docId: string, folder: string | null) => {
+        try {
+            const { error } = await supabase.from("documents").update({ category: folder }).eq("id", docId);
+            if (error) throw error;
+            toast.success(folder ? `Movido para "${folder}"` : "Movido para raiz");
+            fetchDocuments();
+        } catch (error: any) {
+            toast.error("Erro ao mover: " + error.message);
         }
     };
 
     const performSave = async (id: string, updates: Partial<Document>) => {
         try {
             setSaving(true);
-            const { error } = await supabase
-                .from("documents")
-                .update(updates)
-                .eq("id", id);
-
+            const { error } = await supabase.from("documents").update(updates).eq("id", id);
             if (error) throw error;
-
             setDocuments(docs => docs.map(d => d.id === id ? { ...d, ...updates } : d));
             if (selectedDoc?.id === id) {
                 setSelectedDoc(prev => prev ? { ...prev, ...updates } : null);
@@ -156,13 +211,8 @@ export default function GuiaView() {
     };
 
     const debouncedSave = (id: string, updates: Partial<Document>) => {
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-
-        saveTimeoutRef.current = setTimeout(() => {
-            performSave(id, updates);
-        }, 2000);
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => performSave(id, updates), 2000);
     };
 
     const updateDocumentImmediately = async (id: string, updates: Partial<Document>) => {
@@ -177,18 +227,13 @@ export default function GuiaView() {
     };
 
     const cancelTitleEdit = () => {
-        if (selectedDoc) {
-            setLocalTitle(selectedDoc.title);
-        }
+        if (selectedDoc) setLocalTitle(selectedDoc.title);
         setIsEditingTitle(false);
     };
 
     const handleTitleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === "Enter") {
-            saveTitle();
-        } else if (e.key === "Escape") {
-            cancelTitleEdit();
-        }
+        if (e.key === "Enter") saveTitle();
+        else if (e.key === "Escape") cancelTitleEdit();
     };
 
     const saveGoogleDocsUrl = () => {
@@ -206,10 +251,7 @@ export default function GuiaView() {
     const deleteDocument = async (id: string) => {
         if (!confirm("Excluir este documento?")) return;
         try {
-            const { error } = await supabase
-                .from("documents")
-                .delete()
-                .eq("id", id);
+            const { error } = await supabase.from("documents").delete().eq("id", id);
             if (error) throw error;
             toast.success("Documento excluído");
             if (selectedDoc?.id === id) setSelectedDoc(null);
@@ -225,12 +267,23 @@ export default function GuiaView() {
         toast.success("Link público copiado!");
     };
 
+    const toggleFolder = (folder: string) => {
+        setExpandedFolders(prev => {
+            const next = new Set(prev);
+            if (next.has(folder)) next.delete(folder);
+            else next.add(folder);
+            return next;
+        });
+    };
+
     const filteredDocs = documents.filter(doc =>
         doc.title.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     const favoriteDocs = filteredDocs.filter(d => d.is_favorite);
-    const otherDocs = filteredDocs.filter(d => !d.is_favorite);
+    const folders = [...new Set(filteredDocs.filter(d => d.category).map(d => d.category!))].sort();
+    const rootDocs = filteredDocs.filter(d => !d.is_favorite && !d.category);
+    const getDocsInFolder = (folder: string) => filteredDocs.filter(d => !d.is_favorite && d.category === folder);
 
     const embedUrl = selectedDoc?.google_docs_url ? getGoogleDocsEmbedUrl(selectedDoc.google_docs_url) : null;
 
@@ -242,9 +295,14 @@ export default function GuiaView() {
                     <div className="flex items-center justify-between">
                         <h2 className="font-bold text-lg">Arquivos</h2>
                         {isAdmin && (
-                            <Button size="icon" variant="ghost" className="rounded-xl" onClick={createDocument}>
-                                <Plus className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center gap-1">
+                                <Button size="icon" variant="ghost" className="rounded-xl h-8 w-8" onClick={() => setIsCreatingFolder(true)} title="Nova pasta">
+                                    <FolderPlus className="h-4 w-4" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="rounded-xl h-8 w-8" onClick={() => createDocument()} title="Novo documento">
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            </div>
                         )}
                     </div>
                     <div className="relative">
@@ -259,34 +317,141 @@ export default function GuiaView() {
                 </div>
 
                 <ScrollArea className="flex-1 px-2">
-                    <div className="space-y-6 p-2">
-                        {favoriteDocs.length > 0 && (
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 mb-2">Favoritos</p>
-                                {favoriteDocs.map(doc => (
-                                    <DocListItem
-                                        key={doc.id}
-                                        doc={doc}
-                                        active={selectedDoc?.id === doc.id}
-                                        onClick={() => setSelectedDoc(doc)}
-                                        onDelete={isAdmin ? () => deleteDocument(doc.id) : undefined}
-                                    />
-                                ))}
+                    <div className="space-y-2 p-2">
+                        {/* New Folder Input */}
+                        {isCreatingFolder && (
+                            <div className="flex items-center gap-2 px-2 py-1">
+                                <Folder className="h-4 w-4 text-accent" />
+                                <Input
+                                    ref={folderInputRef}
+                                    value={newFolderName}
+                                    onChange={(e) => setNewFolderName(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") createFolder();
+                                        if (e.key === "Escape") { setIsCreatingFolder(false); setNewFolderName(""); }
+                                    }}
+                                    onBlur={createFolder}
+                                    placeholder="Nome da pasta..."
+                                    className="h-7 text-sm rounded-lg"
+                                />
                             </div>
                         )}
 
-                        <div className="space-y-1">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 mb-2">Documentos</p>
-                            {otherDocs.map(doc => (
-                                <DocListItem
-                                    key={doc.id}
-                                    doc={doc}
-                                    active={selectedDoc?.id === doc.id}
-                                    onClick={() => setSelectedDoc(doc)}
-                                    onDelete={isAdmin ? () => deleteDocument(doc.id) : undefined}
-                                />
-                            ))}
-                        </div>
+                        {/* Favorites */}
+                        {favoriteDocs.length > 0 && (
+                            <Collapsible open={expandedFolders.has("__favorites__")} onOpenChange={() => toggleFolder("__favorites__")}>
+                                <CollapsibleTrigger className="flex items-center gap-2 w-full px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
+                                    {expandedFolders.has("__favorites__") ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                    <Star className="h-3 w-3 fill-current text-amber-500" />
+                                    Favoritos
+                                    <span className="ml-auto text-[9px] opacity-50">{favoriteDocs.length}</span>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="space-y-0.5 ml-2">
+                                    {favoriteDocs.map(doc => (
+                                        <DocListItem
+                                            key={doc.id}
+                                            doc={doc}
+                                            active={selectedDoc?.id === doc.id}
+                                            onClick={() => setSelectedDoc(doc)}
+                                            onDelete={isAdmin ? () => deleteDocument(doc.id) : undefined}
+                                            folders={folders}
+                                            onMoveToFolder={isAdmin ? (folder) => moveDocToFolder(doc.id, folder) : undefined}
+                                        />
+                                    ))}
+                                </CollapsibleContent>
+                            </Collapsible>
+                        )}
+
+                        {/* Folders */}
+                        {folders.map(folder => (
+                            <Collapsible key={folder} open={expandedFolders.has(folder)} onOpenChange={() => toggleFolder(folder)}>
+                                <div className="flex items-center group">
+                                    <CollapsibleTrigger className="flex items-center gap-2 flex-1 px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-accent/5">
+                                        {expandedFolders.has(folder) ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                                        {expandedFolders.has(folder) ? <FolderOpen className="h-4 w-4 text-accent" /> : <Folder className="h-4 w-4 text-accent" />}
+                                        {editingFolderName === folder ? (
+                                            <Input
+                                                value={editedFolderName}
+                                                onChange={(e) => setEditedFolderName(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    e.stopPropagation();
+                                                    if (e.key === "Enter") renameFolder(folder, editedFolderName);
+                                                    if (e.key === "Escape") setEditingFolderName(null);
+                                                }}
+                                                onBlur={() => renameFolder(folder, editedFolderName)}
+                                                onClick={(e) => e.stopPropagation()}
+                                                className="h-6 text-sm rounded-md px-1"
+                                                autoFocus
+                                            />
+                                        ) : (
+                                            <span className="truncate">{folder}</span>
+                                        )}
+                                        <span className="ml-auto text-[10px] opacity-50">{getDocsInFolder(folder).length}</span>
+                                    </CollapsibleTrigger>
+                                    {isAdmin && (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <MoreHorizontal className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-40">
+                                                <DropdownMenuItem onClick={() => createDocument(folder)}>
+                                                    <Plus className="h-4 w-4 mr-2" />
+                                                    Novo documento
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => { setEditingFolderName(folder); setEditedFolderName(folder); }}>
+                                                    <Pencil className="h-4 w-4 mr-2" />
+                                                    Renomear
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem className="text-destructive" onClick={() => deleteFolder(folder)}>
+                                                    <Trash2 className="h-4 w-4 mr-2" />
+                                                    Excluir pasta
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    )}
+                                </div>
+                                <CollapsibleContent className="space-y-0.5 ml-4">
+                                    {getDocsInFolder(folder).map(doc => (
+                                        <DocListItem
+                                            key={doc.id}
+                                            doc={doc}
+                                            active={selectedDoc?.id === doc.id}
+                                            onClick={() => setSelectedDoc(doc)}
+                                            onDelete={isAdmin ? () => deleteDocument(doc.id) : undefined}
+                                            folders={folders}
+                                            onMoveToFolder={isAdmin ? (f) => moveDocToFolder(doc.id, f) : undefined}
+                                        />
+                                    ))}
+                                </CollapsibleContent>
+                            </Collapsible>
+                        ))}
+
+                        {/* Root Documents */}
+                        {rootDocs.length > 0 && (
+                            <Collapsible open={expandedFolders.has("__root__")} onOpenChange={() => toggleFolder("__root__")}>
+                                <CollapsibleTrigger className="flex items-center gap-2 w-full px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors">
+                                    {expandedFolders.has("__root__") ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                    Documentos
+                                    <span className="ml-auto text-[9px] opacity-50">{rootDocs.length}</span>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent className="space-y-0.5 ml-2">
+                                    {rootDocs.map(doc => (
+                                        <DocListItem
+                                            key={doc.id}
+                                            doc={doc}
+                                            active={selectedDoc?.id === doc.id}
+                                            onClick={() => setSelectedDoc(doc)}
+                                            onDelete={isAdmin ? () => deleteDocument(doc.id) : undefined}
+                                            folders={folders}
+                                            onMoveToFolder={isAdmin ? (folder) => moveDocToFolder(doc.id, folder) : undefined}
+                                        />
+                                    ))}
+                                </CollapsibleContent>
+                            </Collapsible>
+                        )}
                     </div>
                 </ScrollArea>
             </div>
@@ -332,10 +497,7 @@ export default function GuiaView() {
                                 ) : (
                                     <button
                                         onClick={() => isAdmin && setIsEditingTitle(true)}
-                                        className={cn(
-                                            "font-bold text-lg flex items-center gap-2 group",
-                                            isAdmin && "hover:text-accent cursor-pointer"
-                                        )}
+                                        className={cn("font-bold text-lg flex items-center gap-2 group", isAdmin && "hover:text-accent cursor-pointer")}
                                     >
                                         {localTitle}
                                         {isAdmin && <Pencil className="h-3.5 w-3.5 opacity-0 group-hover:opacity-60 transition-opacity" />}
@@ -378,10 +540,7 @@ export default function GuiaView() {
                                     </DropdownMenuContent>
                                 </DropdownMenu>
 
-                                {saving && <span className="text-[10px] text-muted-foreground animate-pulse flex items-center gap-1">
-                                    <Save className="h-3 w-3" />
-                                    Salvando...
-                                </span>}
+                                {saving && <span className="text-[10px] text-muted-foreground animate-pulse flex items-center gap-1"><Save className="h-3 w-3" />Salvando...</span>}
                                 {!saving && <span className="text-[10px] text-muted-foreground opacity-30">Salvo</span>}
                             </div>
                         </div>
@@ -415,9 +574,7 @@ export default function GuiaView() {
                                             onChange={(e) => setGoogleDocsUrl(e.target.value)}
                                             className="flex-1 border-none bg-transparent focus-visible:ring-0 placeholder:text-muted-foreground/50"
                                         />
-                                        <Button size="sm" className="rounded-lg" onClick={saveGoogleDocsUrl}>
-                                            Salvar
-                                        </Button>
+                                        <Button size="sm" className="rounded-lg" onClick={saveGoogleDocsUrl}>Salvar</Button>
                                     </div>
                                 </div>
                             )}
@@ -425,18 +582,11 @@ export default function GuiaView() {
                             <ScrollArea className="flex-1">
                                 {contentType === "googledocs" && embedUrl ? (
                                     <div className="h-full p-6">
-                                        <iframe
-                                            src={embedUrl}
-                                            className="w-full h-[calc(100vh-16rem)] rounded-xl border border-border"
-                                            frameBorder="0"
-                                            allowFullScreen
-                                        />
+                                        <iframe src={embedUrl} className="w-full h-[calc(100vh-16rem)] rounded-xl border border-border" frameBorder="0" allowFullScreen />
                                     </div>
                                 ) : contentType === "googledocs" && !embedUrl ? (
                                     <div className="flex-1 flex items-center justify-center text-muted-foreground flex-col gap-4 py-20">
-                                        <div className="h-16 w-16 bg-accent/5 rounded-3xl flex items-center justify-center text-accent/20">
-                                            <Link2 className="h-8 w-8" />
-                                        </div>
+                                        <div className="h-16 w-16 bg-accent/5 rounded-3xl flex items-center justify-center text-accent/20"><Link2 className="h-8 w-8" /></div>
                                         <p>Nenhum documento do Google vinculado</p>
                                         {isAdmin && <p className="text-sm">Cole o link acima para embedar um documento</p>}
                                     </div>
@@ -445,28 +595,20 @@ export default function GuiaView() {
                                         <div className="mb-8 flex items-center gap-3">
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="text-4xl p-0 h-14 w-14 hover:bg-accent/5 rounded-2xl">
-                                                        {selectedDoc.icon}
-                                                    </Button>
+                                                    <Button variant="ghost" className="text-4xl p-0 h-14 w-14 hover:bg-accent/5 rounded-2xl">{selectedDoc.icon}</Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent className="grid grid-cols-4 p-2">
                                                     {['📄', '🎯', '🏢', '📜', '💡', '🚀', '🛠️', '⚙️'].map(emoji => (
-                                                        <DropdownMenuItem key={emoji} onClick={() => updateDocumentImmediately(selectedDoc.id, { icon: emoji })} className="text-2xl justify-center cursor-pointer">
-                                                            {emoji}
-                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem key={emoji} onClick={() => updateDocumentImmediately(selectedDoc.id, { icon: emoji })} className="text-2xl justify-center cursor-pointer">{emoji}</DropdownMenuItem>
                                                     ))}
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
                                             <h1 className="text-4xl font-black tracking-tight flex-1">{localTitle}</h1>
                                         </div>
-
                                         <ReactQuill
                                             theme="snow"
                                             value={localContent}
-                                            onChange={(content) => {
-                                                setLocalContent(content);
-                                                debouncedSave(selectedDoc.id, { content });
-                                            }}
+                                            onChange={(content) => { setLocalContent(content); debouncedSave(selectedDoc.id, { content }); }}
                                             className="guia-editor"
                                             placeholder="Comece a escrever aqui..."
                                             readOnly={!isAdmin}
@@ -478,86 +620,90 @@ export default function GuiaView() {
                     </>
                 ) : (
                     <div className="flex-1 flex items-center justify-center text-muted-foreground flex-col gap-4">
-                        <div className="h-16 w-16 bg-accent/5 rounded-3xl flex items-center justify-center text-accent/20">
-                            <Plus className="h-8 w-8" />
-                        </div>
+                        <div className="h-16 w-16 bg-accent/5 rounded-3xl flex items-center justify-center text-accent/20"><Plus className="h-8 w-8" /></div>
                         <p>Selecione ou crie um documento para começar</p>
-                        {isAdmin && (
-                            <Button onClick={createDocument} variant="outline" className="rounded-xl border-accent/20">
-                                Criar Primeiro Documento
-                            </Button>
-                        )}
+                        {isAdmin && <Button onClick={() => createDocument()} variant="outline" className="rounded-xl border-accent/20">Criar Primeiro Documento</Button>}
                     </div>
                 )}
             </div>
 
             <style>{`
-                .guia-editor .ql-container {
-                    border: none !important;
-                    font-size: 1.1rem;
-                    font-family: inherit;
-                    color: inherit;
-                }
-                .guia-editor .ql-toolbar {
-                    border: none !important;
-                    border-bottom: 1px solid hsl(var(--border)) !important;
-                    background: transparent;
-                    padding: 8px 0;
-                    position: sticky;
-                    top: 0;
-                    z-index: 10;
-                    margin-bottom: 2rem;
-                }
-                .guia-editor .ql-editor {
-                    padding: 0;
-                    min-height: 500px;
-                }
-                .guia-editor .ql-editor p {
-                    margin-bottom: 1rem;
-                    line-height: 1.6;
-                }
-                .ql-snow .ql-stroke {
-                    stroke: currentColor;
-                }
-                .ql-snow .ql-fill {
-                    fill: currentColor;
-                }
-                .ql-picker {
-                    color: currentColor !important;
-                }
+                .guia-editor .ql-container { border: none !important; font-size: 1.1rem; font-family: inherit; color: inherit; }
+                .guia-editor .ql-toolbar { border: none !important; border-bottom: 1px solid hsl(var(--border)) !important; background: transparent; padding: 8px 0; position: sticky; top: 0; z-index: 10; margin-bottom: 2rem; }
+                .guia-editor .ql-editor { padding: 0; min-height: 500px; }
+                .guia-editor .ql-editor p { margin-bottom: 1rem; line-height: 1.6; }
+                .ql-snow .ql-stroke { stroke: currentColor; }
+                .ql-snow .ql-fill { fill: currentColor; }
+                .ql-picker { color: currentColor !important; }
             `}</style>
         </div>
     );
 }
 
-function DocListItem({ doc, active, onClick, onDelete }: { doc: Document, active: boolean, onClick: () => void, onDelete?: () => void }) {
+interface DocListItemProps {
+    doc: Document;
+    active: boolean;
+    onClick: () => void;
+    onDelete?: () => void;
+    folders?: string[];
+    onMoveToFolder?: (folder: string | null) => void;
+}
+
+function DocListItem({ doc, active, onClick, onDelete, folders = [], onMoveToFolder }: DocListItemProps) {
     return (
         <div className="relative group">
             <button
                 onClick={onClick}
                 className={cn(
-                    "w-full flex items-center gap-3 px-3 py-2 pr-8 rounded-xl text-sm transition-all relative",
-                    active
-                        ? "bg-accent/10 text-accent font-bold shadow-sm"
-                        : "text-muted-foreground hover:bg-accent/5 hover:text-foreground"
+                    "w-full flex items-center gap-2 px-2 py-1.5 pr-8 rounded-lg text-sm transition-all relative",
+                    active ? "bg-accent/10 text-accent font-medium" : "text-muted-foreground hover:bg-accent/5 hover:text-foreground"
                 )}
             >
                 <span className="text-base">{doc.icon}</span>
                 <span className="truncate flex-1 text-left">{doc.title}</span>
-                {doc.google_docs_url && <Link2 className="h-3 w-3 text-blue-500 opacity-60" />}
-                {doc.is_public && <Globe className="h-3 w-3 text-emerald-500 opacity-60" />}
+                {doc.google_docs_url && <Link2 className="h-3 w-3 text-blue-500 opacity-60 flex-shrink-0" />}
+                {doc.is_public && <Globe className="h-3 w-3 text-emerald-500 opacity-60 flex-shrink-0" />}
             </button>
-            {onDelete && (
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete();
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                    title="Excluir documento"
-                >
-                    <Trash2 className="h-3.5 w-3.5" />
-                </button>
+            {(onDelete || onMoveToFolder) && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-accent/10">
+                            <MoreHorizontal className="h-3.5 w-3.5" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                        {onMoveToFolder && (
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                    <Folder className="h-4 w-4 mr-2" />
+                                    Mover para...
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent>
+                                    <DropdownMenuItem onClick={() => onMoveToFolder(null)}>
+                                        <FileText className="h-4 w-4 mr-2" />
+                                        Raiz
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    {folders.map(f => (
+                                        <DropdownMenuItem key={f} onClick={() => onMoveToFolder(f)} disabled={doc.category === f}>
+                                            <Folder className="h-4 w-4 mr-2" />
+                                            {f}
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                        )}
+                        {onDelete && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive" onClick={onDelete}>
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Excluir
+                                </DropdownMenuItem>
+                            </>
+                        )}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             )}
         </div>
     );
