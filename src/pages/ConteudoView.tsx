@@ -63,6 +63,7 @@ import { DiretrizesView } from "@/components/conteudo/DiretrizesView";
 import { AgentesIAView } from "@/components/conteudo/AgentesIAView";
 import { useSocialPosts, useSocialProfiles, useUpdateSocialPost, SocialPost as ImportedSocialPost, SocialProfile as ImportedSocialProfile, SOCIAL_POSTS_KEY } from "@/hooks/useSocialPosts";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Youtube Icon Component
 const YoutubeIcon = ({ className }: { className?: string }) => (
@@ -131,6 +132,7 @@ interface SocialPost {
 }
 
 export default function ConteudoView() {
+    const { isAdmin } = useAuth();
     const [view, setView] = useState<"grid" | "kanban" | "diretrizes" | "agentes">("grid");
     const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [searchQuery, setSearchQuery] = useState("");
@@ -271,22 +273,26 @@ export default function ConteudoView() {
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>
                             </div>
-                            <Button
-                                variant="gold"
-                                className="rounded-2xl h-11 gap-2 font-black shadow-xl shadow-gold/20 hover:scale-105 transition-transform"
-                                onClick={() => setIsEditorialOpen(true)}
-                            >
-                                <Wand2 className="h-4 w-4" />
-                                Nova Estratégia Semanal
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                className="rounded-2xl h-11 gap-2 font-black border border-accent/10 hover:bg-accent/5 transition-all"
-                                onClick={() => setIsProfilesOpen(true)}
-                            >
-                                <User className="h-4 w-4" />
-                                Gerenciar Perfis
-                            </Button>
+                            {isAdmin && (
+                                <>
+                                    <Button
+                                        variant="gold"
+                                        className="rounded-2xl h-11 gap-2 font-black shadow-xl shadow-gold/20 hover:scale-105 transition-transform"
+                                        onClick={() => setIsEditorialOpen(true)}
+                                    >
+                                        <Wand2 className="h-4 w-4" />
+                                        Nova Estratégia Semanal
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        className="rounded-2xl h-11 gap-2 font-black border border-accent/10 hover:bg-accent/5 transition-all"
+                                        onClick={() => setIsProfilesOpen(true)}
+                                    >
+                                        <User className="h-4 w-4" />
+                                        Gerenciar Perfis
+                                    </Button>
+                                </>
+                            )}
                         </div>
                     </div>
 

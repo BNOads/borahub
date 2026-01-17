@@ -89,7 +89,7 @@ type ViewMode = "list" | "kanban";
 
 export default function Tarefas() {
   const { toast } = useToast();
-  const { authReady, session } = useAuth();
+  const { authReady, session, isAdmin } = useAuth();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPriority, setFilterPriority] = useState<string>("all");
@@ -331,13 +331,14 @@ export default function Tarefas() {
             </Button>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Nova Tarefa
-              </Button>
-            </DialogTrigger>
+          {isAdmin && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Nova Tarefa
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>
@@ -510,6 +511,7 @@ export default function Tarefas() {
               </div>
             </DialogContent>
           </Dialog>
+          )}
         </div>
       </div>
 

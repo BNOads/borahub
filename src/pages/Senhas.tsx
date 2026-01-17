@@ -23,6 +23,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CreatePasswordModal } from "@/components/passwords/CreatePasswordModal";
+import { useAuth } from "@/contexts/AuthContext";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -54,6 +55,7 @@ const categoryColors: Record<string, string> = {
 };
 
 export default function Senhas() {
+    const { isAdmin } = useAuth();
     const [acessos, setAcessos] = useState<Acesso[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -140,7 +142,7 @@ export default function Senhas() {
                         Gerencie credenciais e acessos da equipe de forma centralizada
                     </p>
                 </div>
-                <CreatePasswordModal onSuccess={fetchAcessos} />
+                {isAdmin && <CreatePasswordModal onSuccess={fetchAcessos} />}
             </div>
 
             {/* Filters */}

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Rocket, DollarSign, CheckCircle2 } from "lucide-react";
 import { CreateFunnelModal } from "./CreateFunnelModal";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface FunnelSummaryCardsProps {
     activeCount: number;
@@ -10,6 +11,7 @@ interface FunnelSummaryCardsProps {
 }
 
 export function FunnelSummaryCards({ activeCount, totalInvestment, finishedCount, onFunnelCreated }: FunnelSummaryCardsProps) {
+    const { isAdmin } = useAuth();
     return (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -59,9 +61,11 @@ export function FunnelSummaryCards({ activeCount, totalInvestment, finishedCount
                 </CardContent>
             </Card>
 
-            <div className="flex items-center justify-center p-6 border rounded-xl bg-muted/50 border-dashed">
-                <CreateFunnelModal onFunnelCreated={onFunnelCreated} />
-            </div>
+            {isAdmin && (
+                <div className="flex items-center justify-center p-6 border rounded-xl bg-muted/50 border-dashed">
+                    <CreateFunnelModal onFunnelCreated={onFunnelCreated} />
+                </div>
+            )}
         </div>
     );
 }

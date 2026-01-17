@@ -16,6 +16,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Course {
     id: string;
@@ -35,6 +36,7 @@ interface Lesson {
 }
 
 export default function TreinamentosView() {
+    const { isAdmin } = useAuth();
     const [courses, setCourses] = useState<Course[]>([]);
     const [lessons, setLessons] = useState<Lesson[]>([]);
     const [search, setSearch] = useState("");
@@ -101,13 +103,15 @@ export default function TreinamentosView() {
                     <h1 className="text-3xl font-bold">Treinamentos</h1>
                     <p className="text-muted-foreground mt-1">Cursos e capacitações da equipe</p>
                 </div>
-                <Button onClick={() => {
-                    setSelectedCourse(null);
-                    setIsModalOpen(true);
-                }} className="rounded-xl bg-accent hover:bg-accent/90">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo Curso
-                </Button>
+                {isAdmin && (
+                    <Button onClick={() => {
+                        setSelectedCourse(null);
+                        setIsModalOpen(true);
+                    }} className="rounded-xl bg-accent hover:bg-accent/90">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Novo Curso
+                    </Button>
+                )}
             </div>
 
             <CourseModal
@@ -188,35 +192,37 @@ export default function TreinamentosView() {
                                         )}>
                                             {course.level}
                                         </Badge>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-accent/10 rounded-full">
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="rounded-xl">
-                                                <DropdownMenuItem onClick={() => {
-                                                    setSelectedCourse(course);
-                                                    setIsModalOpen(true);
-                                                }}>
-                                                    <Edit className="h-4 w-4 mr-2" />
-                                                    Editar Curso
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem className="text-destructive" onClick={async () => {
-                                                    if (confirm("Deseja realmente excluir este curso?")) {
-                                                        const { error } = await supabase.from("courses").delete().eq("id", course.id);
-                                                        if (error) toast.error("Erro ao excluir curso");
-                                                        else {
-                                                            toast.success("Curso excluído");
-                                                            fetchCourses();
+                                        {isAdmin && (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:bg-accent/10 rounded-full">
+                                                        <MoreVertical className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" className="rounded-xl">
+                                                    <DropdownMenuItem onClick={() => {
+                                                        setSelectedCourse(course);
+                                                        setIsModalOpen(true);
+                                                    }}>
+                                                        <Edit className="h-4 w-4 mr-2" />
+                                                        Editar Curso
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem className="text-destructive" onClick={async () => {
+                                                        if (confirm("Deseja realmente excluir este curso?")) {
+                                                            const { error } = await supabase.from("courses").delete().eq("id", course.id);
+                                                            if (error) toast.error("Erro ao excluir curso");
+                                                            else {
+                                                                toast.success("Curso excluído");
+                                                                fetchCourses();
+                                                            }
                                                         }
-                                                    }
-                                                }}>
-                                                    <Trash2 className="h-4 w-4 mr-2" />
-                                                    Excluir Curso
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                                    }}>
+                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                        Excluir Curso
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        )}
                                     </div>
                                     <h3 className="text-xl font-bold line-clamp-2 leading-tight group-hover:text-accent transition-colors">
                                         {course.title}
