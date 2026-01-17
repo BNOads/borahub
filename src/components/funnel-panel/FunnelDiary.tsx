@@ -2,18 +2,21 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { BookOpen, Send, User } from "lucide-react";
-import { FunnelDiaryEntry } from "./types";
+import { BookOpen, Send, User, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useFunnelDiary, useCreateDiaryEntry } from "@/hooks/useFunnelExtras";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface FunnelDiaryProps {
   funnelId: string;
 }
 
 export function FunnelDiary({ funnelId }: FunnelDiaryProps) {
-  const [entries, setEntries] = useState<FunnelDiaryEntry[]>([]);
+  const { profile } = useAuth();
+  const { data: entries = [], isLoading } = useFunnelDiary(funnelId);
+  const createEntry = useCreateDiaryEntry();
+
   const [newEntry, setNewEntry] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (!newEntry.trim()) {
@@ -21,19 +24,18 @@ export function FunnelDiary({ funnelId }: FunnelDiaryProps) {
       return;
     }
 
-    setSubmitting(true);
-    const entry: FunnelDiaryEntry = {
-      id: crypto.randomUUID(),
-      funnel_id: funnelId,
-      content: newEntry.trim(),
-      author_id: null,
-      author_name: "Usuário",
-      created_at: new Date().toISOString(),
-    };
-    setEntries([entry, ...entries]);
-    toast.success("Registro adicionado!");
-    setNewEntry("");
-    setSubmitting(false);
+    try {
+      await createEntry.mutateAsync({
+        funnel_id: funnelId,
+        content: newEntry.trim(),
+        author_name: profile?.full_name || "Usuário",
+        author_id: profile?.id || null,
+      });
+      toast.success("Registro adicionado!");
+      setNewEntry("");
+    } catch {
+      toast.error("Erro ao adicionar registro");
+    }
   };
 
   const formatDate = (date: string) => {
@@ -63,14 +65,27 @@ export function FunnelDiary({ funnelId }: FunnelDiaryProps) {
             className="min-h-[100px] resize-none"
           />
           <div className="flex justify-end">
-            <Button onClick={handleSubmit} disabled={submitting || !newEntry.trim()} size="sm" className="gap-2">
-              <Send className="h-4 w-4" />
-              {submitting ? "Enviando..." : "Registrar"}
+            <Button 
+              onClick={handleSubmit} 
+              disabled={createEntry.isPending || !newEntry.trim()} 
+              size="sm" 
+              className="gap-2"
+            >
+              {createEntry.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              {createEntry.isPending ? "Enviando..." : "Registrar"}
             </Button>
           </div>
         </div>
 
-        {entries.length === 0 ? (
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8 border-t">
+            <Loader2 className="h-6 w-6 animate-spin text-accent" />
+          </div>
+        ) : entries.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground border-t">
             <BookOpen className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p>Nenhum registro no diário</p>
