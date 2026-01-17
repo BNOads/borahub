@@ -17,6 +17,8 @@ import {
   FileText,
   Pencil,
   Trash2,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { FunnelLink } from "./types";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +27,7 @@ import { cn } from "@/lib/utils";
 
 interface FunnelLinksListProps {
   funnelId: string;
+  compact?: boolean;
 }
 
 const LINK_CATEGORIES = [
@@ -38,7 +41,7 @@ const LINK_CATEGORIES = [
   { type: "memorial", label: "Memorial", icon: FileText },
 ];
 
-export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
+export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListProps) {
   const [links, setLinks] = useState<FunnelLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUrls, setEditingUrls] = useState<Record<string, string>>({});
@@ -129,6 +132,74 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
     toast.success("Link copiado!");
   };
 
+  const filledCount = links.filter(l => l.url).length;
+  const totalCount = LINK_CATEGORIES.length;
+
+  // Compact mode for overview
+  if (compact) {
+    return (
+      <div className="rounded-2xl border bg-card">
+        <div className="p-4 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Link2 className="h-4 w-4 text-accent" />
+            <span className="font-semibold">Links Úteis</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="gap-1">
+              <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+              {filledCount}/{totalCount}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+          {loading ? (
+            Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />
+            ))
+          ) : (
+            LINK_CATEGORIES.map((category) => {
+              const link = getLinkByType(category.type);
+              const hasUrl = !!link?.url;
+              const IconComponent = category.icon;
+
+              return (
+                <button
+                  key={category.type}
+                  onClick={() => hasUrl && link?.url && window.open(link.url, "_blank")}
+                  disabled={!hasUrl}
+                  className={cn(
+                    "p-3 rounded-xl border transition-all text-left group",
+                    hasUrl
+                      ? "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 hover:shadow-md cursor-pointer"
+                      : "bg-amber-50/50 dark:bg-amber-900/10 border-dashed border-amber-300 dark:border-amber-700 cursor-not-allowed opacity-60"
+                  )}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <IconComponent className={cn(
+                      "h-4 w-4",
+                      hasUrl ? "text-emerald-600 dark:text-emerald-400" : "text-amber-500"
+                    )} />
+                    {hasUrl ? (
+                      <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                    ) : (
+                      <AlertCircle className="h-3 w-3 text-amber-500" />
+                    )}
+                  </div>
+                  <p className="text-xs font-medium truncate">{category.label}</p>
+                  {hasUrl && (
+                    <ExternalLink className="h-3 w-3 text-muted-foreground mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Full mode for Links tab
   return (
     <div className="rounded-2xl border bg-card">
       <div className="p-4 border-b flex items-center justify-between">
@@ -136,10 +207,9 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
           <Link2 className="h-4 w-4 text-muted-foreground" />
           <span className="font-semibold">Links Úteis do Lançamento</span>
         </div>
-        <Button size="sm" className="gap-1.5 bg-emerald-500 hover:bg-emerald-600">
-          <Plus className="h-3.5 w-3.5" />
-          Link Personalizado
-        </Button>
+        <Badge variant="outline" className="gap-1">
+          {filledCount}/{totalCount} configurados
+        </Badge>
       </div>
 
       <div className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
@@ -177,66 +247,37 @@ export function FunnelLinksList({ funnelId }: FunnelLinksListProps) {
                       </Badge>
                     )}
                   </div>
-                  {!hasUrl && (
-                    <Button size="sm" variant="default" className="h-7 gap-1 bg-emerald-500 hover:bg-emerald-600">
-                      <Plus className="h-3 w-3" />
-                      Add
-                    </Button>
-                  )}
                 </div>
 
                 {link && (
                   <div className="flex items-center gap-2">
-                    {hasUrl ? (
-                      <>
-                        <Input
-                          value={currentUrl}
-                          onChange={(e) => handleUrlChange(link.id, e.target.value)}
-                          className="h-8 text-xs bg-muted/50 border-0"
-                          readOnly={!urlChanged}
-                        />
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => copyLink(link.url!)}
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => window.open(link.url!, "_blank")}
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <Input
-                        value={currentUrl}
-                        onChange={(e) => handleUrlChange(link.id, e.target.value)}
-                        placeholder="Cole a URL aqui..."
-                        className="h-8 text-xs"
-                        onBlur={() => urlChanged && handleSaveUrl(link.id)}
-                        onKeyDown={(e) => e.key === "Enter" && urlChanged && handleSaveUrl(link.id)}
-                      />
+                    <Input
+                      value={currentUrl}
+                      onChange={(e) => handleUrlChange(link.id, e.target.value)}
+                      placeholder="Cole a URL aqui..."
+                      className="h-8 text-xs"
+                      onBlur={() => urlChanged && handleSaveUrl(link.id)}
+                      onKeyDown={(e) => e.key === "Enter" && urlChanged && handleSaveUrl(link.id)}
+                    />
+                    {hasUrl && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => copyLink(link.url!)}
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          onClick={() => window.open(link.url!, "_blank")}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     )}
                     {urlChanged && (
                       <Button
