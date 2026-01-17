@@ -67,7 +67,7 @@ export function UserTasksModal({
     recurrence_end_date: "",
   });
 
-  const { data: tasks = [], isLoading } = useUserTasks(user?.id ?? null);
+  const { data: tasks = [], isLoading } = useUserTasks(user?.full_name ?? null);
   const createTask = useCreateTaskForUser();
   const toggleComplete = useToggleTaskComplete();
 
