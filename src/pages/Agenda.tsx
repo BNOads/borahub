@@ -55,6 +55,19 @@ export default function Agenda() {
     return events.filter((e) => e.event_date === selectedDate);
   }, [events, selectedDate]);
 
+  // Próximos eventos (a partir de hoje)
+  const upcomingEvents = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    return events
+      .filter((e) => e.event_date >= today)
+      .sort((a, b) => {
+        const dateCompare = a.event_date.localeCompare(b.event_date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.event_time.localeCompare(b.event_time);
+      })
+      .slice(0, 10); // Mostrar até 10 próximos eventos
+  }, [events]);
+
   const handleEdit = (event: Event) => {
     setSelectedEvent(event);
     setShowEventModal(true);
@@ -280,11 +293,62 @@ export default function Agenda() {
               </ScrollArea>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center h-[460px] p-6 text-center">
-              <Calendar className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <p className="text-sm text-muted-foreground">
-                Clique em uma data no calendario para ver os eventos
-              </p>
+            <div className="h-[460px]">
+              <div className="p-4 border-b">
+                <p className="font-semibold text-sm">Próximos eventos</p>
+                <p className="text-xs text-muted-foreground">{upcomingEvents.length} evento(s)</p>
+              </div>
+              <ScrollArea className="h-[400px]">
+                {upcomingEvents.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+                    <Calendar className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum evento futuro cadastrado
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 space-y-2">
+                    {upcomingEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="p-3 rounded-lg border bg-background hover:border-accent/50 transition-colors cursor-pointer group"
+                        onClick={() => {
+                          setSelectedDate(event.event_date);
+                          handleEdit(event);
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className="w-1 h-full min-h-[40px] rounded-full shrink-0"
+                            style={{ backgroundColor: event.color || '#6366f1' }}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm truncate">
+                                {event.title}
+                              </span>
+                              {event.recurrence && event.recurrence !== "none" && (
+                                <Repeat className="h-3 w-3 text-accent shrink-0" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                              <span>
+                                {new Date(event.event_date + "T00:00:00").toLocaleDateString("pt-BR", {
+                                  day: "2-digit",
+                                  month: "short"
+                                })}
+                              </span>
+                              <span>•</span>
+                              <Clock className="h-3 w-3" />
+                              {formatTime(event.event_time)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
             </div>
           )}
         </div>

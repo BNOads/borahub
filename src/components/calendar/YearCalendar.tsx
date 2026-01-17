@@ -112,10 +112,8 @@ export function YearCalendar({ events, onDateClick, onEventClick }: YearCalendar
                     {dayEvents.slice(0, 3).map((event, idx) => (
                       <div
                         key={idx}
-                        className={cn(
-                          "w-1 h-1 rounded-full",
-                          eventTypeColors[event.event_type || "outro"]
-                        )}
+                        className="w-1 h-1 rounded-full"
+                        style={{ backgroundColor: event.color || '#6366f1' }}
                       />
                     ))}
                   </div>
