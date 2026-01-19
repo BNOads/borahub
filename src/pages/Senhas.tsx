@@ -7,7 +7,9 @@ import {
     Eye,
     EyeOff,
     Key,
-    Lock
+    Lock,
+    ChevronDown,
+    Filter
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,12 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CreatePasswordModal } from "@/components/passwords/CreatePasswordModal";
@@ -173,36 +181,48 @@ export default function Senhas() {
             {/* Filters */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
                         placeholder="Buscar por nome ou usuário..."
-                        className="pl-10"
+                        className="pl-11 h-11 text-base"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
                 
-                <div className="flex flex-wrap gap-2">
-                    <Button
-                        variant={selectedCategory === "all" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setSelectedCategory("all")}
-                        className={selectedCategory === "all" ? "bg-accent hover:bg-accent/90" : ""}
-                    >
-                        Todos ({acessos.length})
-                    </Button>
-                    {uniqueCategories.map((cat) => (
-                        <Button
-                            key={cat}
-                            variant={selectedCategory === cat ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setSelectedCategory(cat)}
-                            className={selectedCategory === cat ? "bg-accent hover:bg-accent/90" : ""}
-                        >
-                            {categoryLabels[cat] || cat} ({acessos.filter(a => a.categoria === cat).length})
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="h-11 gap-2 min-w-[180px] justify-between">
+                            <div className="flex items-center gap-2">
+                                <Filter className="h-4 w-4" />
+                                <span>
+                                    {selectedCategory === "all" 
+                                        ? `Todas categorias (${acessos.length})` 
+                                        : `${categoryLabels[selectedCategory] || selectedCategory} (${acessos.filter(a => a.categoria === selectedCategory).length})`
+                                    }
+                                </span>
+                            </div>
+                            <ChevronDown className="h-4 w-4 opacity-50" />
                         </Button>
-                    ))}
-                </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-[220px] bg-popover z-50">
+                        <DropdownMenuItem 
+                            onClick={() => setSelectedCategory("all")}
+                            className={selectedCategory === "all" ? "bg-accent/10 text-accent" : ""}
+                        >
+                            Todas categorias ({acessos.length})
+                        </DropdownMenuItem>
+                        {uniqueCategories.map((cat) => (
+                            <DropdownMenuItem
+                                key={cat}
+                                onClick={() => setSelectedCategory(cat)}
+                                className={selectedCategory === cat ? "bg-accent/10 text-accent" : ""}
+                            >
+                                {categoryLabels[cat] || cat} ({acessos.filter(a => a.categoria === cat).length})
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             {/* Table */}
