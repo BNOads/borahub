@@ -51,7 +51,25 @@ const categoryColors: Record<string, string> = {
     Curso: "bg-purple-500/10 text-purple-500 border-purple-500/20",
     Email: "bg-green-500/10 text-green-500 border-green-500/20",
     Autenticador: "bg-orange-500/10 text-orange-500 border-orange-500/20",
+    plataforma_cursos: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+    ferramentas_ads: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    redes_sociais: "bg-pink-500/10 text-pink-500 border-pink-500/20",
+    analytics: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
+    outros: "bg-slate-500/10 text-slate-500 border-slate-500/20",
     Outro: "bg-slate-500/10 text-slate-500 border-slate-500/20",
+};
+
+const categoryLabels: Record<string, string> = {
+    Ferramenta: "Ferramenta",
+    Curso: "Curso",
+    Email: "Email",
+    Autenticador: "Autenticador",
+    plataforma_cursos: "Plataforma de Cursos",
+    ferramentas_ads: "Ferramentas de Ads",
+    redes_sociais: "Redes Sociais",
+    analytics: "Analytics",
+    outros: "Outros",
+    Outro: "Outro",
 };
 
 export default function Senhas() {
@@ -59,6 +77,7 @@ export default function Senhas() {
     const [acessos, setAcessos] = useState<Acesso[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState<string>("all");
     const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
     // Edit state
@@ -67,6 +86,9 @@ export default function Senhas() {
 
     // Delete state
     const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    // Get unique categories from data
+    const uniqueCategories = [...new Set(acessos.map(a => a.categoria))];
 
     const fetchAcessos = async () => {
         setLoading(true);
@@ -122,11 +144,14 @@ export default function Senhas() {
     };
 
     const filteredAcessos = acessos.filter((acesso) => {
-        return (
+        const matchesSearch = 
             acesso.nome_acesso.toLowerCase().includes(searchQuery.toLowerCase()) ||
             acesso.login_usuario.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            acesso.categoria.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+            acesso.categoria.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        const matchesCategory = selectedCategory === "all" || acesso.categoria === selectedCategory;
+        
+        return matchesSearch && matchesCategory;
     });
 
     return (
@@ -146,15 +171,37 @@ export default function Senhas() {
             </div>
 
             {/* Filters */}
-            <div className="flex items-center gap-4 max-w-md">
-                <div className="relative flex-1">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Buscar por nome, usuário ou categoria..."
+                        placeholder="Buscar por nome ou usuário..."
                         className="pl-10"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                    <Button
+                        variant={selectedCategory === "all" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setSelectedCategory("all")}
+                        className={selectedCategory === "all" ? "bg-accent hover:bg-accent/90" : ""}
+                    >
+                        Todos ({acessos.length})
+                    </Button>
+                    {uniqueCategories.map((cat) => (
+                        <Button
+                            key={cat}
+                            variant={selectedCategory === cat ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedCategory(cat)}
+                            className={selectedCategory === cat ? "bg-accent hover:bg-accent/90" : ""}
+                        >
+                            {categoryLabels[cat] || cat} ({acessos.filter(a => a.categoria === cat).length})
+                        </Button>
+                    ))}
                 </div>
             </div>
 
@@ -199,7 +246,7 @@ export default function Senhas() {
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={categoryColors[acesso.categoria] || categoryColors.Outro}>
-                                            {acesso.categoria}
+                                            {categoryLabels[acesso.categoria] || acesso.categoria}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="font-mono text-sm">
