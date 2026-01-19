@@ -178,7 +178,7 @@ export function usePDI(id: string) {
 // Criar PDI
 export function useCreatePDI() {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   return useMutation({
     mutationFn: async (input: CreatePDIInput) => {
@@ -233,6 +233,18 @@ export function useCreatePDI() {
 
         if (acessosError) throw acessosError;
       }
+
+      // Criar notificação para o colaborador sobre o novo PDI
+      const senderName = profile?.display_name || profile?.full_name || "Gestor";
+      const dataLimiteFormatada = new Date(input.data_limite).toLocaleDateString("pt-BR");
+      
+      await supabase.from("notifications").insert({
+        title: "📋 Novo PDI atribuído a você",
+        message: `${senderName} criou um novo PDI para você: "${input.titulo}". Prazo: ${dataLimiteFormatada}. Acesse seus PDIs para mais detalhes.`,
+        type: "info",
+        recipient_id: input.colaborador_id,
+        sender_id: user?.id,
+      });
 
       return pdi;
     },

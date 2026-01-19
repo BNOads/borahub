@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.bootstrap-admin]
 verify_jwt = false
+
+[functions.check-pdi-deadlines]
+verify_jwt = false
