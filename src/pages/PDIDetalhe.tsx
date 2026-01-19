@@ -15,6 +15,9 @@ import {
   Check,
   MoreVertical,
   Key,
+  Plus,
+  X,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +25,10 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,11 +46,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { usePDI, calcularProgresso, useFinalizePDI, useDeletePDI, useMarkAulaConcluida } from "@/hooks/usePDIs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { usePDI, calcularProgresso, useFinalizePDI, useDeletePDI, useMarkAulaConcluida, useUpdatePDI, useLessonsForPDI } from "@/hooks/usePDIs";
 import { useAuth } from "@/contexts/AuthContext";
 import { format, differenceInDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function PDIDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -51,11 +66,19 @@ export default function PDIDetalhe() {
   const { isAdmin, user } = useAuth();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [addAulaModalOpen, setAddAulaModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ titulo: "", descricao: "", data_limite: "" });
+  const [externalAula, setExternalAula] = useState({ titulo: "", link: "", duracao: "" });
+  const [lessonSearch, setLessonSearch] = useState("");
+  const [showLessonPicker, setShowLessonPicker] = useState(false);
 
-  const { data: pdi, isLoading } = usePDI(id || "");
+  const { data: pdi, isLoading, refetch } = usePDI(id || "");
   const finalizePDI = useFinalizePDI();
   const deletePDI = useDeletePDI();
   const markAulaConcluida = useMarkAulaConcluida();
+  const updatePDI = useUpdatePDI();
+  const { data: lessonsData = [] } = useLessonsForPDI(lessonSearch);
 
   if (isLoading) {
     return (
@@ -129,6 +152,106 @@ export default function PDIDetalhe() {
     await markAulaConcluida.mutateAsync({ aulaId, pdiId: pdi.id });
   };
 
+  const handleOpenEditModal = () => {
+    setEditForm({
+      titulo: pdi.titulo,
+      descricao: pdi.descricao || "",
+      data_limite: pdi.data_limite,
+    });
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      await updatePDI.mutateAsync({
+        id: pdi.id,
+        titulo: editForm.titulo,
+        descricao: editForm.descricao || null,
+        data_limite: editForm.data_limite,
+      });
+      toast.success("PDI atualizado com sucesso!");
+      setEditModalOpen(false);
+    } catch (error) {
+      toast.error("Erro ao atualizar PDI");
+    }
+  };
+
+  const handleAddExternalAula = async () => {
+    if (!externalAula.titulo.trim()) {
+      toast.error("Informe o título da aula");
+      return;
+    }
+
+    let linkFinal = externalAula.link.trim();
+    if (linkFinal && !linkFinal.startsWith("http://") && !linkFinal.startsWith("https://")) {
+      linkFinal = "https://" + linkFinal;
+    }
+
+    try {
+      const { error } = await supabase.from("pdi_aulas").insert({
+        pdi_id: pdi.id,
+        titulo: externalAula.titulo.trim(),
+        origem: "externa",
+        curso_origem: "Conteúdo Externo",
+        lesson_id: null,
+        link_externo: linkFinal || null,
+        duracao_minutos: externalAula.duracao ? parseInt(externalAula.duracao) : null,
+        ordem: (pdi.aulas?.length || 0),
+        status: "nao_iniciada",
+      });
+
+      if (error) throw error;
+
+      toast.success("Aula externa adicionada!");
+      setExternalAula({ titulo: "", link: "", duracao: "" });
+      setAddAulaModalOpen(false);
+      refetch();
+    } catch (error) {
+      console.error("Erro ao adicionar aula:", error);
+      toast.error("Erro ao adicionar aula");
+    }
+  };
+
+  const handleAddInternalAula = async (lesson: any) => {
+    try {
+      const courseTitle = (lesson.course as any)?.title || "Curso Interno";
+      const { error } = await supabase.from("pdi_aulas").insert({
+        pdi_id: pdi.id,
+        titulo: lesson.title,
+        origem: "interna",
+        curso_origem: courseTitle,
+        lesson_id: lesson.id,
+        link_externo: null,
+        duracao_minutos: lesson.duration || null,
+        ordem: (pdi.aulas?.length || 0),
+        status: "nao_iniciada",
+      });
+
+      if (error) throw error;
+
+      toast.success("Aula interna adicionada!");
+      setShowLessonPicker(false);
+      setLessonSearch("");
+      setAddAulaModalOpen(false);
+      refetch();
+    } catch (error) {
+      console.error("Erro ao adicionar aula:", error);
+      toast.error("Erro ao adicionar aula");
+    }
+  };
+
+  const handleDeleteAula = async (aulaId: string) => {
+    try {
+      const { error } = await supabase.from("pdi_aulas").delete().eq("id", aulaId);
+      if (error) throw error;
+      toast.success("Aula removida!");
+      refetch();
+    } catch (error) {
+      console.error("Erro ao remover aula:", error);
+      toast.error("Erro ao remover aula");
+    }
+  };
+
   const categoriasAcesso: Record<string, string> = {
     ferramentas_ads: "Ferramentas de Ads",
     plataforma_cursos: "Plataforma de Cursos",
@@ -166,7 +289,16 @@ export default function PDIDetalhe() {
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="bg-popover z-50">
+              <DropdownMenuItem onClick={handleOpenEditModal}>
+                <Edit className="h-4 w-4 mr-2" />
+                Editar PDI
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setAddAulaModalOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Aula
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setFinalizeDialogOpen(true)}>
                 <CheckCircle2 className="h-4 w-4 mr-2" />
                 Finalizar PDI
@@ -356,6 +488,17 @@ export default function PDIDetalhe() {
                           Concluir
                         </Button>
                       )}
+
+                      {canEdit && !estaFinalizado && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteAula(aula.id)}
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -438,6 +581,163 @@ export default function PDIDetalhe() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal Editar PDI */}
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar PDI</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Título *</Label>
+              <Input
+                value={editForm.titulo}
+                onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })}
+                placeholder="Título do PDI"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Descrição</Label>
+              <Textarea
+                value={editForm.descricao}
+                onChange={(e) => setEditForm({ ...editForm, descricao: e.target.value })}
+                placeholder="Descrição do PDI"
+                className="resize-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Data Limite *</Label>
+              <Input
+                type="date"
+                value={editForm.data_limite}
+                onChange={(e) => setEditForm({ ...editForm, data_limite: e.target.value })}
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setEditModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleSaveEdit} 
+                disabled={updatePDI.isPending}
+                className="bg-accent hover:bg-accent/90"
+              >
+                {updatePDI.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Adicionar Aula */}
+      <Dialog open={addAulaModalOpen} onOpenChange={(open) => {
+        setAddAulaModalOpen(open);
+        if (!open) {
+          setShowLessonPicker(false);
+          setLessonSearch("");
+          setExternalAula({ titulo: "", link: "", duracao: "" });
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adicionar Aula</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="flex gap-2">
+              <Button
+                variant={showLessonPicker ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowLessonPicker(true)}
+                className="flex-1 gap-1.5"
+              >
+                <BookOpen className="h-4 w-4" />
+                Aula Interna
+              </Button>
+              <Button
+                variant={!showLessonPicker ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowLessonPicker(false)}
+                className="flex-1 gap-1.5"
+              >
+                <ExternalLink className="h-4 w-4" />
+                Aula Externa
+              </Button>
+            </div>
+
+            {showLessonPicker ? (
+              <div className="space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar aula do catálogo..."
+                    className="pl-10"
+                    value={lessonSearch}
+                    onChange={(e) => setLessonSearch(e.target.value)}
+                  />
+                </div>
+                <ScrollArea className="h-48">
+                  <div className="space-y-1">
+                    {lessonsData
+                      .filter((lesson: any) => !pdi.aulas?.some(a => a.lesson_id === lesson.id))
+                      .map((lesson: any) => (
+                        <button
+                          key={lesson.id}
+                          type="button"
+                          onClick={() => handleAddInternalAula(lesson)}
+                          className="w-full text-left p-3 rounded-lg hover:bg-accent/10 transition-colors border"
+                        >
+                          <p className="font-medium text-sm">{lesson.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(lesson.course as any)?.title}
+                            {lesson.duration && ` • ${lesson.duration} min`}
+                          </p>
+                        </button>
+                      ))}
+                    {lessonsData.filter((lesson: any) => !pdi.aulas?.some(a => a.lesson_id === lesson.id)).length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        {lessonSearch ? "Nenhuma aula encontrada" : "Digite para buscar aulas"}
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Título da Aula *</Label>
+                  <Input
+                    placeholder="Ex: Curso de Marketing Digital"
+                    value={externalAula.titulo}
+                    onChange={(e) => setExternalAula({ ...externalAula, titulo: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Link (opcional)</Label>
+                  <Input
+                    placeholder="https://..."
+                    value={externalAula.link}
+                    onChange={(e) => setExternalAula({ ...externalAula, link: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Duração em minutos (opcional)</Label>
+                  <Input
+                    type="number"
+                    placeholder="Ex: 60"
+                    value={externalAula.duracao}
+                    onChange={(e) => setExternalAula({ ...externalAula, duracao: e.target.value })}
+                  />
+                </div>
+                <Button onClick={handleAddExternalAula} className="w-full bg-accent hover:bg-accent/90">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Aula Externa
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
