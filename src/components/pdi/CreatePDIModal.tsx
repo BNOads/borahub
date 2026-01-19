@@ -365,22 +365,24 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
                     </div>
                     <ScrollArea className="h-40">
                       <div className="space-y-1">
-                        {lessonsData.map((lesson: any) => (
-                          <button
-                            key={lesson.id}
-                            type="button"
-                            onClick={() => handleAddInternalLesson(lesson)}
-                            className="w-full text-left p-2 rounded-lg hover:bg-accent/10 transition-colors"
-                          >
-                            <p className="font-medium text-sm">{lesson.title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {(lesson.course as any)?.title}
-                            </p>
-                          </button>
-                        ))}
-                        {lessonsData.length === 0 && lessonSearch && (
+                        {lessonsData
+                          .filter((lesson: any) => !aulas.some(a => a.lesson_id === lesson.id))
+                          .map((lesson: any) => (
+                            <button
+                              key={lesson.id}
+                              type="button"
+                              onClick={() => handleAddInternalLesson(lesson)}
+                              className="w-full text-left p-2 rounded-lg hover:bg-accent/10 transition-colors"
+                            >
+                              <p className="font-medium text-sm">{lesson.title}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(lesson.course as any)?.title}
+                              </p>
+                            </button>
+                          ))}
+                        {lessonsData.filter((lesson: any) => !aulas.some(a => a.lesson_id === lesson.id)).length === 0 && lessonSearch && (
                           <p className="text-sm text-muted-foreground text-center py-4">
-                            Nenhuma aula encontrada
+                            Nenhuma aula encontrada ou todas já foram adicionadas
                           </p>
                         )}
                       </div>
