@@ -145,16 +145,23 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
   };
 
   const handleAddExternalLesson = () => {
-    if (!externalAula.titulo) {
+    if (!externalAula.titulo.trim()) {
       toast.error("Informe o título da aula");
       return;
     }
+    
+    // Validar link se fornecido
+    let linkFinal = externalAula.link.trim();
+    if (linkFinal && !linkFinal.startsWith("http://") && !linkFinal.startsWith("https://")) {
+      linkFinal = "https://" + linkFinal;
+    }
+    
     const novaAula: AulaItem = {
-      titulo: externalAula.titulo,
+      titulo: externalAula.titulo.trim(),
       origem: "externa",
       curso_origem: "Conteúdo Externo",
       lesson_id: null,
-      link_externo: externalAula.link || null,
+      link_externo: linkFinal || null,
       duracao_minutos: externalAula.duracao ? parseInt(externalAula.duracao) : null,
       status: "nao_iniciada",
       ordem: aulas.length,
@@ -162,6 +169,7 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
     setAulas([...aulas, novaAula]);
     setExternalAula({ titulo: "", link: "", duracao: "" });
     setShowExternalForm(false);
+    toast.success("Aula externa adicionada!");
   };
 
   const handleRemoveAula = (index: number) => {
