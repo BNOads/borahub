@@ -807,6 +807,155 @@ export type Database = {
           },
         ]
       }
+      pdi_acessos: {
+        Row: {
+          categoria: string | null
+          created_at: string
+          id: string
+          link: string | null
+          nome: string
+          pdi_id: string
+        }
+        Insert: {
+          categoria?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          nome: string
+          pdi_id: string
+        }
+        Update: {
+          categoria?: string | null
+          created_at?: string
+          id?: string
+          link?: string | null
+          nome?: string
+          pdi_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdi_acessos_pdi_id_fkey"
+            columns: ["pdi_id"]
+            isOneToOne: false
+            referencedRelation: "pdis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pdi_aulas: {
+        Row: {
+          concluida_em: string | null
+          created_at: string
+          curso_origem: string | null
+          duracao_minutos: number | null
+          id: string
+          lesson_id: string | null
+          link_externo: string | null
+          ordem: number
+          origem: string
+          pdi_id: string
+          status: string
+          titulo: string
+        }
+        Insert: {
+          concluida_em?: string | null
+          created_at?: string
+          curso_origem?: string | null
+          duracao_minutos?: number | null
+          id?: string
+          lesson_id?: string | null
+          link_externo?: string | null
+          ordem?: number
+          origem?: string
+          pdi_id: string
+          status?: string
+          titulo: string
+        }
+        Update: {
+          concluida_em?: string | null
+          created_at?: string
+          curso_origem?: string | null
+          duracao_minutos?: number | null
+          id?: string
+          lesson_id?: string | null
+          link_externo?: string | null
+          ordem?: number
+          origem?: string
+          pdi_id?: string
+          status?: string
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdi_aulas_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdi_aulas_pdi_id_fkey"
+            columns: ["pdi_id"]
+            isOneToOne: false
+            referencedRelation: "pdis"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pdis: {
+        Row: {
+          colaborador_id: string
+          criado_em: string
+          criado_por: string | null
+          data_limite: string
+          descricao: string | null
+          finalizado_em: string | null
+          id: string
+          status: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          colaborador_id: string
+          criado_em?: string
+          criado_por?: string | null
+          data_limite: string
+          descricao?: string | null
+          finalizado_em?: string | null
+          id?: string
+          status?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          colaborador_id?: string
+          criado_em?: string
+          criado_por?: string | null
+          data_limite?: string
+          descricao?: string | null
+          finalizado_em?: string | null
+          id?: string
+          status?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdis_colaborador_id_fkey"
+            columns: ["colaborador_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pdis_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_comments: {
         Row: {
           content: string
