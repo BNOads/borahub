@@ -65,6 +65,13 @@ interface CreatePDIModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface LoginOption {
+  id: string;
+  nome_acesso: string;
+  categoria: string;
+  link_acesso: string | null;
+}
+
 export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
   const [users, setUsers] = useState<{ id: string; full_name: string }[]>([]);
   const [aulas, setAulas] = useState<AulaItem[]>([]);
@@ -73,7 +80,8 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
   const [showLessonPicker, setShowLessonPicker] = useState(false);
   const [showExternalForm, setShowExternalForm] = useState(false);
   const [externalAula, setExternalAula] = useState({ titulo: "", link: "", duracao: "" });
-  const [novoAcesso, setNovoAcesso] = useState({ nome: "", categoria: "outros", link: "" });
+  const [loginsDisponiveis, setLoginsDisponiveis] = useState<LoginOption[]>([]);
+  const [selectedLoginId, setSelectedLoginId] = useState<string>("");
 
   const createPDI = useCreatePDI();
   const { data: lessonsData = [] } = useLessonsForPDI(lessonSearch);
@@ -91,6 +99,7 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
   useEffect(() => {
     if (open) {
       fetchUsers();
+      fetchLogins();
     }
   }, [open]);
 
@@ -103,6 +112,18 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
 
     if (!error && data) {
       setUsers(data);
+    }
+  }
+
+  async function fetchLogins() {
+    const { data, error } = await supabase
+      .from("acessos_logins")
+      .select("id, nome_acesso, categoria, link_acesso")
+      .eq("ativo", true)
+      .order("nome_acesso");
+
+    if (!error && data) {
+      setLoginsDisponiveis(data);
     }
   }
 
@@ -147,13 +168,26 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
     setAulas(aulas.filter((_, i) => i !== index));
   };
 
-  const handleAddAcesso = () => {
-    if (!novoAcesso.nome) {
-      toast.error("Informe o nome do acesso");
+  const handleAddAcessoFromLogin = () => {
+    if (!selectedLoginId) {
+      toast.error("Selecione um acesso");
       return;
     }
-    setAcessos([...acessos, { ...novoAcesso }]);
-    setNovoAcesso({ nome: "", categoria: "outros", link: "" });
+    const login = loginsDisponiveis.find(l => l.id === selectedLoginId);
+    if (!login) return;
+    
+    // Evita duplicados
+    if (acessos.some(a => a.nome === login.nome_acesso)) {
+      toast.error("Este acesso já foi adicionado");
+      return;
+    }
+    
+    setAcessos([...acessos, { 
+      nome: login.nome_acesso, 
+      categoria: login.categoria, 
+      link: login.link_acesso || "" 
+    }]);
+    setSelectedLoginId("");
   };
 
   const handleRemoveAcesso = (index: number) => {
@@ -439,28 +473,33 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
               <div className="space-y-3">
                 <Label className="text-base font-semibold">Acessos Necessários (opcional)</Label>
                 
-                <div className="grid grid-cols-3 gap-2">
-                  <Input
-                    placeholder="Nome do acesso"
-                    value={novoAcesso.nome}
-                    onChange={(e) => setNovoAcesso({ ...novoAcesso, nome: e.target.value })}
-                  />
+                <div className="flex gap-2">
                   <Select
-                    value={novoAcesso.categoria}
-                    onValueChange={(v) => setNovoAcesso({ ...novoAcesso, categoria: v })}
+                    value={selectedLoginId}
+                    onValueChange={setSelectedLoginId}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Selecione um acesso de Senhas Úteis..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {categoriasAcesso.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
+                      {loginsDisponiveis.map((login) => (
+                        <SelectItem key={login.id} value={login.id}>
+                          <span className="flex items-center gap-2">
+                            {login.nome_acesso}
+                            <span className="text-xs text-muted-foreground">
+                              ({login.categoria})
+                            </span>
+                          </span>
                         </SelectItem>
                       ))}
+                      {loginsDisponiveis.length === 0 && (
+                        <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                          Nenhum login cadastrado em Senhas Úteis
+                        </div>
+                      )}
                     </SelectContent>
                   </Select>
-                  <Button type="button" variant="outline" onClick={handleAddAcesso}>
+                  <Button type="button" variant="outline" onClick={handleAddAcessoFromLogin}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
