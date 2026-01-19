@@ -34,6 +34,8 @@ import ContaDesativada from "./pages/ContaDesativada";
 import Perfil from "./pages/Perfil";
 import GestaoUsuarios from "./pages/admin/GestaoUsuarios";
 import GestaoNotificacoes from "./pages/admin/GestaoNotificacoes";
+import PDIsView from "./pages/PDIsView";
+import PDIDetalhe from "./pages/PDIDetalhe";
 
 const queryClient = new QueryClient({
   defaultOptions: {
