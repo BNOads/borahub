@@ -225,12 +225,12 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="text-xl">Criar Novo PDI</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
+        <ScrollArea className="flex-1 overflow-y-auto pr-4">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-4">
               {/* Informações Básicas */}
@@ -526,26 +526,27 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
                 )}
               </div>
 
-              {/* Botões */}
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => onOpenChange(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  type="submit" 
-                  disabled={createPDI.isPending}
-                  className="bg-accent hover:bg-accent/90"
-                >
-                  {createPDI.isPending ? "Criando..." : "Criar PDI"}
-                </Button>
-              </div>
             </form>
           </Form>
         </ScrollArea>
+
+        {/* Botões fixos no rodapé */}
+        <div className="flex justify-end gap-3 pt-4 border-t flex-shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancelar
+          </Button>
+          <Button 
+            onClick={form.handleSubmit(onSubmit)}
+            disabled={createPDI.isPending}
+            className="bg-accent hover:bg-accent/90"
+          >
+            {createPDI.isPending ? "Criando..." : "Criar PDI"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
