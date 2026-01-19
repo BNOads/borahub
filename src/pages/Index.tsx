@@ -10,18 +10,16 @@ const Index = () => {
     <div className="space-y-8">
       <WelcomeSection />
 
-      <BoraNewsWidget />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <BoraNewsWidget />
+        <TodaysTasks />
+      </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        <div className="space-y-6">
-          <ActiveLaunches />
+      <ActiveLaunches />
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <TodaysTasks />
-            <UpcomingEvents />
-            <PendingPDIs />
-          </div>
-        </div>
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <UpcomingEvents />
+        <PendingPDIs />
       </div>
     </div>
   );
