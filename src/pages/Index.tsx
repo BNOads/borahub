@@ -4,8 +4,12 @@ import { ActiveLaunches } from "@/components/dashboard/ActiveLaunches";
 import { TodaysTasks } from "@/components/dashboard/TodaysTasks";
 import { UpcomingEvents } from "@/components/dashboard/UpcomingEvents";
 import { PendingPDIs } from "@/components/dashboard/PendingPDIs";
+import { TeamPDIs } from "@/components/dashboard/TeamPDIs";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
+  const { isAdmin } = useAuth();
+
   return (
     <div className="space-y-8">
       <WelcomeSection />
@@ -21,6 +25,10 @@ const Index = () => {
         <UpcomingEvents />
         <PendingPDIs />
       </div>
+
+      {isAdmin && (
+        <TeamPDIs />
+      )}
     </div>
   );
 };
