@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Search, Filter, Play, BookOpen, GraduationCap, MoreVertical, Trash2, Edit, Plus } from "lucide-react";
+import { Search, Filter, Play, BookOpen, GraduationCap, MoreVertical, Trash2, Edit, Plus, Target } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { CourseModal } from "@/components/treinamentos/CourseModal";
+import { CreatePDIModal } from "@/components/pdi/CreatePDIModal";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -43,6 +44,7 @@ export default function TreinamentosView() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+    const [isPDIModalOpen, setIsPDIModalOpen] = useState(false);
 
     useEffect(() => {
         fetchCourses();
@@ -104,13 +106,23 @@ export default function TreinamentosView() {
                     <p className="text-muted-foreground mt-1">Cursos e capacitações da equipe</p>
                 </div>
                 {isAdmin && (
-                    <Button onClick={() => {
-                        setSelectedCourse(null);
-                        setIsModalOpen(true);
-                    }} className="rounded-xl bg-accent hover:bg-accent/90">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Novo Curso
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button 
+                            variant="outline"
+                            onClick={() => setIsPDIModalOpen(true)} 
+                            className="rounded-xl"
+                        >
+                            <Target className="mr-2 h-4 w-4" />
+                            Criar PDI
+                        </Button>
+                        <Button onClick={() => {
+                            setSelectedCourse(null);
+                            setIsModalOpen(true);
+                        }} className="rounded-xl bg-accent hover:bg-accent/90">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Novo Curso
+                        </Button>
+                    </div>
                 )}
             </div>
 
@@ -122,6 +134,11 @@ export default function TreinamentosView() {
                 }}
                 course={selectedCourse}
                 onSuccess={fetchCourses}
+            />
+
+            <CreatePDIModal 
+                open={isPDIModalOpen} 
+                onOpenChange={setIsPDIModalOpen} 
             />
 
             {/* Search and Filters */}

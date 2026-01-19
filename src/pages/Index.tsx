@@ -3,6 +3,7 @@ import { BoraNewsWidget } from "@/components/bora-news/BoraNewsWidget";
 import { ActiveLaunches } from "@/components/dashboard/ActiveLaunches";
 import { TodaysTasks } from "@/components/dashboard/TodaysTasks";
 import { UpcomingEvents } from "@/components/dashboard/UpcomingEvents";
+import { PendingPDIs } from "@/components/dashboard/PendingPDIs";
 
 const Index = () => {
   return (
@@ -15,9 +16,10 @@ const Index = () => {
         <div className="space-y-6">
           <ActiveLaunches />
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <TodaysTasks />
             <UpcomingEvents />
+            <PendingPDIs />
           </div>
         </div>
       </div>
