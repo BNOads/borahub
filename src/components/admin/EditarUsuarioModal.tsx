@@ -137,15 +137,15 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
                         <div className="space-y-2">
                             <Label htmlFor="department_id">Departamento</Label>
                             <Select
-                                value={formData.department_id}
-                                onValueChange={(value) => setFormData({ ...formData, department_id: value })}
+                                value={formData.department_id || "__none__"}
+                                onValueChange={(value) => setFormData({ ...formData, department_id: value === "__none__" ? "" : value })}
                                 disabled={isLoading}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Selecione um departamento" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">Nenhum</SelectItem>
+                                    <SelectItem value="__none__">Nenhum</SelectItem>
                                     {departments.map((dept) => (
                                         <SelectItem key={dept.id} value={dept.id}>
                                             {dept.name}
