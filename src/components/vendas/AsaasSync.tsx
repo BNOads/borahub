@@ -221,7 +221,7 @@ export function AsaasSync() {
                       <SelectValue placeholder="Selecione o vendedor" />
                     </SelectTrigger>
                     <SelectContent>
-                      {sellers?.map((seller) => (
+                      {sellers?.filter((seller) => seller.id).map((seller) => (
                         <SelectItem key={seller.id} value={seller.id}>
                           {seller.full_name}
                         </SelectItem>
