@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -22,15 +22,28 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { Search, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, CheckCircle2, Users } from "lucide-react";
-import { format } from "date-fns";
+import { 
+  Search, 
+  UserPlus, 
+  ArrowUpDown, 
+  ArrowUp, 
+  ArrowDown, 
+  ShoppingCart, 
+  Users, 
+  RefreshCw,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  DollarSign
+} from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
-type SortField = "external_id" | "client_name" | "product_name" | "total_value" | "sale_date";
+type SortField = "external_id" | "client_name" | "product_name" | "total_value" | "sale_date" | "seller_name";
 type SortDirection = "asc" | "desc";
 
-interface PendingSale {
+interface HotmartSale {
   id: string;
   external_id: string;
   client_name: string;
@@ -41,21 +54,28 @@ interface PendingSale {
   sale_date: string;
   status: string;
   platform: string;
+  seller_id: string | null;
+  seller?: {
+    full_name: string;
+    display_name: string | null;
+  } | null;
 }
 
-function usePendingSales() {
+function useHotmartSales() {
   return useQuery({
-    queryKey: ["pending-sales"],
+    queryKey: ["hotmart-sales"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("sales")
-        .select("*")
-        .is("seller_id", null)
+        .select(`
+          *,
+          seller:profiles!sales_seller_id_fkey(full_name, display_name)
+        `)
         .eq("platform", "hotmart")
         .order("sale_date", { ascending: false });
       
       if (error) throw error;
-      return data as PendingSale[];
+      return data as HotmartSale[];
     },
   });
 }
@@ -76,16 +96,38 @@ function useSellers() {
   });
 }
 
-export function PendingSalesManagement() {
-  const { data: pendingSales, isLoading } = usePendingSales();
+function useLastSync() {
+  return useQuery({
+    queryKey: ["last-hotmart-sync"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("hotmart_sync_logs")
+        .select("created_at, status, total_records, created_records, updated_records")
+        .eq("sync_type", "scheduled_sync")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval: 60000, // Refetch every minute
+  });
+}
+
+export function HotmartSalesManagement() {
+  const { data: hotmartSales, isLoading, refetch } = useHotmartSales();
   const { data: sellers } = useSellers();
+  const { data: lastSync, refetch: refetchLastSync } = useLastSync();
   const queryClient = useQueryClient();
   
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
   const [selectedSaleIds, setSelectedSaleIds] = useState<Set<string>>(new Set());
   const [assigningSeller, setAssigningSeller] = useState(false);
   const [selectedSellerId, setSelectedSellerId] = useState<string>("");
   const [commissionPercent, setCommissionPercent] = useState("10");
+  const [syncing, setSyncing] = useState(false);
   
   // Sorting
   const [sortField, setSortField] = useState<SortField>("sale_date");
@@ -109,8 +151,41 @@ export function PendingSalesManagement() {
       : <ArrowDown className="h-3 w-3 ml-1" />;
   };
 
+  // Manual sync handler
+  const handleManualSync = async () => {
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("hotmart-sync", {
+        body: { action: "scheduled_sync" },
+      });
+      
+      if (error) throw error;
+      
+      if (data.success) {
+        toast.success(`Sincronização concluída: ${data.created} novas, ${data.updated} atualizadas`);
+        refetch();
+        refetchLastSync();
+        queryClient.invalidateQueries({ queryKey: ["pending-sales"] });
+      } else {
+        throw new Error(data.error || "Erro na sincronização");
+      }
+    } catch (err: any) {
+      console.error("Sync error:", err);
+      toast.error("Erro ao sincronizar: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const filteredAndSortedSales = useMemo(() => {
-    let result = pendingSales || [];
+    let result = hotmartSales || [];
+    
+    // Apply status filter
+    if (filterStatus === "pending") {
+      result = result.filter(sale => !sale.seller_id);
+    } else if (filterStatus === "assigned") {
+      result = result.filter(sale => sale.seller_id);
+    }
     
     // Apply search filter
     if (searchTerm) {
@@ -119,7 +194,8 @@ export function PendingSalesManagement() {
         sale.client_name.toLowerCase().includes(term) ||
         sale.external_id.toLowerCase().includes(term) ||
         sale.product_name.toLowerCase().includes(term) ||
-        sale.client_email?.toLowerCase().includes(term)
+        sale.client_email?.toLowerCase().includes(term) ||
+        sale.seller?.full_name?.toLowerCase().includes(term)
       );
     }
     
@@ -149,6 +225,10 @@ export function PendingSalesManagement() {
           aValue = new Date(a.sale_date).getTime();
           bValue = new Date(b.sale_date).getTime();
           break;
+        case "seller_name":
+          aValue = a.seller?.full_name?.toLowerCase() || "zzz";
+          bValue = b.seller?.full_name?.toLowerCase() || "zzz";
+          break;
         default:
           return 0;
       }
@@ -159,7 +239,7 @@ export function PendingSalesManagement() {
     });
     
     return result;
-  }, [pendingSales, searchTerm, sortField, sortDirection]);
+  }, [hotmartSales, searchTerm, filterStatus, sortField, sortDirection]);
 
   // Selection handlers
   const toggleSelectSale = (saleId: string) => {
@@ -173,10 +253,11 @@ export function PendingSalesManagement() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedSaleIds.size === filteredAndSortedSales.length) {
+    const unassignedSales = filteredAndSortedSales.filter(s => !s.seller_id);
+    if (selectedSaleIds.size === unassignedSales.length && unassignedSales.length > 0) {
       setSelectedSaleIds(new Set());
     } else {
-      setSelectedSaleIds(new Set(filteredAndSortedSales.map(s => s.id)));
+      setSelectedSaleIds(new Set(unassignedSales.map(s => s.id)));
     }
   };
 
@@ -261,7 +342,7 @@ export function PendingSalesManagement() {
       toast.success(`${saleIds.length} venda(s) atribuída(s) ao vendedor`);
       
       // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ["pending-sales"] });
+      queryClient.invalidateQueries({ queryKey: ["hotmart-sales"] });
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       queryClient.invalidateQueries({ queryKey: ["commissions"] });
       
@@ -274,19 +355,16 @@ export function PendingSalesManagement() {
     }
   };
 
-  // Stats by seller (for sales that have seller assigned - from main sales)
-  const salesBySeller = useMemo(() => {
-    // This would need to query sales WITH sellers to show distribution
-    // For now, we'll just show the pending count
-    return sellers?.map(seller => ({
-      ...seller,
-      salesCount: 0, // Would need to query
-    })) || [];
-  }, [sellers]);
-
-  const totalPendingValue = useMemo(() => {
-    return (pendingSales || []).reduce((sum, sale) => sum + sale.total_value, 0);
-  }, [pendingSales]);
+  // Stats
+  const stats = useMemo(() => {
+    const sales = hotmartSales || [];
+    const totalValue = sales.reduce((sum, sale) => sum + sale.total_value, 0);
+    const pendingCount = sales.filter(s => !s.seller_id).length;
+    const pendingValue = sales.filter(s => !s.seller_id).reduce((sum, s) => sum + s.total_value, 0);
+    const assignedCount = sales.filter(s => s.seller_id).length;
+    
+    return { total: sales.length, totalValue, pendingCount, pendingValue, assignedCount };
+  }, [hotmartSales]);
 
   if (isLoading) {
     return (
@@ -299,32 +377,33 @@ export function PendingSalesManagement() {
   return (
     <div className="space-y-4">
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-primary" />
+              Total Hotmart
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">
+              {formatCurrency(stats.totalValue)} em vendas
+            </p>
+          </CardContent>
+        </Card>
+        
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-warning" />
-              Vendas Pendentes
+              Sem Vendedor
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{pendingSales?.length || 0}</div>
+            <div className="text-2xl font-bold text-warning">{stats.pendingCount}</div>
             <p className="text-xs text-muted-foreground">
-              Aguardando atribuição de vendedor
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Valor Total Pendente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-warning">
-              {formatCurrency(totalPendingValue)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Em vendas sem vendedor
+              {formatCurrency(stats.pendingValue)} pendente
             </p>
           </CardContent>
         </Card>
@@ -332,14 +411,31 @@ export function PendingSalesManagement() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Vendedores Ativos
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              Com Vendedor
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{sellers?.length || 0}</div>
+            <div className="text-2xl font-bold text-primary">{stats.assignedCount}</div>
             <p className="text-xs text-muted-foreground">
-              Disponíveis para atribuição
+              Atribuídas a vendedores
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Última Sincronização
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-sm font-medium">
+              {lastSync ? formatDistanceToNow(new Date(lastSync.created_at), { addSuffix: true, locale: ptBR }) : "Nunca"}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Automática a cada 15 min
             </p>
           </CardContent>
         </Card>
@@ -348,10 +444,23 @@ export function PendingSalesManagement() {
       {/* Action Bar */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Vendas Hotmart Sem Vendedor</CardTitle>
-          <CardDescription>
-            Selecione vendas e atribua um vendedor para que elas apareçam na aba "Vendas Cadastradas"
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <CardTitle className="text-lg">Vendas Realizadas na Hotmart</CardTitle>
+              <CardDescription>
+                Todas as vendas sincronizadas da plataforma Hotmart
+              </CardDescription>
+            </div>
+            <Button 
+              onClick={handleManualSync} 
+              disabled={syncing}
+              variant="outline"
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? "Sincronizando..." : "Sincronizar Agora"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Search and Filters */}
@@ -359,12 +468,22 @@ export function PendingSalesManagement() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por cliente, ID ou produto..."
+                placeholder="Buscar por cliente, ID, produto ou vendedor..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
               />
             </div>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as vendas</SelectItem>
+                <SelectItem value="pending">Sem vendedor</SelectItem>
+                <SelectItem value="assigned">Com vendedor</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Bulk Assignment Bar */}
@@ -422,7 +541,10 @@ export function PendingSalesManagement() {
                 <TableRow>
                   <TableHead className="w-12">
                     <Checkbox
-                      checked={selectedSaleIds.size === filteredAndSortedSales.length && filteredAndSortedSales.length > 0}
+                      checked={
+                        selectedSaleIds.size === filteredAndSortedSales.filter(s => !s.seller_id).length && 
+                        filteredAndSortedSales.filter(s => !s.seller_id).length > 0
+                      }
                       onCheckedChange={toggleSelectAll}
                     />
                   </TableHead>
@@ -467,7 +589,14 @@ export function PendingSalesManagement() {
                       Data <SortIcon field="sale_date" />
                     </div>
                   </TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => handleSort("seller_name")}
+                  >
+                    <div className="flex items-center">
+                      Vendedor <SortIcon field="seller_name" />
+                    </div>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -475,9 +604,12 @@ export function PendingSalesManagement() {
                   <TableRow>
                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       <div className="flex flex-col items-center gap-2">
-                        <CheckCircle2 className="h-8 w-8 text-primary" />
-                        <span>Nenhuma venda pendente de atribuição!</span>
-                        <span className="text-xs">Todas as vendas do Hotmart já têm vendedor atribuído.</span>
+                        <ShoppingCart className="h-8 w-8 opacity-50" />
+                        <span>Nenhuma venda encontrada</span>
+                        <Button variant="outline" size="sm" onClick={handleManualSync} disabled={syncing}>
+                          <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                          Sincronizar com Hotmart
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -491,6 +623,7 @@ export function PendingSalesManagement() {
                         <Checkbox
                           checked={selectedSaleIds.has(sale.id)}
                           onCheckedChange={() => toggleSelectSale(sale.id)}
+                          disabled={!!sale.seller_id}
                         />
                       </TableCell>
                       <TableCell className="font-mono text-xs">
@@ -498,32 +631,49 @@ export function PendingSalesManagement() {
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{sale.client_name}</div>
+                          <p className="font-medium truncate max-w-[150px]">{sale.client_name}</p>
                           {sale.client_email && (
-                            <div className="text-xs text-muted-foreground">{sale.client_email}</div>
+                            <p className="text-xs text-muted-foreground truncate max-w-[150px]">
+                              {sale.client_email}
+                            </p>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>{sale.product_name}</TableCell>
+                      <TableCell>
+                        <p className="truncate max-w-[150px]">{sale.product_name}</p>
+                      </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(sale.total_value)}
                       </TableCell>
                       <TableCell className="text-center">
-                        {sale.installments_count}x
+                        <Badge variant="outline">{sale.installments_count}x</Badge>
                       </TableCell>
                       <TableCell>
                         {format(new Date(sale.sale_date), "dd/MM/yyyy", { locale: ptBR })}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={sale.status === "active" ? "default" : "secondary"}>
-                          {sale.status === "active" ? "Ativa" : sale.status}
-                        </Badge>
+                        {sale.seller ? (
+                          <Badge variant="secondary" className="gap-1">
+                            <Users className="h-3 w-3" />
+                            {sale.seller.display_name || sale.seller.full_name}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-warning border-warning/50">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Pendente
+                          </Badge>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
+          </div>
+          
+          {/* Footer info */}
+          <div className="text-xs text-muted-foreground text-center">
+            A sincronização automática ocorre a cada 15 minutos
           </div>
         </CardContent>
       </Card>
