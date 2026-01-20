@@ -627,7 +627,7 @@ export function useCommissions(sellerId?: string, month?: string) {
           *,
           installment:installments(
             id, installment_number, total_installments, value, due_date, status, payment_date,
-            sale:sales(id, external_id, client_name, product_name, platform)
+            sale:sales(id, external_id, client_name, product_name, platform, seller_id, total_value, commission_percent, sale_date, status)
           ),
           seller:profiles!commissions_seller_id_fkey(id, full_name, email)
         `)
