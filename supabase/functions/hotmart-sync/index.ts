@@ -438,12 +438,13 @@ serve(async (req) => {
 
       case "sync_installments": {
         // Fetch subscriptions and payments to update installment statuses
-        console.log("Syncing installments from Hotmart subscriptions");
+        // Now also handles single-installment sales (parcela única)
+        console.log("Syncing installments from Hotmart (including single-payment sales)");
         
-        // Get all sales from Hotmart platform
+        // Get all sales from Hotmart platform with installment info
         const { data: hotmartSales, error: salesError } = await supabase
           .from("sales")
-          .select("id, external_id")
+          .select("id, external_id, installments_count")
           .eq("platform", "hotmart");
         
         if (salesError) throw salesError;
@@ -460,22 +461,33 @@ serve(async (req) => {
             if (!summary?.items?.[0]) continue;
             
             const saleInfo = summary.items[0];
-            const recurrencyNumber = saleInfo.purchase?.recurrency_number || 1;
             const purchaseStatus = saleInfo.purchase?.status || "PENDING";
+            const isSingleInstallment = (sale.installments_count || 1) === 1;
+            const recurrencyNumber = saleInfo.purchase?.recurrency_number || 0;
             
             // Get installments for this sale
             const { data: installments } = await supabase
               .from("installments")
-              .select("id, installment_number, status")
+              .select("id, installment_number, status, total_installments")
               .eq("sale_id", sale.id)
               .order("installment_number");
             
             if (!installments) continue;
             
             for (const installment of installments) {
-              // Determine if this installment is paid based on recurrency
-              const isPaid = installment.installment_number <= recurrencyNumber && 
-                             (purchaseStatus === "APPROVED" || purchaseStatus === "COMPLETED");
+              // Determine if this installment is paid:
+              // - For single-installment sales: check if purchase status is APPROVED/COMPLETED
+              // - For multi-installment sales: check recurrency_number
+              let isPaid = false;
+              
+              if (isSingleInstallment || installment.total_installments === 1) {
+                // Single payment sale - mark as paid if status is APPROVED or COMPLETED
+                isPaid = purchaseStatus === "APPROVED" || purchaseStatus === "COMPLETED";
+              } else {
+                // Multi-installment sale - use recurrency_number
+                isPaid = installment.installment_number <= recurrencyNumber && 
+                         (purchaseStatus === "APPROVED" || purchaseStatus === "COMPLETED");
+              }
               
               const newStatus = isPaid ? "paid" : 
                                (purchaseStatus === "CANCELED" || purchaseStatus === "REFUNDED") ? "cancelled" :
