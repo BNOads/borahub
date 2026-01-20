@@ -291,23 +291,58 @@ serve(async (req) => {
               saleId = existingSale.id;
               updated++;
 
-              // Update existing installments with external_installment_id
+              // Update or create installments for each payment
               for (const payment of group.payments) {
                 const installmentNumber = payment.installmentNumber || 1;
                 const status = mapAsaasStatus(payment.status);
                 const paymentDate = status === "paid" 
                   ? payment.paymentDate || payment.confirmedDate 
                   : null;
+                const dueDate = payment.dueDate || payment.dateCreated;
 
-                await supabase
+                // Check if installment exists
+                const { data: existingInstallment } = await supabase
                   .from("installments")
-                  .update({
-                    external_installment_id: payment.id,
-                    status: status,
-                    payment_date: paymentDate,
-                  })
+                  .select("id")
                   .eq("sale_id", saleId)
-                  .eq("installment_number", installmentNumber);
+                  .eq("installment_number", installmentNumber)
+                  .maybeSingle();
+
+                if (existingInstallment) {
+                  // Update existing installment
+                  await supabase
+                    .from("installments")
+                    .update({
+                      external_installment_id: payment.id,
+                      status: status,
+                      payment_date: paymentDate,
+                      value: payment.value,
+                      total_installments: installmentCount,
+                    })
+                    .eq("id", existingInstallment.id);
+                } else {
+                  // Create new installment
+                  const { data: newInstallment, error: instError } = await supabase
+                    .from("installments")
+                    .insert({
+                      sale_id: saleId,
+                      installment_number: installmentNumber,
+                      total_installments: installmentCount,
+                      value: payment.value,
+                      due_date: dueDate.split("T")[0],
+                      status: status,
+                      payment_date: paymentDate,
+                      external_installment_id: payment.id,
+                    })
+                    .select("id")
+                    .single();
+
+                  if (instError) {
+                    console.error(`[asaas-sync] Error creating installment:`, instError);
+                  } else {
+                    console.log(`[asaas-sync] Created installment ${installmentNumber} for sale ${externalId}`);
+                  }
+                }
               }
             } else {
               // Create new sale
