@@ -29,6 +29,8 @@ interface AsaasPayment {
   installmentCount?: number;
   invoiceNumber?: string;
   invoiceUrl?: string;
+  installment?: string; // ID do parcelamento (agrupa todas as parcelas)
+  installmentNumber?: number; // Número da parcela atual
 }
 
 // Hook to fetch sellers
@@ -341,6 +343,8 @@ export function AsaasSync() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>ID Pagamento</TableHead>
+                        <TableHead>ID Parcelamento</TableHead>
+                        <TableHead>Parcela</TableHead>
                         <TableHead>Nº Fatura</TableHead>
                         <TableHead>Descrição</TableHead>
                         <TableHead>Valor</TableHead>
@@ -354,6 +358,12 @@ export function AsaasSync() {
                         <TableRow key={payment.id}>
                           <TableCell className="font-mono text-xs">
                             {payment.id}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {payment.installment || "-"}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {payment.installmentNumber ? `${payment.installmentNumber}/${payment.installmentCount || "?"}` : "-"}
                           </TableCell>
                           <TableCell className="font-mono text-xs">
                             {payment.invoiceNumber || "-"}
