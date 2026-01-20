@@ -22,11 +22,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { Search, CheckCircle, Clock, AlertTriangle, XCircle, Ban, RefreshCw, Check, X, CreditCard, Banknote, ChevronLeft, ChevronRight, User } from "lucide-react";
+import { Search, CheckCircle, Clock, AlertTriangle, XCircle, Ban, RefreshCw, Check, X, CreditCard, Banknote, ChevronLeft, ChevronRight, User, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const ITEMS_PER_PAGE = 20;
+
+type SortColumn = 'external_id' | 'client_name' | 'seller' | 'product_name' | 'installment' | 'value' | 'due_date' | 'payment_date' | 'status';
+type SortDirection = 'asc' | 'desc';
 
 export function InstallmentsManagement() {
   const { data: installments, isLoading } = useInstallmentsWithSeller();
@@ -37,6 +40,8 @@ export function InstallmentsManagement() {
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all");
   const [platformFilter, setPlatformFilter] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('due_date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   
   // Fetch last sync info
   const { data: lastSync } = useQuery({
@@ -123,19 +128,72 @@ export function InstallmentsManagement() {
     setCurrentPage(1);
   };
   
+  // Handle column sort
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+  
+  // Sort filtered installments
+  const sortedInstallments = [...filteredInstallments].sort((a, b) => {
+    const direction = sortDirection === 'asc' ? 1 : -1;
+    
+    switch (sortColumn) {
+      case 'external_id':
+        return direction * (a.sale?.external_id || '').localeCompare(b.sale?.external_id || '');
+      case 'client_name':
+        return direction * (a.sale?.client_name || '').localeCompare(b.sale?.client_name || '');
+      case 'seller':
+        return direction * (a.sale?.seller?.full_name || '').localeCompare(b.sale?.seller?.full_name || '');
+      case 'product_name':
+        return direction * (a.sale?.product_name || '').localeCompare(b.sale?.product_name || '');
+      case 'installment':
+        const aVal = a.total_installments === 1 ? 0 : a.installment_number;
+        const bVal = b.total_installments === 1 ? 0 : b.installment_number;
+        return direction * (aVal - bVal);
+      case 'value':
+        return direction * (a.value - b.value);
+      case 'due_date':
+        return direction * (new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+      case 'payment_date':
+        const aDate = a.payment_date ? new Date(a.payment_date).getTime() : 0;
+        const bDate = b.payment_date ? new Date(b.payment_date).getTime() : 0;
+        return direction * (aDate - bDate);
+      case 'status':
+        return direction * a.status.localeCompare(b.status);
+      default:
+        return 0;
+    }
+  });
+  
   // Pagination
-  const totalPages = Math.ceil(filteredInstallments.length / ITEMS_PER_PAGE);
-  const paginatedInstallments = filteredInstallments.slice(
+  const totalPages = Math.ceil(sortedInstallments.length / ITEMS_PER_PAGE);
+  const paginatedInstallments = sortedInstallments.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
   
   // Stats
   const stats = {
-    total: filteredInstallments.length,
-    pending: filteredInstallments.filter(i => i.status === 'pending').length,
-    paid: filteredInstallments.filter(i => i.status === 'paid').length,
-    overdue: filteredInstallments.filter(i => i.status === 'overdue').length,
+    total: sortedInstallments.length,
+    pending: sortedInstallments.filter(i => i.status === 'pending').length,
+    paid: sortedInstallments.filter(i => i.status === 'paid').length,
+    overdue: sortedInstallments.filter(i => i.status === 'overdue').length,
+  };
+  
+  // Render sort icon
+  const renderSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-3 w-3 ml-1" /> 
+      : <ArrowDown className="h-3 w-3 ml-1" />;
   };
   
   return (
@@ -257,15 +315,33 @@ export function InstallmentsManagement() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID Venda</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Vendedor</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Parcela</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Vencimento</TableHead>
-                  <TableHead>Pagamento</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('external_id')}>
+                    <div className="flex items-center">ID Venda {renderSortIcon('external_id')}</div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('client_name')}>
+                    <div className="flex items-center">Cliente {renderSortIcon('client_name')}</div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('seller')}>
+                    <div className="flex items-center">Vendedor {renderSortIcon('seller')}</div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('product_name')}>
+                    <div className="flex items-center">Produto {renderSortIcon('product_name')}</div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('installment')}>
+                    <div className="flex items-center">Parcela {renderSortIcon('installment')}</div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('value')}>
+                    <div className="flex items-center">Valor {renderSortIcon('value')}</div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('due_date')}>
+                    <div className="flex items-center">Vencimento {renderSortIcon('due_date')}</div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('payment_date')}>
+                    <div className="flex items-center">Pagamento {renderSortIcon('payment_date')}</div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:bg-muted/50 select-none" onClick={() => handleSort('status')}>
+                    <div className="flex items-center">Status {renderSortIcon('status')}</div>
+                  </TableHead>
                   <TableHead>Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -380,7 +456,7 @@ export function InstallmentsManagement() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-4 pt-4 border-t">
               <span className="text-sm text-muted-foreground">
-                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredInstallments.length)} de {filteredInstallments.length} parcelas
+                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, sortedInstallments.length)} de {sortedInstallments.length} parcelas
               </span>
               <div className="flex items-center gap-2">
                 <Button
