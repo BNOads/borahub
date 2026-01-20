@@ -199,7 +199,7 @@ export function SalesReports() {
     });
   }, [sellerPerformance]);
   
-  // Detailed commissions list - ONLY RELEASED commissions
+  // Detailed commissions list - ALL commissions (not just released)
   const commissionsDetail = useMemo(() => {
     if (!commissions || !installments || !sales) return [];
     
@@ -218,7 +218,6 @@ export function SalesReports() {
     );
     
     return commissions
-      .filter(comm => comm.status === 'released') // Only released commissions
       .map(comm => {
         const installment = installments.find(i => i.id === comm.installment_id);
         if (!installment || !saleIds.has(installment.sale_id)) return null;

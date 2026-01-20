@@ -35,6 +35,7 @@ import {
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { SaleDetailsSheet } from "./SaleDetailsSheet";
 
 type SortField = "transaction" | "client_name" | "product_name" | "total_value" | "sale_date" | "seller_name" | "platform";
 type SortDirection = "asc" | "desc";
@@ -116,6 +117,10 @@ export function AllSalesManagement() {
   const [platformFilter, setPlatformFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [syncing, setSyncing] = useState(false);
+  
+  // Sale details sheet
+  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   
   // Sorting
   const [sortField, setSortField] = useState<SortField>("sale_date");
@@ -528,8 +533,14 @@ export function AllSalesManagement() {
                         {sale.product_name}
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <div className="font-medium truncate max-w-[150px]">{sale.client_name}</div>
+                        <div 
+                          className="cursor-pointer hover:text-primary transition-colors"
+                          onClick={() => {
+                            setSelectedSaleId(sale.id);
+                            setDetailsOpen(true);
+                          }}
+                        >
+                          <div className="font-medium truncate max-w-[150px] hover:underline">{sale.client_name}</div>
                           {sale.client_email && (
                             <div className="text-xs text-muted-foreground truncate max-w-[150px]">
                               {sale.client_email}
@@ -585,6 +596,13 @@ export function AllSalesManagement() {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Sale Details Sheet */}
+      <SaleDetailsSheet 
+        saleId={selectedSaleId}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+      />
     </div>
   );
 }
