@@ -315,6 +315,98 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      case "sync_installments": {
+        // Fetch subscriptions and payments to update installment statuses
+        console.log("Syncing installments from Hotmart subscriptions");
+        
+        // Get all sales from Hotmart platform
+        const { data: hotmartSales, error: salesError } = await supabase
+          .from("sales")
+          .select("id, external_id")
+          .eq("platform", "hotmart");
+        
+        if (salesError) throw salesError;
+        
+        let updated = 0;
+        let failed = 0;
+        const errors: string[] = [];
+        
+        for (const sale of hotmartSales || []) {
+          try {
+            // Get sale details from Hotmart
+            const summary = await fetchSaleSummary(accessToken, sale.external_id);
+            
+            if (!summary?.items?.[0]) continue;
+            
+            const saleInfo = summary.items[0];
+            const recurrencyNumber = saleInfo.purchase?.recurrency_number || 1;
+            const purchaseStatus = saleInfo.purchase?.status || "PENDING";
+            
+            // Get installments for this sale
+            const { data: installments } = await supabase
+              .from("installments")
+              .select("id, installment_number, status")
+              .eq("sale_id", sale.id)
+              .order("installment_number");
+            
+            if (!installments) continue;
+            
+            for (const installment of installments) {
+              // Determine if this installment is paid based on recurrency
+              const isPaid = installment.installment_number <= recurrencyNumber && 
+                             (purchaseStatus === "APPROVED" || purchaseStatus === "COMPLETED");
+              
+              const newStatus = isPaid ? "paid" : 
+                               (purchaseStatus === "CANCELED" || purchaseStatus === "REFUNDED") ? "cancelled" :
+                               "pending";
+              
+              if (installment.status !== newStatus) {
+                // Update installment
+                await supabase
+                  .from("installments")
+                  .update({ 
+                    status: newStatus,
+                    payment_date: isPaid ? new Date().toISOString().split('T')[0] : null,
+                  })
+                  .eq("id", installment.id);
+                
+                // Update commission
+                const commissionStatus = newStatus === "paid" ? "released" :
+                                        newStatus === "cancelled" ? "cancelled" : "pending";
+                
+                await supabase
+                  .from("commissions")
+                  .update({ 
+                    status: commissionStatus,
+                    released_at: newStatus === "paid" ? new Date().toISOString() : null,
+                  })
+                  .eq("installment_id", installment.id);
+                
+                updated++;
+              }
+            }
+            
+            // Rate limiting
+            await new Promise(r => setTimeout(r, 100));
+          } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            console.error(`Error syncing sale ${sale.external_id}:`, err);
+            failed++;
+            errors.push(`${sale.external_id}: ${errorMessage}`);
+          }
+        }
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          sales_checked: hotmartSales?.length || 0,
+          installments_updated: updated,
+          failed,
+          errors: errors.slice(0, 10),
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       
       case "get_sales": {
         const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
