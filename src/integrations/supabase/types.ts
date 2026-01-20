@@ -1452,6 +1452,147 @@ export type Database = {
           },
         ]
       }
+      sdr_assignments: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          commission_percent: number
+          created_at: string | null
+          created_by: string | null
+          id: string
+          proof_link: string
+          rejection_reason: string | null
+          sale_id: string
+          sdr_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          commission_percent?: number
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          proof_link: string
+          rejection_reason?: string | null
+          sale_id: string
+          sdr_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          commission_percent?: number
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          proof_link?: string
+          rejection_reason?: string | null
+          sale_id?: string
+          sdr_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sdr_assignments_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sdr_assignments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sdr_assignments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: true
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sdr_assignments_sdr_id_fkey"
+            columns: ["sdr_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sdr_commissions: {
+        Row: {
+          commission_percent: number
+          commission_value: number
+          competence_month: string
+          created_at: string | null
+          id: string
+          installment_id: string
+          installment_value: number
+          released_at: string | null
+          sdr_assignment_id: string
+          sdr_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          commission_percent?: number
+          commission_value: number
+          competence_month: string
+          created_at?: string | null
+          id?: string
+          installment_id: string
+          installment_value: number
+          released_at?: string | null
+          sdr_assignment_id: string
+          sdr_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          commission_percent?: number
+          commission_value?: number
+          competence_month?: string
+          created_at?: string | null
+          id?: string
+          installment_id?: string
+          installment_value?: number
+          released_at?: string | null
+          sdr_assignment_id?: string
+          sdr_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sdr_commissions_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: true
+            referencedRelation: "installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sdr_commissions_sdr_assignment_id_fkey"
+            columns: ["sdr_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "sdr_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sdr_commissions_sdr_id_fkey"
+            columns: ["sdr_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_posts: {
         Row: {
           arquivos_link: string | null

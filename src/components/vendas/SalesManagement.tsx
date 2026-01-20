@@ -30,11 +30,12 @@ import {
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { Plus, Search, Eye, Pencil, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Filter, Upload, FileText, ShoppingCart, X, Trash2, UserCheck, CheckCircle } from "lucide-react";
+import { Plus, Search, Eye, Pencil, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Filter, Upload, FileText, ShoppingCart, X, Trash2, UserCheck, CheckCircle, Users } from "lucide-react";
 import { format } from "date-fns";
 import { CreateSaleModal } from "./CreateSaleModal";
 import { EditSaleModal } from "./EditSaleModal";
 import { SaleDetailsSheet } from "./SaleDetailsSheet";
+import { SDRManagement } from "./SDRManagement";
 import { toast } from "sonner";
 
 type SortField = "external_id" | "client_name" | "product_name" | "seller" | "total_value" | "installments_count" | "sale_date" | "status" | "payment_type";
@@ -563,6 +564,10 @@ export function SalesManagement() {
             <ShoppingCart className="h-4 w-4" />
             Vendas Cadastradas
           </TabsTrigger>
+          <TabsTrigger value="sdr" className="gap-2">
+            <Users className="h-4 w-4" />
+            SDR / Setter
+          </TabsTrigger>
           <TabsTrigger value="import" className="gap-2">
             <Upload className="h-4 w-4" />
             Importar CSV
@@ -884,6 +889,10 @@ export function SalesManagement() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="sdr" className="space-y-4">
+          <SDRManagement />
         </TabsContent>
 
         <TabsContent value="import" className="space-y-4">
