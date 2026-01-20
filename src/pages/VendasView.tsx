@@ -5,9 +5,10 @@ import { SalesDashboard } from "@/components/vendas/SalesDashboard";
 import { SalesManagement } from "@/components/vendas/SalesManagement";
 import { InstallmentsManagement } from "@/components/vendas/InstallmentsManagement";
 import { CsvImport } from "@/components/vendas/CsvImport";
+import { HotmartSync } from "@/components/vendas/HotmartSync";
 import { ProductsManagement } from "@/components/vendas/ProductsManagement";
 import { SalesReports } from "@/components/vendas/SalesReports";
-import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, Upload } from "lucide-react";
+import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, Upload, RefreshCw } from "lucide-react";
 
 export default function VendasView() {
   const { profile } = useAuth();
@@ -32,7 +33,7 @@ export default function VendasView() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 lg:grid-cols-6 h-auto gap-1">
+        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7 h-auto gap-1">
           <TabsTrigger value="dashboard" className="flex items-center gap-2 py-2">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
@@ -45,9 +46,13 @@ export default function VendasView() {
             <Receipt className="h-4 w-4" />
             <span className="hidden sm:inline">Parcelas</span>
           </TabsTrigger>
+          <TabsTrigger value="hotmart" className="flex items-center gap-2 py-2">
+            <RefreshCw className="h-4 w-4" />
+            <span className="hidden sm:inline">Hotmart</span>
+          </TabsTrigger>
           <TabsTrigger value="importar" className="flex items-center gap-2 py-2">
             <Upload className="h-4 w-4" />
-            <span className="hidden sm:inline">Importar</span>
+            <span className="hidden sm:inline">CSV</span>
           </TabsTrigger>
           <TabsTrigger value="produtos" className="flex items-center gap-2 py-2">
             <Package className="h-4 w-4" />
@@ -69,6 +74,10 @@ export default function VendasView() {
 
         <TabsContent value="parcelas" className="space-y-4">
           <InstallmentsManagement />
+        </TabsContent>
+
+        <TabsContent value="hotmart" className="space-y-4">
+          <HotmartSync />
         </TabsContent>
 
         <TabsContent value="importar" className="space-y-4">
