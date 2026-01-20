@@ -88,16 +88,13 @@ export function AsaasSync() {
   // Sync payments mutation
   const syncMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedSeller) {
-        throw new Error("Selecione um vendedor para vincular as vendas");
-      }
-
+      // Seller is now optional - sales can be imported first and associated later
       const { data, error } = await supabase.functions.invoke("asaas-sync", {
         body: {
           action: "sync_payments",
           startDate,
           endDate,
-          sellerId: selectedSeller,
+          sellerId: selectedSeller || null,
           userId: profile?.id,
         },
       });
@@ -219,7 +216,7 @@ export function AsaasSync() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Vendedor *</Label>
+                  <Label>Vendedor (opcional)</Label>
                   <Select value={selectedSeller} onValueChange={setSelectedSeller}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione o vendedor" />
@@ -236,7 +233,7 @@ export function AsaasSync() {
                 <div className="flex items-end">
                   <Button
                     onClick={() => syncMutation.mutate()}
-                    disabled={syncMutation.isPending || !selectedSeller}
+                    disabled={syncMutation.isPending}
                     className="w-full"
                   >
                     {syncMutation.isPending ? (
