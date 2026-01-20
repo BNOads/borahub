@@ -1375,6 +1375,7 @@ export type Database = {
           external_id: string
           id: string
           installments_count: number
+          payment_type: string | null
           platform: string
           product_id: string | null
           product_name: string
@@ -1395,6 +1396,7 @@ export type Database = {
           external_id: string
           id?: string
           installments_count?: number
+          payment_type?: string | null
           platform: string
           product_id?: string | null
           product_name: string
@@ -1415,6 +1417,7 @@ export type Database = {
           external_id?: string
           id?: string
           installments_count?: number
+          payment_type?: string | null
           platform?: string
           product_id?: string | null
           product_name?: string

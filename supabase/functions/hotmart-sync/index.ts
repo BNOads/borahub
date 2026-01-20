@@ -658,6 +658,7 @@ serve(async (req) => {
                 : new Date().toISOString().split('T')[0],
               status: mapHotmartStatus(sale.purchase.status) === "paid" ? "active" : "cancelled",
               seller_id: null, // NEVER auto-assign - must be manual
+              payment_type: sale.purchase.payment.type || null,
             };
             
             // Check if sale already exists

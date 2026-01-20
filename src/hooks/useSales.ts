@@ -30,6 +30,7 @@ export interface Sale {
   sale_date: string;
   status: 'active' | 'cancelled';
   proof_link: string | null;
+  payment_type: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

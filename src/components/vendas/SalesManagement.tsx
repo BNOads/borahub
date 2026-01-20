@@ -37,7 +37,7 @@ import { EditSaleModal } from "./EditSaleModal";
 import { SaleDetailsSheet } from "./SaleDetailsSheet";
 import { toast } from "sonner";
 
-type SortField = "external_id" | "client_name" | "product_name" | "seller" | "total_value" | "installments_count" | "sale_date" | "status";
+type SortField = "external_id" | "client_name" | "product_name" | "seller" | "total_value" | "installments_count" | "sale_date" | "status" | "payment_type";
 type SortDirection = "asc" | "desc";
 
 function useSellers() {
@@ -776,6 +776,7 @@ export function SalesManagement() {
                           <SortIcon field="sale_date" />
                         </div>
                       </TableHead>
+                      <TableHead>Pagamento</TableHead>
                       <TableHead 
                         className="cursor-pointer hover:bg-muted/50 select-none"
                         onClick={() => handleSort("status")}
@@ -791,13 +792,13 @@ export function SalesManagement() {
                   <TableBody>
                     {isLoading ? (
                       <TableRow>
-                        <TableCell colSpan={10} className="text-center py-8">
+                        <TableCell colSpan={11} className="text-center py-8">
                           Carregando...
                         </TableCell>
                       </TableRow>
                     ) : filteredAndSortedSales.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                           Nenhuma venda encontrada
                         </TableCell>
                       </TableRow>
@@ -830,6 +831,11 @@ export function SalesManagement() {
                           <TableCell>{sale.installments_count}x</TableCell>
                           <TableCell>
                             {format(new Date(sale.sale_date), 'dd/MM/yyyy')}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {sale.payment_type || '-'}
+                            </Badge>
                           </TableCell>
                           <TableCell>
                             <Badge 

@@ -97,8 +97,12 @@ export function SaleDetailsSheet({ saleId, open, onOpenChange }: SaleDetailsShee
                   <p className="font-medium">{formatCurrency(sale.total_value)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Comissão</p>
+                  <p className="text-xs text-muted-foreground">Comissão (%)</p>
                   <p className="font-medium">{sale.commission_percent}%</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Valor Comissão</p>
+                  <p className="font-medium text-primary">{formatCurrency((sale.total_value * sale.commission_percent) / 100)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Data da Venda</p>
@@ -107,6 +111,10 @@ export function SaleDetailsSheet({ saleId, open, onOpenChange }: SaleDetailsShee
                 <div>
                   <p className="text-xs text-muted-foreground">Parcelas</p>
                   <p className="font-medium">{sale.installments_count}x</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Meio de Pagamento</p>
+                  <p className="font-medium">{(sale as any).payment_type || '-'}</p>
                 </div>
               </div>
               
