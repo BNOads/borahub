@@ -81,6 +81,13 @@ const tools = [
     color: "bg-orange-500/10 text-orange-500",
   },
   {
+    name: "Controle de Vendas",
+    description: "Dashboard, parcelas, comissões e relatórios de vendas",
+    href: "/vendas",
+    icon: DollarSign,
+    color: "bg-emerald-500/10 text-emerald-500",
+  },
+  {
     name: "Agenda de Eventos",
     description: "Calendario de reunioes, compromissos e eventos da equipe",
     href: "/agenda",
