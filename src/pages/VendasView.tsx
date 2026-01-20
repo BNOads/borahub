@@ -46,7 +46,7 @@ export default function VendasView() {
             </TabsTrigger>
             <TabsTrigger value="vendas" className="flex items-center gap-2 py-2">
               <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">Cadastradas</span>
+              <span className="hidden sm:inline">Realizadas</span>
             </TabsTrigger>
             <TabsTrigger value="parcelas" className="flex items-center gap-2 py-2">
               <Receipt className="h-4 w-4" />
