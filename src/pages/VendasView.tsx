@@ -33,36 +33,43 @@ export default function VendasView() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 h-auto gap-1">
-          <TabsTrigger value="dashboard" className="flex items-center gap-2 py-2">
-            <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </TabsTrigger>
-          <TabsTrigger value="vendas" className="flex items-center gap-2 py-2">
-            <DollarSign className="h-4 w-4" />
-            <span className="hidden sm:inline">Vendas</span>
-          </TabsTrigger>
-          <TabsTrigger value="parcelas" className="flex items-center gap-2 py-2">
-            <Receipt className="h-4 w-4" />
-            <span className="hidden sm:inline">Parcelas</span>
-          </TabsTrigger>
-          <TabsTrigger value="hotmart" className="flex items-center gap-2 py-2">
-            <RefreshCw className="h-4 w-4" />
-            <span className="hidden sm:inline">Hotmart</span>
-          </TabsTrigger>
-          <TabsTrigger value="sync-logs" className="flex items-center gap-2 py-2">
-            <History className="h-4 w-4" />
-            <span className="hidden sm:inline">Logs</span>
-          </TabsTrigger>
-          <TabsTrigger value="produtos" className="flex items-center gap-2 py-2">
-            <Package className="h-4 w-4" />
-            <span className="hidden sm:inline">Produtos</span>
-          </TabsTrigger>
-          <TabsTrigger value="relatorios" className="flex items-center gap-2 py-2">
-            <FileSpreadsheet className="h-4 w-4" />
-            <span className="hidden sm:inline">Relatórios</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col gap-2">
+          <TabsList className="grid w-full grid-cols-5 h-auto gap-1">
+            <TabsTrigger value="dashboard" className="flex items-center gap-2 py-2">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="vendas" className="flex items-center gap-2 py-2">
+              <DollarSign className="h-4 w-4" />
+              <span className="hidden sm:inline">Vendas</span>
+            </TabsTrigger>
+            <TabsTrigger value="parcelas" className="flex items-center gap-2 py-2">
+              <Receipt className="h-4 w-4" />
+              <span className="hidden sm:inline">Parcelas</span>
+            </TabsTrigger>
+            <TabsTrigger value="hotmart" className="flex items-center gap-2 py-2">
+              <RefreshCw className="h-4 w-4" />
+              <span className="hidden sm:inline">Hotmart</span>
+            </TabsTrigger>
+            <TabsTrigger value="relatorios" className="flex items-center gap-2 py-2">
+              <FileSpreadsheet className="h-4 w-4" />
+              <span className="hidden sm:inline">Relatórios</span>
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="flex justify-end gap-2">
+            <TabsList className="h-auto gap-1 bg-transparent p-0">
+              <TabsTrigger value="produtos" className="flex items-center gap-1.5 py-1.5 px-3 text-xs text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-muted/50">
+                <Package className="h-3 w-3" />
+                <span className="hidden sm:inline">Produtos</span>
+              </TabsTrigger>
+              <TabsTrigger value="sync-logs" className="flex items-center gap-1.5 py-1.5 px-3 text-xs text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-muted/50">
+                <History className="h-3 w-3" />
+                <span className="hidden sm:inline">Logs</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </div>
 
         <TabsContent value="dashboard" className="space-y-4">
           <SalesDashboard />
