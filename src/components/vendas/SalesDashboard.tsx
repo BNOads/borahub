@@ -3,22 +3,30 @@ import { useSales, useCommissionSummary, useInstallments } from "@/hooks/useSale
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { DollarSign, TrendingUp, AlertTriangle, Clock, CheckCircle, XCircle } from "lucide-react";
-import { format } from "date-fns";
+import { DollarSign, TrendingUp, AlertTriangle, Clock, CheckCircle, XCircle, Users, ShoppingCart } from "lucide-react";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export function SalesDashboard() {
-  const { user } = useAuth();
-  const { data: sales, isLoading: salesLoading } = useSales(user?.id);
-  const { data: summary, isLoading: summaryLoading } = useCommissionSummary(user?.id);
+  const { user, profile } = useAuth();
+  
+  // For admin/manager, show all data; for sellers, show only their own
+  const isAdminOrManager = profile?.job_title?.toLowerCase().includes('admin') || 
+                           profile?.job_title?.toLowerCase().includes('gerente') ||
+                           profile?.job_title?.toLowerCase().includes('financeiro');
+  
+  const sellerId = isAdminOrManager ? undefined : user?.id;
+  
+  const { data: sales, isLoading: salesLoading } = useSales(sellerId);
+  const { data: summary, isLoading: summaryLoading } = useCommissionSummary(sellerId);
   const { data: installments, isLoading: installmentsLoading } = useInstallments();
   
   const isLoading = salesLoading || summaryLoading || installmentsLoading;
   
-  // Filter installments for current user's sales
-  const userInstallments = installments?.filter(
-    inst => inst.sale?.seller?.id === user?.id
-  ) || [];
+  // Filter installments based on role
+  const userInstallments = isAdminOrManager 
+    ? installments || []
+    : installments?.filter(inst => inst.sale?.seller?.id === user?.id) || [];
   
   const overdueInstallments = userInstallments.filter(
     inst => inst.status === 'overdue' || 
@@ -27,14 +35,36 @@ export function SalesDashboard() {
   
   const upcomingInstallments = userInstallments.filter(
     inst => inst.status === 'pending' && new Date(inst.due_date) >= new Date()
-  ).slice(0, 5);
+  ).sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime()).slice(0, 5);
   
   const currentMonth = format(new Date(), 'MMMM yyyy', { locale: ptBR });
   
+  // Calculate additional stats for admin view
+  const totalSales = sales?.length || 0;
+  const activeSales = sales?.filter(s => s.status === 'active').length || 0;
+  const totalValue = sales?.reduce((sum, s) => sum + Number(s.total_value), 0) || 0;
+  const paidInstallments = userInstallments.filter(i => i.status === 'paid').length;
+  const pendingInstallments = userInstallments.filter(i => i.status === 'pending').length;
+  
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Main Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total em Vendas</CardTitle>
+            <ShoppingCart className="h-4 w-4 text-accent" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(totalValue)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {totalSales} vendas ({activeSales} ativas)
+            </p>
+          </CardContent>
+        </Card>
+        
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Comissão Liberada</CardTitle>
@@ -75,23 +105,38 @@ export function SalesDashboard() {
               {formatCurrency(summary?.totalPending || 0)}
             </div>
             <p className="text-xs text-muted-foreground">
-              Aguardando pagamento
+              {pendingInstallments} parcelas pendentes
             </p>
           </CardContent>
         </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Comissão Suspensa</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
+      </div>
+      
+      {/* Secondary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className="bg-success/5 border-success/20">
+          <CardContent className="pt-4">
+            <div className="text-xl font-bold text-success">{paidInstallments}</div>
+            <p className="text-xs text-muted-foreground">Parcelas Pagas</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-warning/5 border-warning/20">
+          <CardContent className="pt-4">
+            <div className="text-xl font-bold text-warning">{pendingInstallments}</div>
+            <p className="text-xs text-muted-foreground">Parcelas Pendentes</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-destructive/5 border-destructive/20">
+          <CardContent className="pt-4">
+            <div className="text-xl font-bold text-destructive">{overdueInstallments.length}</div>
+            <p className="text-xs text-muted-foreground">Parcelas Atrasadas</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-muted/50">
+          <CardContent className="pt-4">
+            <div className="text-xl font-bold text-destructive">
               {formatCurrency(summary?.totalSuspended || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Parcelas em atraso
-            </p>
+            <p className="text-xs text-muted-foreground">Comissão Suspensa</p>
           </CardContent>
         </Card>
       </div>
@@ -187,10 +232,10 @@ export function SalesDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-accent" />
-            Minhas Vendas Recentes
+            Vendas Recentes
           </CardTitle>
           <CardDescription>
-            Últimas vendas realizadas
+            Últimas vendas cadastradas
           </CardDescription>
         </CardHeader>
         <CardContent>
