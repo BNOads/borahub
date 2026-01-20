@@ -27,25 +27,62 @@ import {
   ShoppingCart, 
   RefreshCw,
   Clock,
-  Loader2
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Users,
+  Download
 } from "lucide-react";
 import { format, subDays, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
-type SortField = "transaction" | "client_name" | "product_name" | "total_value" | "sale_date";
+type SortField = "transaction" | "client_name" | "product_name" | "total_value" | "sale_date" | "seller_name";
 type SortDirection = "asc" | "desc";
 
-interface HotmartSale {
-  product: { id: number; name: string };
-  buyer: { name: string; email: string };
-  purchase: {
-    transaction: string;
-    approved_date?: number;
-    status: string;
-    price: { value: number };
-    payment: { installments_number: number };
-  };
+interface DbSale {
+  id: string;
+  external_id: string;
+  client_name: string;
+  client_email: string | null;
+  product_name: string;
+  total_value: number;
+  installments_count: number;
+  sale_date: string;
+  status: string;
+  seller_id: string | null;
+  seller?: {
+    full_name: string;
+    display_name: string | null;
+  } | null;
+}
+
+function useHotmartSales() {
+  return useQuery({
+    queryKey: ["hotmart-sales-db"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales")
+        .select(`
+          id,
+          external_id,
+          client_name,
+          client_email,
+          product_name,
+          total_value,
+          installments_count,
+          sale_date,
+          status,
+          seller_id,
+          seller:profiles!sales_seller_id_fkey(full_name, display_name)
+        `)
+        .eq("platform", "hotmart")
+        .order("sale_date", { ascending: false });
+      
+      if (error) throw error;
+      return data as DbSale[];
+    },
+  });
 }
 
 function useLastSync() {
@@ -55,7 +92,6 @@ function useLastSync() {
       const { data, error } = await supabase
         .from("hotmart_sync_logs")
         .select("created_at, status, total_records, created_records, updated_records")
-        .eq("sync_type", "scheduled_sync")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -67,19 +103,33 @@ function useLastSync() {
   });
 }
 
+function useLatestSaleDate() {
+  return useQuery({
+    queryKey: ["latest-hotmart-sale-date"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales")
+        .select("sale_date")
+        .eq("platform", "hotmart")
+        .order("sale_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data?.sale_date || null;
+    },
+  });
+}
+
 export function HotmartSalesManagement() {
+  const { data: sales, isLoading, refetch } = useHotmartSales();
   const { data: lastSync, refetch: refetchLastSync } = useLastSync();
+  const { data: latestSaleDate } = useLatestSaleDate();
   const queryClient = useQueryClient();
   
   // Filters
-  const [startDate, setStartDate] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
-  const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
-  
-  // Data from API
-  const [sales, setSales] = useState<HotmartSale[]>([]);
-  const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   
   // Sorting
@@ -95,47 +145,34 @@ export function HotmartSalesManagement() {
     }
   };
 
-  // Fetch sales from Hotmart API
-  const handleFetchSales = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("hotmart-sync", {
-        body: { 
-          action: "get_sales",
-          startDate,
-          endDate,
-          status: statusFilter || undefined,
-        },
-      });
-      
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
-      
-      setSales(data.sales || []);
-      toast.success(`${data.sales?.length || 0} vendas carregadas da Hotmart`);
-    } catch (err: any) {
-      console.error("Fetch sales error:", err);
-      toast.error("Erro ao buscar vendas: " + (err.message || "Erro desconhecido"));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Manual sync handler - saves to database
-  const handleManualSync = async () => {
+  // Sync handler - fetches from Hotmart starting from latest sale date and saves to DB
+  const handleSync = async () => {
     setSyncing(true);
     try {
+      // If we have sales, start from the latest sale date, otherwise fetch last 60 days
+      const startDate = latestSaleDate 
+        ? latestSaleDate 
+        : format(subDays(new Date(), 60), "yyyy-MM-dd");
+      const endDate = format(new Date(), "yyyy-MM-dd");
+      
+      console.log(`Syncing from ${startDate} to ${endDate}`);
+      
       const { data, error } = await supabase.functions.invoke("hotmart-sync", {
-        body: { action: "scheduled_sync" },
+        body: { 
+          action: "sync_sales",
+          startDate,
+          endDate,
+        },
       });
       
       if (error) throw error;
       
       if (data.success) {
         toast.success(`Sincronização concluída: ${data.created} novas, ${data.updated} atualizadas`);
+        refetch();
         refetchLastSync();
+        queryClient.invalidateQueries({ queryKey: ["latest-hotmart-sale-date"] });
         queryClient.invalidateQueries({ queryKey: ["sales"] });
-        queryClient.invalidateQueries({ queryKey: ["hotmart-sales"] });
       } else {
         throw new Error(data.error || "Erro na sincronização");
       }
@@ -149,16 +186,24 @@ export function HotmartSalesManagement() {
 
   // Filter and sort sales
   const filteredAndSortedSales = useMemo(() => {
-    let result = sales;
+    let result = sales || [];
+    
+    // Apply status filter
+    if (statusFilter === "pending") {
+      result = result.filter(sale => !sale.seller_id);
+    } else if (statusFilter === "assigned") {
+      result = result.filter(sale => sale.seller_id);
+    }
     
     // Apply search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(sale => 
-        sale.buyer.name.toLowerCase().includes(term) ||
-        sale.buyer.email.toLowerCase().includes(term) ||
-        sale.product.name.toLowerCase().includes(term) ||
-        sale.purchase.transaction.toLowerCase().includes(term)
+        sale.client_name.toLowerCase().includes(term) ||
+        sale.client_email?.toLowerCase().includes(term) ||
+        sale.product_name.toLowerCase().includes(term) ||
+        sale.external_id.toLowerCase().includes(term) ||
+        sale.seller?.full_name?.toLowerCase().includes(term)
       );
     }
     
@@ -169,24 +214,28 @@ export function HotmartSalesManagement() {
       
       switch (sortField) {
         case "transaction":
-          aValue = a.purchase.transaction;
-          bValue = b.purchase.transaction;
+          aValue = a.external_id;
+          bValue = b.external_id;
           break;
         case "client_name":
-          aValue = a.buyer.name.toLowerCase();
-          bValue = b.buyer.name.toLowerCase();
+          aValue = a.client_name.toLowerCase();
+          bValue = b.client_name.toLowerCase();
           break;
         case "product_name":
-          aValue = a.product.name.toLowerCase();
-          bValue = b.product.name.toLowerCase();
+          aValue = a.product_name.toLowerCase();
+          bValue = b.product_name.toLowerCase();
           break;
         case "total_value":
-          aValue = a.purchase.price.value;
-          bValue = b.purchase.price.value;
+          aValue = a.total_value;
+          bValue = b.total_value;
           break;
         case "sale_date":
-          aValue = a.purchase.approved_date || 0;
-          bValue = b.purchase.approved_date || 0;
+          aValue = new Date(a.sale_date).getTime();
+          bValue = new Date(b.sale_date).getTime();
+          break;
+        case "seller_name":
+          aValue = a.seller?.full_name?.toLowerCase() || "zzz";
+          bValue = b.seller?.full_name?.toLowerCase() || "zzz";
           break;
         default:
           return 0;
@@ -198,31 +247,25 @@ export function HotmartSalesManagement() {
     });
     
     return result;
-  }, [sales, searchTerm, sortField, sortDirection]);
+  }, [sales, searchTerm, statusFilter, sortField, sortDirection]);
 
   // Stats
   const stats = useMemo(() => {
-    const totalValue = sales.reduce((sum, sale) => sum + sale.purchase.price.value, 0);
-    const approvedCount = sales.filter(s => s.purchase.status === "APPROVED" || s.purchase.status === "COMPLETED").length;
-    const canceledCount = sales.filter(s => s.purchase.status === "CANCELED" || s.purchase.status === "REFUNDED").length;
+    const allSales = sales || [];
+    const totalValue = allSales.reduce((sum, sale) => sum + sale.total_value, 0);
+    const pendingCount = allSales.filter(s => !s.seller_id).length;
+    const pendingValue = allSales.filter(s => !s.seller_id).reduce((sum, s) => sum + s.total_value, 0);
+    const assignedCount = allSales.filter(s => s.seller_id).length;
     
-    return { total: sales.length, totalValue, approvedCount, canceledCount };
+    return { total: allSales.length, totalValue, pendingCount, pendingValue, assignedCount };
   }, [sales]);
 
-  function formatStatus(status: string) {
-    const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-      "APPROVED": { label: "Aprovado", variant: "default" },
-      "COMPLETED": { label: "Completo", variant: "default" },
-      "CANCELED": { label: "Cancelado", variant: "destructive" },
-      "REFUNDED": { label: "Reembolsado", variant: "destructive" },
-      "CHARGEBACK": { label: "Chargeback", variant: "destructive" },
-      "WAITING_PAYMENT": { label: "Aguardando", variant: "secondary" },
-      "PENDING": { label: "Pendente", variant: "secondary" },
-      "EXPIRED": { label: "Expirado", variant: "outline" },
-    };
-    
-    const mapped = statusMap[status] || { label: status, variant: "outline" as const };
-    return <Badge variant={mapped.variant}>{mapped.label}</Badge>;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   return (
@@ -233,7 +276,7 @@ export function HotmartSalesManagement() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <ShoppingCart className="h-4 w-4 text-primary" />
-              Total Carregado
+              Total no Banco
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -246,21 +289,31 @@ export function HotmartSalesManagement() {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-primary">Aprovadas</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-warning" />
+              Sem Vendedor
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{stats.approvedCount}</div>
-            <p className="text-xs text-muted-foreground">Vendas aprovadas</p>
+            <div className="text-2xl font-bold text-warning">{stats.pendingCount}</div>
+            <p className="text-xs text-muted-foreground">
+              {formatCurrency(stats.pendingValue)} pendente
+            </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-destructive">Canceladas</CardTitle>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              Com Vendedor
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-destructive">{stats.canceledCount}</div>
-            <p className="text-xs text-muted-foreground">Canceladas/Reembolsadas</p>
+            <div className="text-2xl font-bold text-primary">{stats.assignedCount}</div>
+            <p className="text-xs text-muted-foreground">
+              Atribuídas a vendedores
+            </p>
           </CardContent>
         </Card>
         
@@ -276,7 +329,7 @@ export function HotmartSalesManagement() {
               {lastSync ? formatDistanceToNow(new Date(lastSync.created_at), { addSuffix: true, locale: ptBR }) : "Nunca"}
             </div>
             <p className="text-xs text-muted-foreground">
-              Automática a cada 15 min
+              {lastSync && `${lastSync.created_records || 0} novas, ${lastSync.updated_records || 0} atualizadas`}
             </p>
           </CardContent>
         </Card>
@@ -289,87 +342,49 @@ export function HotmartSalesManagement() {
             <div>
               <CardTitle className="text-lg">Vendas Realizadas na Hotmart</CardTitle>
               <CardDescription>
-                Busque vendas diretamente da API Hotmart
+                Vendas sincronizadas da Hotmart • Busca automática a partir da última venda
               </CardDescription>
             </div>
             <Button 
-              onClick={handleManualSync} 
+              onClick={handleSync} 
               disabled={syncing}
-              variant="outline"
               className="gap-2"
             >
-              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? "Salvando..." : "Salvar no Banco"}
+              {syncing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {syncing ? "Sincronizando..." : "Buscar Novas Vendas"}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Filters */}
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="space-y-2">
-              <Label>Data Inicial</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-[160px]"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Data Final</Label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-[160px]"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select 
-                value={statusFilter || "__all__"} 
-                onValueChange={(v) => setStatusFilter(v === "__all__" ? "" : v)}
-              >
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Todos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Todos</SelectItem>
-                  <SelectItem value="APPROVED">Aprovado</SelectItem>
-                  <SelectItem value="COMPLETED">Completo</SelectItem>
-                  <SelectItem value="CANCELED">Cancelado</SelectItem>
-                  <SelectItem value="REFUNDED">Reembolsado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <Button onClick={handleFetchSales} disabled={loading}>
-              {loading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              )}
-              Buscar Vendas
-            </Button>
-          </div>
-
-          {/* Search */}
-          {sales.length > 0 && (
-            <div className="relative max-w-sm">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por cliente, produto ou transação..."
+                placeholder="Buscar por cliente, produto, transação ou vendedor..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
               />
             </div>
-          )}
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as vendas</SelectItem>
+                <SelectItem value="pending">Sem vendedor</SelectItem>
+                <SelectItem value="assigned">Com vendedor</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Table */}
-          {sales.length > 0 ? (
+          {filteredAndSortedSales.length > 0 ? (
             <div className="rounded-md border overflow-auto">
               <Table>
                 <TableHeader>
@@ -405,38 +420,55 @@ export function HotmartSalesManagement() {
                     >
                       Data
                     </TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("seller_name")}
+                    >
+                      Vendedor
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredAndSortedSales.map((sale) => (
-                    <TableRow key={sale.purchase.transaction}>
+                    <TableRow key={sale.id}>
                       <TableCell className="font-mono text-xs">
-                        {sale.purchase.transaction.substring(0, 12)}...
+                        {sale.external_id.substring(0, 12)}...
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">
-                        {sale.product.name}
+                        {sale.product_name}
                       </TableCell>
                       <TableCell>
                         <div>
-                          <div className="font-medium truncate max-w-[150px]">{sale.buyer.name}</div>
-                          <div className="text-xs text-muted-foreground truncate max-w-[150px]">
-                            {sale.buyer.email}
-                          </div>
+                          <div className="font-medium truncate max-w-[150px]">{sale.client_name}</div>
+                          {sale.client_email && (
+                            <div className="text-xs text-muted-foreground truncate max-w-[150px]">
+                              {sale.client_email}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(sale.purchase.price.value)}
+                        {formatCurrency(sale.total_value)}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline">{sale.purchase.payment.installments_number || 1}x</Badge>
+                        <Badge variant="outline">{sale.installments_count}x</Badge>
                       </TableCell>
                       <TableCell>
-                        {sale.purchase.approved_date
-                          ? format(new Date(sale.purchase.approved_date), "dd/MM/yyyy", { locale: ptBR })
-                          : "-"}
+                        {format(new Date(sale.sale_date), "dd/MM/yyyy", { locale: ptBR })}
                       </TableCell>
-                      <TableCell>{formatStatus(sale.purchase.status)}</TableCell>
+                      <TableCell>
+                        {sale.seller ? (
+                          <Badge variant="secondary" className="gap-1">
+                            <Users className="h-3 w-3" />
+                            {sale.seller.display_name || sale.seller.full_name}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-warning border-warning/50">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            Pendente
+                          </Badge>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -445,14 +477,21 @@ export function HotmartSalesManagement() {
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-30" />
-              <p>Defina os filtros e clique em "Buscar Vendas" para visualizar</p>
-              <p className="text-xs mt-2">As vendas serão buscadas diretamente da API Hotmart</p>
+              <p>Nenhuma venda encontrada</p>
+              <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing} className="mt-4">
+                {syncing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                Buscar Vendas da Hotmart
+              </Button>
             </div>
           )}
           
           {/* Footer info */}
           <div className="text-xs text-muted-foreground text-center">
-            Clique em "Salvar no Banco" para sincronizar as vendas com o sistema
+            A busca inicia a partir de {latestSaleDate ? format(new Date(latestSaleDate), "dd/MM/yyyy", { locale: ptBR }) : "60 dias atrás"} para evitar duplicatas
           </div>
         </CardContent>
       </Card>
