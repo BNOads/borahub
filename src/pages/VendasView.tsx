@@ -3,12 +3,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SalesDashboard } from "@/components/vendas/SalesDashboard";
 import { SalesManagement } from "@/components/vendas/SalesManagement";
+import { PendingSalesManagement } from "@/components/vendas/PendingSalesManagement";
 import { InstallmentsManagement } from "@/components/vendas/InstallmentsManagement";
 import { HotmartSync } from "@/components/vendas/HotmartSync";
 import { SyncLogs } from "@/components/vendas/SyncLogs";
 import { ProductsManagement } from "@/components/vendas/ProductsManagement";
 import { SalesReports } from "@/components/vendas/SalesReports";
-import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, RefreshCw, History } from "lucide-react";
+import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, RefreshCw, History, AlertCircle } from "lucide-react";
 
 export default function VendasView() {
   const { profile } = useAuth();
@@ -34,14 +35,18 @@ export default function VendasView() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="flex flex-col gap-2">
-          <TabsList className="grid w-full grid-cols-5 h-auto gap-1">
+          <TabsList className="grid w-full grid-cols-6 h-auto gap-1">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 py-2">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
             </TabsTrigger>
+            <TabsTrigger value="pendentes" className="flex items-center gap-2 py-2">
+              <AlertCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Pendentes</span>
+            </TabsTrigger>
             <TabsTrigger value="vendas" className="flex items-center gap-2 py-2">
               <DollarSign className="h-4 w-4" />
-              <span className="hidden sm:inline">Vendas</span>
+              <span className="hidden sm:inline">Cadastradas</span>
             </TabsTrigger>
             <TabsTrigger value="parcelas" className="flex items-center gap-2 py-2">
               <Receipt className="h-4 w-4" />
@@ -73,6 +78,10 @@ export default function VendasView() {
 
         <TabsContent value="dashboard" className="space-y-4">
           <SalesDashboard />
+        </TabsContent>
+
+        <TabsContent value="pendentes" className="space-y-4">
+          <PendingSalesManagement />
         </TabsContent>
 
         <TabsContent value="vendas" className="space-y-4">
