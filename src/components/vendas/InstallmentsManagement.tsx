@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useInstallments, useUpdateInstallment } from "@/hooks/useSales";
+import { useInstallments, useUpdateInstallment, useSyncHotmartInstallments } from "@/hooks/useSales";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -20,12 +20,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { Search, CheckCircle, Clock, AlertTriangle, XCircle, Ban } from "lucide-react";
+import { Search, CheckCircle, Clock, AlertTriangle, XCircle, Ban, RefreshCw, Check, X } from "lucide-react";
 import { format } from "date-fns";
 
 export function InstallmentsManagement() {
   const { data: installments, isLoading } = useInstallments();
   const updateInstallment = useUpdateInstallment();
+  const syncInstallments = useSyncHotmartInstallments();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   
@@ -72,31 +73,83 @@ export function InstallmentsManagement() {
     });
   }
   
+  function handleQuickToggle(installmentId: string, currentStatus: string) {
+    const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
+    handleStatusChange(installmentId, newStatus);
+  }
+  
+  // Stats
+  const stats = {
+    total: filteredInstallments.length,
+    pending: filteredInstallments.filter(i => i.status === 'pending').length,
+    paid: filteredInstallments.filter(i => i.status === 'paid').length,
+    overdue: filteredInstallments.filter(i => i.status === 'overdue').length,
+  };
+  
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar parcelas..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">Total de Parcelas</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-warning">{stats.pending}</div>
+            <p className="text-xs text-muted-foreground">Pendentes</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-success">{stats.paid}</div>
+            <p className="text-xs text-muted-foreground">Pagas</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-destructive">{stats.overdue}</div>
+            <p className="text-xs text-muted-foreground">Atrasadas</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center flex-1">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar parcelas..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filtrar status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="pending">Pendentes</SelectItem>
+              <SelectItem value="paid">Pagas</SelectItem>
+              <SelectItem value="overdue">Atrasadas</SelectItem>
+              <SelectItem value="cancelled">Canceladas</SelectItem>
+              <SelectItem value="refunded">Estornadas</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filtrar status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="pending">Pendentes</SelectItem>
-            <SelectItem value="paid">Pagas</SelectItem>
-            <SelectItem value="overdue">Atrasadas</SelectItem>
-            <SelectItem value="cancelled">Canceladas</SelectItem>
-            <SelectItem value="refunded">Estornadas</SelectItem>
-          </SelectContent>
-        </Select>
+        
+        <Button 
+          onClick={() => syncInstallments.mutate()} 
+          disabled={syncInstallments.isPending}
+          variant="outline"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${syncInstallments.isPending ? 'animate-spin' : ''}`} />
+          {syncInstallments.isPending ? 'Sincronizando...' : 'Sincronizar Hotmart'}
+        </Button>
       </div>
 
       <Card>
@@ -165,22 +218,43 @@ export function InstallmentsManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Select 
-                          value={inst.status}
-                          onValueChange={(value) => handleStatusChange(inst.id, value)}
-                          disabled={updateInstallment.isPending}
-                        >
-                          <SelectTrigger className="w-[130px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pendente</SelectItem>
-                            <SelectItem value="paid">Paga</SelectItem>
-                            <SelectItem value="overdue">Atrasada</SelectItem>
-                            <SelectItem value="cancelled">Cancelada</SelectItem>
-                            <SelectItem value="refunded">Estornada</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant={inst.status === 'paid' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => handleQuickToggle(inst.id, inst.status)}
+                            disabled={updateInstallment.isPending}
+                            className={inst.status === 'paid' ? 'bg-success hover:bg-success/90' : ''}
+                          >
+                            {inst.status === 'paid' ? (
+                              <>
+                                <Check className="h-3 w-3 mr-1" />
+                                Paga
+                              </>
+                            ) : (
+                              <>
+                                <Clock className="h-3 w-3 mr-1" />
+                                Marcar Paga
+                              </>
+                            )}
+                          </Button>
+                          <Select 
+                            value={inst.status}
+                            onValueChange={(value) => handleStatusChange(inst.id, value)}
+                            disabled={updateInstallment.isPending}
+                          >
+                            <SelectTrigger className="w-[110px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="pending">Pendente</SelectItem>
+                              <SelectItem value="paid">Paga</SelectItem>
+                              <SelectItem value="overdue">Atrasada</SelectItem>
+                              <SelectItem value="cancelled">Cancelada</SelectItem>
+                              <SelectItem value="refunded">Estornada</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
