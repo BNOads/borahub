@@ -251,10 +251,10 @@ export function useSales(sellerId?: string) {
   });
 }
 
-// Hook para vendas cadastradas manualmente (exclui Hotmart)
-export function useManualSales(sellerId?: string) {
+// Hook para vendas associadas (com vendedor atribuído - para controle de comissões)
+export function useAssociatedSales(sellerId?: string) {
   return useQuery({
-    queryKey: ['manual-sales', sellerId],
+    queryKey: ['associated-sales', sellerId],
     queryFn: async () => {
       let query = supabase
         .from('sales')
@@ -262,7 +262,7 @@ export function useManualSales(sellerId?: string) {
           *,
           seller:profiles!sales_seller_id_fkey(id, full_name, email)
         `)
-        .neq('platform', 'hotmart')
+        .not('seller_id', 'is', null)
         .order('sale_date', { ascending: false });
       
       if (sellerId) {
