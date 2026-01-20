@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Search, CheckCircle, AlertCircle, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatCurrency } from "@/components/funnel-panel/types";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const formSchema = z.object({
   external_id: z.string().min(1, "ID obrigatório"),
@@ -54,8 +58,39 @@ interface CreateSaleModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+interface AsaasSaleOption {
+  id: string;
+  external_id: string;
+  client_name: string;
+  client_email: string | null;
+  product_name: string;
+  total_value: number;
+  installments_count: number;
+  sale_date: string;
+}
+
+// Hook to fetch Asaas sales without seller
+function useAsaasSalesWithoutSeller() {
+  return useQuery({
+    queryKey: ["asaas-sales-without-seller"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales")
+        .select("id, external_id, client_name, client_email, product_name, total_value, installments_count, sale_date")
+        .eq("platform", "asaas")
+        .is("seller_id", null)
+        .eq("status", "active")
+        .order("sale_date", { ascending: false });
+
+      if (error) throw error;
+      return data as AsaasSaleOption[];
+    },
+  });
+}
+
 export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
   const { data: products } = useProducts();
+  const { data: asaasSales, refetch: refetchAsaasSales } = useAsaasSalesWithoutSeller();
   const createSale = useCreateSale();
   const queryClient = useQueryClient();
   const [sellers, setSellers] = useState<{ id: string; full_name: string }[]>([]);
@@ -63,6 +98,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupStatus, setLookupStatus] = useState<"idle" | "success" | "error">("idle");
   const [existingSaleId, setExistingSaleId] = useState<string | null>(null);
+  const [selectedAsaasSale, setSelectedAsaasSale] = useState<AsaasSaleOption | null>(null);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -82,6 +118,8 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
       proof_link: "",
     },
   });
+  
+  const currentPlatform = form.watch("platform");
   
   useEffect(() => {
     async function fetchSellers() {
@@ -113,8 +151,49 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
       fetchSellers();
       setLookupStatus("idle");
       setExistingSaleId(null);
+      setSelectedAsaasSale(null);
+      refetchAsaasSales();
     }
-  }, [open]);
+  }, [open, refetchAsaasSales]);
+  
+  // Reset selected Asaas sale when platform changes
+  useEffect(() => {
+    if (currentPlatform !== "asaas") {
+      setSelectedAsaasSale(null);
+    }
+  }, [currentPlatform]);
+  
+  // Handle Asaas sale selection
+  const handleAsaasSaleSelect = useCallback((saleId: string) => {
+    const sale = asaasSales?.find(s => s.id === saleId);
+    if (!sale) return;
+    
+    setSelectedAsaasSale(sale);
+    setExistingSaleId(sale.id);
+    
+    const setValueOptions = { shouldDirty: true, shouldTouch: true, shouldValidate: true };
+    form.setValue("external_id", sale.external_id, setValueOptions);
+    form.setValue("client_name", sale.client_name, setValueOptions);
+    if (sale.client_email) form.setValue("client_email", sale.client_email, setValueOptions);
+    form.setValue("product_name", sale.product_name, setValueOptions);
+    form.setValue("total_value", sale.total_value, setValueOptions);
+    form.setValue("installments_count", sale.installments_count, setValueOptions);
+    form.setValue("sale_date", sale.sale_date, setValueOptions);
+    
+    // Try to match product
+    if (sale.product_name && products) {
+      const matchedProduct = products.find(
+        p => p.name.toLowerCase() === sale.product_name.toLowerCase()
+      );
+      if (matchedProduct) {
+        form.setValue("product_id", matchedProduct.id, setValueOptions);
+        form.setValue("commission_percent", Number(matchedProduct.default_commission_percent), setValueOptions);
+      }
+    }
+    
+    setLookupStatus("success");
+    toast.success("Dados da venda Asaas carregados!");
+  }, [asaasSales, form, products]);
   
   const selectedProduct = products?.find(p => p.id === form.watch("product_id"));
   
@@ -384,7 +463,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                       <SelectContent>
                         <SelectItem value="manual">Manual</SelectItem>
                         <SelectItem value="hotmart">Hotmart (buscar dados)</SelectItem>
-                        <SelectItem value="asaas">Asaas</SelectItem>
+                        <SelectItem value="asaas">Asaas (selecionar venda)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -392,46 +471,82 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="external_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>ID da Transação *</FormLabel>
-                    <div className="flex gap-2">
-                      <FormControl>
-                        <Input 
-                          placeholder="Ex: HP1234567890" 
-                          {...field} 
-                          className="flex-1"
-                        />
-                      </FormControl>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={lookupSale}
-                        disabled={lookupLoading || form.watch("platform") !== "hotmart"}
-                        title={form.watch("platform") === "hotmart" ? "Consultar na Hotmart" : "Consulta disponível apenas para Hotmart"}
-                      >
-                        {lookupLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : lookupStatus === "success" ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : lookupStatus === "error" ? (
-                          <AlertCircle className="h-4 w-4 text-destructive" />
-                        ) : (
-                          <Search className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Asaas: Show dropdown to select existing sale */}
+              {currentPlatform === "asaas" ? (
+                <FormItem>
+                  <FormLabel>Selecionar Venda Asaas *</FormLabel>
+                  <Select 
+                    value={selectedAsaasSale?.id || ""} 
+                    onValueChange={handleAsaasSaleSelect}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Escolha uma venda para associar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {asaasSales && asaasSales.length > 0 ? (
+                        asaasSales.map((sale) => (
+                          <SelectItem key={sale.id} value={sale.id}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{sale.client_name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {sale.product_name} • {formatCurrency(sale.total_value)} • {sale.installments_count}x • {format(new Date(sale.sale_date), "dd/MM/yy", { locale: ptBR })}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="__no_sales__" disabled>
+                          Nenhuma venda Asaas pendente
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {asaasSales?.length || 0} vendas Asaas sem vendedor associado
+                  </p>
+                </FormItem>
+              ) : (
+                <FormField
+                  control={form.control}
+                  name="external_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ID da Transação *</FormLabel>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input 
+                            placeholder="Ex: HP1234567890" 
+                            {...field} 
+                            className="flex-1"
+                          />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={lookupSale}
+                          disabled={lookupLoading || currentPlatform !== "hotmart"}
+                          title={currentPlatform === "hotmart" ? "Consultar na Hotmart" : "Consulta disponível apenas para Hotmart"}
+                        >
+                          {lookupLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : lookupStatus === "success" ? (
+                            <CheckCircle className="h-4 w-4 text-primary" />
+                          ) : lookupStatus === "error" ? (
+                            <AlertCircle className="h-4 w-4 text-destructive" />
+                          ) : (
+                            <Search className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
-            {form.watch("platform") === "hotmart" && (
+            {currentPlatform === "hotmart" && (
               <p className="text-xs text-muted-foreground -mt-2">
                 Digite o ID da transação (HP...) e clique no botão de busca para preencher automaticamente os dados.
                 {existingSaleId && (
@@ -441,10 +556,10 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                 )}
               </p>
             )}
-            {form.watch("platform") === "asaas" && (
-              <p className="text-xs text-muted-foreground -mt-2">
-                Se a venda já existir no sistema, o vendedor será associado automaticamente.
-              </p>
+            {currentPlatform === "asaas" && selectedAsaasSale && (
+              <div className="text-xs bg-primary/10 text-primary p-2 rounded-md -mt-2">
+                ✓ Venda selecionada: <strong>{selectedAsaasSale.client_name}</strong> - {formatCurrency(selectedAsaasSale.total_value)} ({selectedAsaasSale.installments_count}x)
+              </div>
             )}
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

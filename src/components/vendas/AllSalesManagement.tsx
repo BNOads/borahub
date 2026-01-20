@@ -30,13 +30,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Users,
-  Download,
-  UserPlus
+  Download
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
-import { AssignSellerModal } from "./AssignSellerModal";
 
 type SortField = "transaction" | "client_name" | "product_name" | "total_value" | "sale_date" | "seller_name" | "platform";
 type SortDirection = "asc" | "desc";
@@ -112,9 +110,6 @@ export function AllSalesManagement() {
   const { data: sales, isLoading, refetch } = useAllSales();
   const { data: lastSync, refetch: refetchLastSync } = useLastSync();
   const queryClient = useQueryClient();
-  
-  // Modal state
-  const [assignModalOpen, setAssignModalOpen] = useState(false);
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -421,28 +416,18 @@ export function AllSalesManagement() {
                 Vendas sincronizadas de Hotmart e Asaas (apenas pagas)
               </CardDescription>
             </div>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline"
-                onClick={() => setAssignModalOpen(true)}
-                className="gap-2"
-              >
-                <UserPlus className="h-4 w-4" />
-                Associar Vendedor
-              </Button>
-              <Button 
-                onClick={handleSyncAll} 
-                disabled={syncing}
-                className="gap-2"
-              >
-                {syncing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-                {syncing ? "Sincronizando..." : "Buscar Novas Vendas"}
-              </Button>
-            </div>
+            <Button 
+              onClick={handleSyncAll} 
+              disabled={syncing}
+              className="gap-2"
+            >
+              {syncing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              {syncing ? "Sincronizando..." : "Buscar Novas Vendas"}
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -600,12 +585,6 @@ export function AllSalesManagement() {
           </div>
         </CardContent>
       </Card>
-      
-      {/* Assign Seller Modal */}
-      <AssignSellerModal 
-        open={assignModalOpen} 
-        onOpenChange={setAssignModalOpen} 
-      />
     </div>
   );
 }
