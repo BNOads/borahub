@@ -98,7 +98,7 @@ export function SalesReports() {
       const sale = installment?.sale;
       const seller = comm.seller;
       
-      if (!installment || !sale || !sale.seller_id) return;
+      if (!installment || !sale || !comm.seller_id) return;
       
       // Check if commission competence is in date range
       const inCompetenceRange = isWithinInterval(parseISO(comm.competence_month), {
