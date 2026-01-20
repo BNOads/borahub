@@ -22,9 +22,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { Search, CheckCircle, Clock, AlertTriangle, XCircle, Ban, RefreshCw, Check, X, CreditCard, Banknote } from "lucide-react";
+import { Search, CheckCircle, Clock, AlertTriangle, XCircle, Ban, RefreshCw, Check, X, CreditCard, Banknote, ChevronLeft, ChevronRight, User } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+const ITEMS_PER_PAGE = 20;
 
 export function InstallmentsManagement() {
   const { data: installments, isLoading } = useInstallmentsWithSeller();
@@ -34,6 +36,7 @@ export function InstallmentsManagement() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all");
   const [platformFilter, setPlatformFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   
   // Fetch last sync info
   const { data: lastSync } = useQuery({
@@ -114,6 +117,19 @@ export function InstallmentsManagement() {
     handleStatusChange(installmentId, newStatus);
   }
   
+  // Reset to page 1 when filters change
+  const handleFilterChange = (setter: (value: string) => void, value: string) => {
+    setter(value);
+    setCurrentPage(1);
+  };
+  
+  // Pagination
+  const totalPages = Math.ceil(filteredInstallments.length / ITEMS_PER_PAGE);
+  const paginatedInstallments = filteredInstallments.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+  
   // Stats
   const stats = {
     total: filteredInstallments.length,
@@ -163,7 +179,7 @@ export function InstallmentsManagement() {
               className="pl-10"
             />
           </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <Select value={statusFilter} onValueChange={(v) => handleFilterChange(setStatusFilter, v)}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Filtrar status" />
             </SelectTrigger>
@@ -176,7 +192,7 @@ export function InstallmentsManagement() {
               <SelectItem value="refunded">Estornadas</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+          <Select value={paymentTypeFilter} onValueChange={(v) => handleFilterChange(setPaymentTypeFilter, v)}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Tipo de pagamento" />
             </SelectTrigger>
@@ -196,7 +212,7 @@ export function InstallmentsManagement() {
               </SelectItem>
             </SelectContent>
           </Select>
-          <Select value={platformFilter} onValueChange={setPlatformFilter}>
+          <Select value={platformFilter} onValueChange={(v) => handleFilterChange(setPlatformFilter, v)}>
             <SelectTrigger className="w-[150px]">
               <SelectValue placeholder="Plataforma" />
             </SelectTrigger>
@@ -243,6 +259,7 @@ export function InstallmentsManagement() {
                 <TableRow>
                   <TableHead>ID Venda</TableHead>
                   <TableHead>Cliente</TableHead>
+                  <TableHead>Vendedor</TableHead>
                   <TableHead>Produto</TableHead>
                   <TableHead>Parcela</TableHead>
                   <TableHead>Valor</TableHead>
@@ -255,23 +272,29 @@ export function InstallmentsManagement() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
+                    <TableCell colSpan={10} className="text-center py-8">
                       Carregando...
                     </TableCell>
                   </TableRow>
-                ) : filteredInstallments.length === 0 ? (
+                ) : paginatedInstallments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                       Nenhuma parcela encontrada
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredInstallments.map((inst) => (
+                  paginatedInstallments.map((inst) => (
                     <TableRow key={inst.id}>
                       <TableCell className="font-mono text-xs">
                         {inst.sale?.external_id}
                       </TableCell>
                       <TableCell>{inst.sale?.client_name}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <User className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="text-sm">{inst.sale?.seller?.full_name || '-'}</span>
+                        </div>
+                      </TableCell>
                       <TableCell>{inst.sale?.product_name}</TableCell>
                       <TableCell>
                         {inst.total_installments === 1 ? (
@@ -352,6 +375,38 @@ export function InstallmentsManagement() {
               </TableBody>
             </Table>
           </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t">
+              <span className="text-sm text-muted-foreground">
+                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredInstallments.length)} de {filteredInstallments.length} parcelas
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+                <span className="text-sm font-medium px-2">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Próxima
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
