@@ -641,6 +641,8 @@ serve(async (req) => {
         
         for (const sale of sales) {
           try {
+            // IMPORTANT: seller_id must ALWAYS be null for automatic syncs
+            // Seller assignment must be done MANUALLY by admin/financeiro
             const saleData = {
               external_id: sale.purchase.transaction,
               client_name: sale.buyer.name,
@@ -655,7 +657,7 @@ serve(async (req) => {
                 ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
                 : new Date().toISOString().split('T')[0],
               status: mapHotmartStatus(sale.purchase.status) === "paid" ? "active" : "cancelled",
-              seller_id: sellerId || null,
+              seller_id: null, // NEVER auto-assign - must be manual
             };
             
             // Check if sale already exists
@@ -822,13 +824,8 @@ serve(async (req) => {
           let installmentsUpdated = 0;
           const errors: string[] = [];
           
-          // Get default seller (first active seller) for scheduled syncs
-          const { data: defaultSeller } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("is_active", true)
-            .limit(1)
-            .single();
+          // IMPORTANT: seller_id must ALWAYS be null for automatic syncs
+          // Seller assignment must be done MANUALLY by admin/financeiro
           
           for (const sale of sales) {
             try {
@@ -846,7 +843,7 @@ serve(async (req) => {
                   ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
                   : new Date().toISOString().split('T')[0],
                 status: mapHotmartStatus(sale.purchase.status) === "paid" ? "active" : "cancelled",
-                seller_id: defaultSeller?.id || null,
+                seller_id: null, // NEVER auto-assign - must be manual
               };
               
               // Check if sale already exists
