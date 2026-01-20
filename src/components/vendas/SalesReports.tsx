@@ -175,20 +175,14 @@ export function SalesReports() {
     return Array.from(sellerMap.values()).sort((a, b) => b.totalRevenue - a.totalRevenue);
   }, [sales, commissions, installments, dateRange, platformFilter, sellerFilter]);
   
-  // Calculate totals
-  const totals = useMemo(() => {
+  // Calculate totals from sellerPerformance (for sales/revenue)
+  const salesTotals = useMemo(() => {
     return sellerPerformance.reduce((acc, seller) => ({
       totalSales: acc.totalSales + seller.totalSales,
       totalRevenue: acc.totalRevenue + seller.totalRevenue,
-      commissionReleased: acc.commissionReleased + seller.commissionReleased,
-      commissionPending: acc.commissionPending + seller.commissionPending,
-      commissionSuspended: acc.commissionSuspended + seller.commissionSuspended,
     }), {
       totalSales: 0,
       totalRevenue: 0,
-      commissionReleased: 0,
-      commissionPending: 0,
-      commissionSuspended: 0,
     });
   }, [sellerPerformance]);
   
@@ -256,6 +250,29 @@ export function SalesReports() {
         releasedAt: string | null;
       }>;
   }, [commissions, dateRange, platformFilter, sellerFilter]);
+  
+  // Calculate commission totals from commissionsDetail to match the detail table exactly
+  const commissionTotals = useMemo(() => {
+    return commissionsDetail.reduce((acc, comm) => {
+      if (comm.commissionStatus === 'released') {
+        acc.released += comm.commissionValue;
+      } else if (comm.commissionStatus === 'pending') {
+        acc.pending += comm.commissionValue;
+      } else if (comm.commissionStatus === 'suspended') {
+        acc.suspended += comm.commissionValue;
+      }
+      return acc;
+    }, { released: 0, pending: 0, suspended: 0 });
+  }, [commissionsDetail]);
+  
+  // Unified totals object for backward compatibility
+  const totals = useMemo(() => ({
+    totalSales: salesTotals.totalSales,
+    totalRevenue: salesTotals.totalRevenue,
+    commissionReleased: commissionTotals.released,
+    commissionPending: commissionTotals.pending,
+    commissionSuspended: commissionTotals.suspended,
+  }), [salesTotals, commissionTotals]);
   
   // Sorted commissions detail
   const sortedCommissionsDetail = useMemo(() => {
