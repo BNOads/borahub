@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.hotmart-sync]
 verify_jwt = false
+
+[functions.asaas-sync]
+verify_jwt = false
