@@ -139,7 +139,8 @@ serve(async (req) => {
       }
 
       case "sync_payments": {
-        const { startDate, endDate, sellerId, userId, onlyPaid = true } = params;
+        // Changed: onlyPaid defaults to false to capture all installments properly
+        const { startDate, endDate, sellerId, userId, onlyPaid = false } = params;
 
         let allPayments: AsaasPayment[] = [];
         let offset = 0;
@@ -151,6 +152,7 @@ serve(async (req) => {
           let url = `${ASAAS_BASE_URL}/payments?offset=${offset}&limit=${limit}`;
           if (startDate) url += `&dateCreated[ge]=${startDate}`;
           if (endDate) url += `&dateCreated[le]=${endDate}`;
+          // Only filter by status if explicitly requested
           if (onlyPaid) url += `&status=RECEIVED&status=CONFIRMED&status=RECEIVED_IN_CASH`;
 
           const response = await fetch(url, { headers: asaasHeaders });
