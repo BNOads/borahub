@@ -161,7 +161,9 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
 
       if (buyer?.name) form.setValue("client_name", buyer.name, setValueOptions);
       if (buyer?.email) form.setValue("client_email", buyer.email, setValueOptions);
-      if (buyer?.phone) form.setValue("client_phone", buyer.phone || "", setValueOptions);
+      // Hotmart pode retornar telefone em diferentes campos
+      const buyerPhone = buyer?.phone || buyer?.cellphone || buyer?.cel || "";
+      if (buyerPhone) form.setValue("client_phone", buyerPhone, setValueOptions);
       if (product?.name) form.setValue("product_name", product.name, setValueOptions);
       if (purchase?.price?.value) form.setValue("total_value", purchase.price.value, setValueOptions);
       if (purchase?.payment?.installments_number) {
