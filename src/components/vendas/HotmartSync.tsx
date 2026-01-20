@@ -34,7 +34,8 @@ import {
   Loader2, 
   CheckCircle,
   AlertTriangle,
-  Info
+  Info,
+  CreditCard
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { toast } from "sonner";
@@ -101,6 +102,12 @@ export function HotmartSync() {
   const [products, setProducts] = useState<HotmartProduct[]>([]);
   const [sales, setSales] = useState<HotmartSale[]>([]);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
+  const [installmentsSyncResult, setInstallmentsSyncResult] = useState<{
+    sales_checked: number;
+    installments_updated: number;
+    failed: number;
+    errors?: string[];
+  } | null>(null);
   
   async function callHotmartApi(action: string, params: Record<string, any> = {}) {
     setLoading(true);
@@ -210,6 +217,7 @@ export function HotmartSync() {
       <Tabs defaultValue="sync">
         <TabsList>
           <TabsTrigger value="sync">Sincronizar Vendas</TabsTrigger>
+          <TabsTrigger value="installments">Atualizar Parcelas</TabsTrigger>
           <TabsTrigger value="products">Produtos</TabsTrigger>
           <TabsTrigger value="preview">Visualizar Vendas</TabsTrigger>
         </TabsList>
@@ -314,6 +322,103 @@ export function HotmartSync() {
                       <h5 className="text-sm font-medium mb-2">Erros:</h5>
                       <ul className="text-sm text-destructive space-y-1">
                         {syncResult.errors.map((error, i) => (
+                          <li key={i} className="font-mono text-xs">{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Installments Sync Tab */}
+        <TabsContent value="installments" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Sincronizar Status de Parcelas
+              </CardTitle>
+              <CardDescription>
+                Consulte a API da Hotmart para atualizar o status de pagamento das parcelas existentes.
+                O sistema verifica cada venda e atualiza automaticamente as parcelas pagas.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Info className="h-5 w-5 text-primary mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium">Como funciona:</p>
+                    <ul className="mt-2 space-y-1 text-muted-foreground list-disc pl-4">
+                      <li>Busca todas as vendas da plataforma Hotmart no sistema</li>
+                      <li>Consulta a API da Hotmart para verificar o número de recorrência pago</li>
+                      <li>Atualiza o status das parcelas (pending → paid)</li>
+                      <li>Atualiza automaticamente o status das comissões correspondentes</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <Button 
+                onClick={async () => {
+                  try {
+                    const data = await callHotmartApi("sync_installments");
+                    setInstallmentsSyncResult(data);
+                    
+                    if (data.failed === 0) {
+                      toast.success(`${data.installments_updated} parcelas atualizadas`);
+                    } else {
+                      toast.warning(`${data.installments_updated} atualizadas, ${data.failed} falhas`);
+                    }
+                  } catch (error) {
+                    // Already handled
+                  }
+                }}
+                disabled={loading}
+                className="w-full sm:w-auto"
+              >
+                {loading && activeAction === "sync_installments" ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                )}
+                Analisar e Atualizar Parcelas
+              </Button>
+
+              {installmentsSyncResult && (
+                <div className="mt-4 p-4 bg-muted/30 rounded-lg space-y-3">
+                  <div className="flex items-center gap-2">
+                    {installmentsSyncResult.failed === 0 ? (
+                      <CheckCircle className="h-5 w-5 text-primary" />
+                    ) : (
+                      <AlertTriangle className="h-5 w-5 text-destructive" />
+                    )}
+                    <h4 className="font-medium">Resultado da Análise</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="text-center p-3 bg-background rounded-lg">
+                      <div className="text-2xl font-bold">{installmentsSyncResult.sales_checked}</div>
+                      <div className="text-xs text-muted-foreground">Vendas Analisadas</div>
+                    </div>
+                    <div className="text-center p-3 bg-primary/10 rounded-lg">
+                      <div className="text-2xl font-bold text-primary">{installmentsSyncResult.installments_updated}</div>
+                      <div className="text-xs text-muted-foreground">Parcelas Atualizadas</div>
+                    </div>
+                    <div className="text-center p-3 bg-destructive/10 rounded-lg">
+                      <div className="text-2xl font-bold text-destructive">{installmentsSyncResult.failed}</div>
+                      <div className="text-xs text-muted-foreground">Falhas</div>
+                    </div>
+                  </div>
+                  
+                  {installmentsSyncResult.errors && installmentsSyncResult.errors.length > 0 && (
+                    <div className="mt-4">
+                      <h5 className="text-sm font-medium mb-2">Erros:</h5>
+                      <ul className="text-sm text-destructive space-y-1">
+                        {installmentsSyncResult.errors.map((error, i) => (
                           <li key={i} className="font-mono text-xs">{error}</li>
                         ))}
                       </ul>
