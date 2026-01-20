@@ -39,6 +39,9 @@ export function SalesDashboard() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [sellerFilter, setSellerFilter] = useState<string>('all');
+  const [productSortBy, setProductSortBy] = useState<'value' | 'count'>('value');
+  const [productPage, setProductPage] = useState(1);
+  const PRODUCTS_PER_PAGE = 5;
   
   // For admin/manager/financeiro, show all data; for sellers, show only their own
   const isAdminOrManager = isAdmin || 
@@ -161,7 +164,7 @@ export function SalesDashboard() {
   }, [filteredSales]);
   
   // Product ranking
-  const productRanking = useMemo(() => {
+  const productRankingData = useMemo(() => {
     if (!filteredSales.length) return [];
     
     const productStats = new Map<string, { 
@@ -188,10 +191,25 @@ export function SalesDashboard() {
       stats.salesCount += 1;
     });
     
-    return Array.from(productStats.values())
-      .sort((a, b) => b.totalValue - a.totalValue)
-      .slice(0, 5);
+    return Array.from(productStats.values());
   }, [filteredSales]);
+  
+  // Sorted and paginated product ranking
+  const productRanking = useMemo(() => {
+    const sorted = [...productRankingData].sort((a, b) => 
+      productSortBy === 'value' 
+        ? b.totalValue - a.totalValue 
+        : b.salesCount - a.salesCount
+    );
+    return sorted;
+  }, [productRankingData, productSortBy]);
+  
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (productPage - 1) * PRODUCTS_PER_PAGE;
+    return productRanking.slice(startIndex, startIndex + PRODUCTS_PER_PAGE);
+  }, [productRanking, productPage, PRODUCTS_PER_PAGE]);
+  
+  const totalProductPages = Math.ceil(productRanking.length / PRODUCTS_PER_PAGE);
   
   // Calculate sales by month for chart (last 6 months)
   const salesByMonth = useMemo(() => {
@@ -480,13 +498,26 @@ export function SalesDashboard() {
         {/* Product Ranking */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-accent" />
-              Ranking de Produtos
-            </CardTitle>
-            <CardDescription>
-              Por faturamento e quantidade de vendas
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5 text-accent" />
+                  Ranking de Produtos
+                </CardTitle>
+                <CardDescription>
+                  {productRanking.length} produtos encontrados
+                </CardDescription>
+              </div>
+              <Select value={productSortBy} onValueChange={(v) => { setProductSortBy(v as 'value' | 'count'); setProductPage(1); }}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="value">Por Faturamento</SelectItem>
+                  <SelectItem value="count">Por Quantidade</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
           <CardContent>
             {productRanking.length === 0 ? (
@@ -495,30 +526,58 @@ export function SalesDashboard() {
               </p>
             ) : (
               <div className="space-y-3">
-                {productRanking.map((product, index) => (
-                  <div 
-                    key={product.name} 
-                    className={`flex items-center justify-between p-3 rounded-lg border ${
-                      index === 0 ? 'bg-accent/10 border-accent/30' :
-                      'bg-muted/30 border-border'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl font-bold min-w-[2rem]">
-                        {getRankPosition(index)}
-                      </span>
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {product.salesCount} {product.salesCount === 1 ? 'venda' : 'vendas'}
-                        </p>
+                {paginatedProducts.map((product, index) => {
+                  const globalIndex = (productPage - 1) * PRODUCTS_PER_PAGE + index;
+                  return (
+                    <div 
+                      key={product.name} 
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        globalIndex === 0 && productPage === 1 ? 'bg-accent/10 border-accent/30' :
+                        'bg-muted/30 border-border'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-xl font-bold min-w-[2rem]">
+                          {getRankPosition(globalIndex)}
+                        </span>
+                        <div>
+                          <p className="font-medium">{product.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {product.salesCount} {product.salesCount === 1 ? 'venda' : 'vendas'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-accent">{formatCurrency(product.totalValue)}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-accent">{formatCurrency(product.totalValue)}</p>
+                  );
+                })}
+                
+                {/* Pagination */}
+                {totalProductPages > 1 && (
+                  <div className="flex items-center justify-between pt-3 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      Página {productPage} de {totalProductPages}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setProductPage(p => Math.max(1, p - 1))}
+                        disabled={productPage === 1}
+                        className="px-3 py-1 text-sm border rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Anterior
+                      </button>
+                      <button
+                        onClick={() => setProductPage(p => Math.min(totalProductPages, p + 1))}
+                        disabled={productPage === totalProductPages}
+                        className="px-3 py-1 text-sm border rounded hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Próximo
+                      </button>
                     </div>
                   </div>
-                ))}
+                )}
               </div>
             )}
           </CardContent>
