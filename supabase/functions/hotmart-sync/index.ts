@@ -319,8 +319,26 @@ serve(async (req) => {
       }
 
       case "sync_products": {
-        // Fetch products with prices
-        const hotmartProducts = await fetchProducts(accessToken, true);
+        // Fetch products without individual price lookups (faster sync)
+        const hotmartProducts = await fetchProducts(accessToken, false);
+        
+        // Fetch recent sales to get product prices
+        console.log("Fetching recent sales to get product prices...");
+        const endDate = new Date();
+        const startDate = new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000); // Last 90 days
+        const recentSales = await fetchSalesHistory(accessToken, startDate, endDate);
+        
+        // Build price map from sales
+        const productPrices = new Map<string, number>();
+        for (const sale of recentSales) {
+          const ucode = sale.product.ucode;
+          const price = sale.purchase.price.value;
+          // Keep the highest price found for each product
+          if (!productPrices.has(ucode) || price > productPrices.get(ucode)!) {
+            productPrices.set(ucode, price);
+          }
+        }
+        console.log(`Found prices for ${productPrices.size} products from sales`);
         
         let created = 0;
         let updated = 0;
@@ -334,11 +352,14 @@ serve(async (req) => {
             .limit(1)
             .maybeSingle();
           
+          // Get price from sales or default to 0
+          const priceFromSales = productPrices.get(product.ucode) || 0;
+          
           const productData = {
             name: product.name,
             description: `Hotmart ID: ${product.id} | UCode: ${product.ucode}`,
             is_active: product.status === "ACTIVE",
-            price: product.price || 0,
+            price: priceFromSales,
           };
           
           if (existingProduct) {
@@ -363,6 +384,7 @@ serve(async (req) => {
           total: hotmartProducts.length,
           created,
           updated,
+          pricesFound: productPrices.size,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
