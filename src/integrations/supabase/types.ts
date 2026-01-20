@@ -174,6 +174,63 @@ export type Database = {
           },
         ]
       }
+      commissions: {
+        Row: {
+          commission_percent: number
+          commission_value: number
+          competence_month: string
+          created_at: string | null
+          id: string
+          installment_id: string
+          installment_value: number
+          released_at: string | null
+          seller_id: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          commission_percent: number
+          commission_value: number
+          competence_month: string
+          created_at?: string | null
+          id?: string
+          installment_id: string
+          installment_value: number
+          released_at?: string | null
+          seller_id: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          commission_percent?: number
+          commission_value?: number
+          competence_month?: string
+          created_at?: string | null
+          id?: string
+          installment_id?: string
+          installment_value?: number
+          released_at?: string | null
+          seller_id?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commissions_installment_id_fkey"
+            columns: ["installment_id"]
+            isOneToOne: true
+            referencedRelation: "installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_settings: {
         Row: {
           created_at: string | null
@@ -230,6 +287,88 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      csv_column_mappings: {
+        Row: {
+          created_at: string | null
+          id: string
+          mapping: Json
+          platform: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          mapping: Json
+          platform: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          mapping?: Json
+          platform?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "csv_column_mappings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      csv_imports: {
+        Row: {
+          created_at: string | null
+          error_log: Json | null
+          filename: string
+          id: string
+          imported_by: string
+          platform: string
+          records_created: number | null
+          records_failed: number | null
+          records_processed: number | null
+          records_updated: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_log?: Json | null
+          filename: string
+          id?: string
+          imported_by: string
+          platform: string
+          records_created?: number | null
+          records_failed?: number | null
+          records_processed?: number | null
+          records_updated?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          error_log?: Json | null
+          filename?: string
+          id?: string
+          imported_by?: string
+          platform?: string
+          records_created?: number | null
+          records_failed?: number | null
+          records_processed?: number | null
+          records_updated?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "csv_imports_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       departments: {
         Row: {
@@ -670,6 +809,53 @@ export type Database = {
         }
         Relationships: []
       }
+      installments: {
+        Row: {
+          created_at: string | null
+          due_date: string
+          id: string
+          installment_number: number
+          payment_date: string | null
+          sale_id: string
+          status: string
+          total_installments: number
+          updated_at: string | null
+          value: number
+        }
+        Insert: {
+          created_at?: string | null
+          due_date: string
+          id?: string
+          installment_number: number
+          payment_date?: string | null
+          sale_id: string
+          status?: string
+          total_installments: number
+          updated_at?: string | null
+          value: number
+        }
+        Update: {
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          installment_number?: number
+          payment_date?: string | null
+          sale_id?: string
+          status?: string
+          total_installments?: number
+          updated_at?: string | null
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lessons: {
         Row: {
           course_id: string
@@ -1026,6 +1212,36 @@ export type Database = {
           },
         ]
       }
+      products: {
+        Row: {
+          created_at: string | null
+          default_commission_percent: number
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_commission_percent?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          default_commission_percent?: number
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1096,6 +1312,88 @@ export type Database = {
             columns: ["department_id"]
             isOneToOne: false
             referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          client_email: string | null
+          client_name: string
+          client_phone: string | null
+          commission_percent: number
+          created_at: string | null
+          created_by: string | null
+          external_id: string
+          id: string
+          installments_count: number
+          platform: string
+          product_id: string | null
+          product_name: string
+          sale_date: string
+          seller_id: string
+          status: string
+          total_value: number
+          updated_at: string | null
+        }
+        Insert: {
+          client_email?: string | null
+          client_name: string
+          client_phone?: string | null
+          commission_percent: number
+          created_at?: string | null
+          created_by?: string | null
+          external_id: string
+          id?: string
+          installments_count?: number
+          platform: string
+          product_id?: string | null
+          product_name: string
+          sale_date: string
+          seller_id: string
+          status?: string
+          total_value: number
+          updated_at?: string | null
+        }
+        Update: {
+          client_email?: string | null
+          client_name?: string
+          client_phone?: string | null
+          commission_percent?: number
+          created_at?: string | null
+          created_by?: string | null
+          external_id?: string
+          id?: string
+          installments_count?: number
+          platform?: string
+          product_id?: string | null
+          product_name?: string
+          sale_date?: string
+          seller_id?: string
+          status?: string
+          total_value?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

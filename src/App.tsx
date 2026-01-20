@@ -36,6 +36,7 @@ import GestaoUsuarios from "./pages/admin/GestaoUsuarios";
 import GestaoNotificacoes from "./pages/admin/GestaoNotificacoes";
 import PDIsView from "./pages/PDIsView";
 import PDIDetalhe from "./pages/PDIDetalhe";
+import VendasView from "./pages/VendasView";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,6 +100,7 @@ const App = () => (
               <Route path="/metas" element={<Placeholder />} />
               <Route path="/desafio" element={<Placeholder />} />
               <Route path="/assistente" element={<Placeholder />} />
+              <Route path="/vendas" element={<VendasView />} />
               <Route path="/perfil" element={<Perfil />} />
               
               {/* Rotas admin */}
