@@ -149,20 +149,33 @@ async function fetchSalesHistory(
   status?: string
 ): Promise<HotmartSale[]> {
   console.log("Fetching sales history from Hotmart");
-  
+
   const allSales: HotmartSale[] = [];
-  let page = 0;
-  let hasMore = true;
-  
+  let nextPageToken: string | null = null;
+
   const startTimestamp = startDate.getTime();
   const endTimestamp = endDate.getTime();
-  
-  while (hasMore) {
-    let url = `https://developers.hotmart.com/payments/api/v1/sales/history?start_date=${startTimestamp}&end_date=${endTimestamp}&page=${page}&rows=50`;
-    if (status) {
-      url += `&transaction_status=${status}`;
-    }
-    
+
+  // Hotmart expects specific status values
+  const normalizeStatus = (s: string) => {
+    const map: Record<string, string> = {
+      COMPLETED: "COMPLETE",
+      CANCELED: "CANCELLED",
+      PROTEST: "PROTESTED",
+    };
+    return map[s] || s;
+  };
+
+  while (true) {
+    const params = new URLSearchParams();
+    params.set("start_date", String(startTimestamp));
+    params.set("end_date", String(endTimestamp));
+    params.set("max_results", "50");
+    if (nextPageToken) params.set("page_token", nextPageToken);
+    if (status) params.set("transaction_status", normalizeStatus(status));
+
+    const url = `https://developers.hotmart.com/payments/api/v1/sales/history?${params.toString()}`;
+
     const response = await fetch(url, {
       headers: {
         "Authorization": `Bearer ${accessToken}`,
@@ -179,14 +192,14 @@ async function fetchSalesHistory(
     const data = await response.json();
     const sales = data.items || [];
     allSales.push(...sales);
-    
-    hasMore = sales.length === 50;
-    page++;
-    
+
+    nextPageToken = data.page_info?.next_page_token ?? null;
+
     // Rate limiting: wait 100ms between requests
-    if (hasMore) await new Promise(r => setTimeout(r, 100));
+    if (!nextPageToken) break;
+    await new Promise((r) => setTimeout(r, 100));
   }
-  
+
   console.log(`Fetched ${allSales.length} sales`);
   return allSales;
 }
