@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { BarChart3, TrendingUp, Users, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Download, FileSpreadsheet, FileText, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { format, subMonths, startOfMonth, endOfMonth, parseISO, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import * as XLSX from "xlsx";
@@ -57,6 +57,7 @@ export function SalesReports() {
   });
   const [platformFilter, setPlatformFilter] = useState<string>("all");
   const [sellerFilter, setSellerFilter] = useState<string>("all");
+  const [commissionSort, setCommissionSort] = useState<{ column: string; direction: 'asc' | 'desc' }>({ column: 'sellerName', direction: 'asc' });
   
   // Calculate seller performance
   const sellerPerformance = useMemo(() => {
@@ -198,7 +199,7 @@ export function SalesReports() {
     });
   }, [sellerPerformance]);
   
-  // Detailed commissions list - all commissions from all sales of all sellers
+  // Detailed commissions list - ONLY RELEASED commissions
   const commissionsDetail = useMemo(() => {
     if (!commissions || !installments || !sales) return [];
     
@@ -217,6 +218,7 @@ export function SalesReports() {
     );
     
     return commissions
+      .filter(comm => comm.status === 'released') // Only released commissions
       .map(comm => {
         const installment = installments.find(i => i.id === comm.installment_id);
         if (!installment || !saleIds.has(installment.sale_id)) return null;
@@ -242,14 +244,7 @@ export function SalesReports() {
           releasedAt: comm.released_at,
         };
       })
-      .filter(Boolean)
-      .sort((a, b) => {
-        // Sort by seller name, then by competence month
-        if (a!.sellerName !== b!.sellerName) {
-          return a!.sellerName.localeCompare(b!.sellerName);
-        }
-        return a!.competenceMonth.localeCompare(b!.competenceMonth);
-      }) as Array<{
+      .filter(Boolean) as Array<{
         id: string;
         sellerName: string;
         sellerEmail: string;
@@ -267,6 +262,55 @@ export function SalesReports() {
         releasedAt: string | null;
       }>;
   }, [commissions, installments, sales, dateRange, platformFilter, sellerFilter]);
+  
+  // Sorted commissions detail
+  const sortedCommissionsDetail = useMemo(() => {
+    const sorted = [...commissionsDetail];
+    
+    sorted.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (commissionSort.column) {
+        case 'sellerName':
+          comparison = a.sellerName.localeCompare(b.sellerName);
+          break;
+        case 'externalId':
+          comparison = a.externalId.localeCompare(b.externalId);
+          break;
+        case 'clientName':
+          comparison = a.clientName.localeCompare(b.clientName);
+          break;
+        case 'productName':
+          comparison = a.productName.localeCompare(b.productName);
+          break;
+        case 'installmentValue':
+          comparison = a.installmentValue - b.installmentValue;
+          break;
+        case 'commissionValue':
+          comparison = a.commissionValue - b.commissionValue;
+          break;
+        case 'competenceMonth':
+          comparison = a.competenceMonth.localeCompare(b.competenceMonth);
+          break;
+        case 'commissionPercent':
+          comparison = a.commissionPercent - b.commissionPercent;
+          break;
+        default:
+          comparison = 0;
+      }
+      
+      return commissionSort.direction === 'asc' ? comparison : -comparison;
+    });
+    
+    return sorted;
+  }, [commissionsDetail, commissionSort]);
+  
+  function handleCommissionSort(column: string) {
+    setCommissionSort(prev => ({
+      column,
+      direction: prev.column === column && prev.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  }
   
   // Calculate revenue by status
   const revenueByStatus = useMemo(() => {
@@ -739,28 +783,106 @@ export function SalesReports() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Vendedor</TableHead>
-                  <TableHead>ID Venda</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Produto</TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleCommissionSort('sellerName')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Vendedor
+                      {commissionSort.column === 'sellerName' ? (
+                        commissionSort.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleCommissionSort('externalId')}
+                  >
+                    <div className="flex items-center gap-1">
+                      ID Venda
+                      {commissionSort.column === 'externalId' ? (
+                        commissionSort.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleCommissionSort('clientName')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Cliente
+                      {commissionSort.column === 'clientName' ? (
+                        commissionSort.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleCommissionSort('productName')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Produto
+                      {commissionSort.column === 'productName' ? (
+                        commissionSort.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
+                    </div>
+                  </TableHead>
                   <TableHead className="text-center">Parcela</TableHead>
-                  <TableHead className="text-right">Valor Parcela</TableHead>
-                  <TableHead className="text-center">%</TableHead>
-                  <TableHead className="text-right">Comissão</TableHead>
-                  <TableHead>Competência</TableHead>
-                  <TableHead>Status Parcela</TableHead>
-                  <TableHead>Status Comissão</TableHead>
+                  <TableHead 
+                    className="text-right cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleCommissionSort('installmentValue')}
+                  >
+                    <div className="flex items-center gap-1 justify-end">
+                      Valor Parcela
+                      {commissionSort.column === 'installmentValue' ? (
+                        commissionSort.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="text-center cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleCommissionSort('commissionPercent')}
+                  >
+                    <div className="flex items-center gap-1 justify-center">
+                      %
+                      {commissionSort.column === 'commissionPercent' ? (
+                        commissionSort.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="text-right cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleCommissionSort('commissionValue')}
+                  >
+                    <div className="flex items-center gap-1 justify-end">
+                      Comissão
+                      {commissionSort.column === 'commissionValue' ? (
+                        commissionSort.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleCommissionSort('competenceMonth')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Competência
+                      {commissionSort.column === 'competenceMonth' ? (
+                        commissionSort.direction === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                      ) : <ArrowUpDown className="h-3 w-3 text-muted-foreground" />}
+                    </div>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {commissionsDetail.length === 0 ? (
+                {sortedCommissionsDetail.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
-                      Nenhuma comissão encontrada para o período
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                      Nenhuma comissão liberada encontrada para o período
                     </TableCell>
                   </TableRow>
                 ) : (
-                  commissionsDetail.map((comm) => (
+                  sortedCommissionsDetail.map((comm) => (
                     <TableRow key={comm.id}>
                       <TableCell>
                         <div>
@@ -786,43 +908,11 @@ export function SalesReports() {
                       <TableCell className="text-center text-sm">
                         {comm.commissionPercent}%
                       </TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="text-right font-medium text-success">
                         {formatCurrency(comm.commissionValue)}
                       </TableCell>
                       <TableCell className="text-sm">
                         {format(parseISO(comm.competenceMonth), 'MMM/yy', { locale: ptBR })}
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="outline" 
-                          className={
-                            comm.installmentStatus === 'paid' 
-                              ? 'bg-success/10 text-success border-success/20' 
-                              : comm.installmentStatus === 'overdue'
-                              ? 'bg-destructive/10 text-destructive border-destructive/20'
-                              : 'bg-muted'
-                          }
-                        >
-                          {comm.installmentStatus === 'paid' ? 'Paga' : 
-                           comm.installmentStatus === 'pending' ? 'Pendente' : 
-                           comm.installmentStatus === 'overdue' ? 'Atrasada' : comm.installmentStatus}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                          variant="outline" 
-                          className={
-                            comm.commissionStatus === 'released' 
-                              ? 'bg-success/10 text-success border-success/20' 
-                              : comm.commissionStatus === 'suspended'
-                              ? 'bg-destructive/10 text-destructive border-destructive/20'
-                              : 'bg-muted'
-                          }
-                        >
-                          {comm.commissionStatus === 'released' ? 'Liberada' : 
-                           comm.commissionStatus === 'pending' ? 'Provisionada' : 
-                           comm.commissionStatus === 'suspended' ? 'Suspensa' : comm.commissionStatus}
-                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))
@@ -832,30 +922,18 @@ export function SalesReports() {
           </div>
           
           {/* Commission Summary at bottom */}
-          {commissionsDetail.length > 0 && (
+          {sortedCommissionsDetail.length > 0 && (
             <div className="mt-4 pt-4 border-t flex flex-wrap gap-4 justify-end">
               <div className="text-sm">
-                <span className="text-muted-foreground">Total Liberadas: </span>
-                <span className="font-bold text-success">
-                  {formatCurrency(commissionsDetail.filter(c => c.commissionStatus === 'released').reduce((sum, c) => sum + c.commissionValue, 0))}
+                <span className="text-muted-foreground">Total de Comissões Liberadas: </span>
+                <span className="font-bold text-success text-lg">
+                  {formatCurrency(sortedCommissionsDetail.reduce((sum, c) => sum + c.commissionValue, 0))}
                 </span>
               </div>
               <div className="text-sm">
-                <span className="text-muted-foreground">Total Provisionadas: </span>
+                <span className="text-muted-foreground">Quantidade: </span>
                 <span className="font-bold">
-                  {formatCurrency(commissionsDetail.filter(c => c.commissionStatus === 'pending').reduce((sum, c) => sum + c.commissionValue, 0))}
-                </span>
-              </div>
-              <div className="text-sm">
-                <span className="text-muted-foreground">Total Suspensas: </span>
-                <span className="font-bold text-destructive">
-                  {formatCurrency(commissionsDetail.filter(c => c.commissionStatus === 'suspended').reduce((sum, c) => sum + c.commissionValue, 0))}
-                </span>
-              </div>
-              <div className="text-sm">
-                <span className="text-muted-foreground">Total Geral: </span>
-                <span className="font-bold">
-                  {formatCurrency(commissionsDetail.reduce((sum, c) => sum + c.commissionValue, 0))}
+                  {sortedCommissionsDetail.length} comissões
                 </span>
               </div>
             </div>
