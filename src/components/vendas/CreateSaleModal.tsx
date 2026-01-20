@@ -27,8 +27,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCreateSale, useProducts } from "@/hooks/useSales";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Search, CheckCircle, AlertCircle } from "lucide-react";
+import { Loader2, Search, CheckCircle, AlertCircle, Link2 } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 const formSchema = z.object({
   external_id: z.string().min(1, "ID obrigatório"),
@@ -55,10 +56,12 @@ interface CreateSaleModalProps {
 export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
   const { data: products } = useProducts();
   const createSale = useCreateSale();
+  const queryClient = useQueryClient();
   const [sellers, setSellers] = useState<{ id: string; full_name: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [lookupStatus, setLookupStatus] = useState<"idle" | "success" | "error">("idle");
+  const [existingSaleId, setExistingSaleId] = useState<string | null>(null);
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -107,6 +110,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
     if (open) {
       fetchSellers();
       setLookupStatus("idle");
+      setExistingSaleId(null);
     }
   }, [open]);
   
@@ -137,6 +141,43 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
     setLookupStatus("idle");
 
     try {
+      // Check if sale already exists in database
+      const { data: existingSale } = await supabase
+        .from('sales')
+        .select('id, seller_id, client_name, client_email, product_name, total_value, installments_count, sale_date')
+        .eq('external_id', externalId)
+        .maybeSingle();
+
+      if (existingSale) {
+        setExistingSaleId(existingSale.id);
+        const setValueOptions = { shouldDirty: true, shouldTouch: true, shouldValidate: true };
+        form.setValue("client_name", existingSale.client_name, setValueOptions);
+        if (existingSale.client_email) form.setValue("client_email", existingSale.client_email, setValueOptions);
+        form.setValue("product_name", existingSale.product_name, setValueOptions);
+        form.setValue("total_value", existingSale.total_value, setValueOptions);
+        form.setValue("installments_count", existingSale.installments_count, setValueOptions);
+        form.setValue("sale_date", existingSale.sale_date, setValueOptions);
+        
+        // Match product for commission
+        if (existingSale.product_name && products) {
+          const matchedProduct = products.find(
+            p => p.name.toLowerCase() === existingSale.product_name.toLowerCase()
+          );
+          if (matchedProduct) {
+            form.setValue("product_id", matchedProduct.id, setValueOptions);
+            form.setValue("commission_percent", Number(matchedProduct.default_commission_percent), setValueOptions);
+          }
+        }
+        
+        setLookupStatus("success");
+        toast.success(existingSale.seller_id 
+          ? "Venda encontrada (já possui vendedor associado)" 
+          : "Venda encontrada! Selecione o vendedor para associar."
+        );
+        return;
+      }
+
+      // If not in database, try Hotmart API
       const { data, error } = await supabase.functions.invoke("hotmart-sync", {
         body: { action: "get_sale_summary", transactionId: externalId },
       });
@@ -202,6 +243,93 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
   async function onSubmit(values: FormValues) {
     setLoading(true);
     try {
+      const isExternalPlatform = values.platform === "hotmart" || values.platform === "asaas";
+      
+      // If it's an external platform, check if sale exists and just associate seller
+      if (isExternalPlatform) {
+        const { data: existingSale } = await supabase
+          .from('sales')
+          .select('id')
+          .eq('external_id', values.external_id)
+          .maybeSingle();
+
+        if (existingSale) {
+          // Update existing sale with seller and commission
+          const { error: updateError } = await supabase
+            .from('sales')
+            .update({
+              seller_id: values.seller_id,
+              commission_percent: values.commission_percent,
+              product_id: values.product_id === "__none__" ? null : values.product_id,
+            })
+            .eq('id', existingSale.id);
+
+          if (updateError) throw updateError;
+
+          // Update commissions for this sale
+          const { data: installments } = await supabase
+            .from('installments')
+            .select('id, value')
+            .eq('sale_id', existingSale.id);
+
+          if (installments && installments.length > 0) {
+            for (const installment of installments) {
+              const commissionValue = (installment.value * values.commission_percent) / 100;
+              
+              // Check if commission exists
+              const { data: existingCommission } = await supabase
+                .from('commissions')
+                .select('id')
+                .eq('installment_id', installment.id)
+                .maybeSingle();
+
+              if (existingCommission) {
+                await supabase
+                  .from('commissions')
+                  .update({
+                    seller_id: values.seller_id,
+                    commission_percent: values.commission_percent,
+                    commission_value: commissionValue,
+                  })
+                  .eq('id', existingCommission.id);
+              } else {
+                // Create commission if it doesn't exist
+                const { data: saleData } = await supabase
+                  .from('installments')
+                  .select('due_date')
+                  .eq('id', installment.id)
+                  .single();
+                
+                const competenceMonth = saleData?.due_date?.substring(0, 7) || new Date().toISOString().substring(0, 7);
+                
+                await supabase
+                  .from('commissions')
+                  .insert({
+                    installment_id: installment.id,
+                    seller_id: values.seller_id,
+                    installment_value: installment.value,
+                    commission_percent: values.commission_percent,
+                    commission_value: commissionValue,
+                    competence_month: competenceMonth,
+                    status: 'pending',
+                  });
+              }
+            }
+          }
+
+          queryClient.invalidateQueries({ queryKey: ['associated-sales'] });
+          queryClient.invalidateQueries({ queryKey: ['sales'] });
+          queryClient.invalidateQueries({ queryKey: ['commissions'] });
+          
+          toast.success("Vendedor associado à venda com sucesso!");
+          form.reset();
+          setExistingSaleId(null);
+          onOpenChange(false);
+          return;
+        }
+      }
+
+      // Create new sale (for manual or if external sale doesn't exist)
       await createSale.mutateAsync({
         external_id: values.external_id,
         client_name: values.client_name,
@@ -217,7 +345,11 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
         sale_date: values.sale_date,
       });
       form.reset();
+      setExistingSaleId(null);
       onOpenChange(false);
+    } catch (err: any) {
+      console.error("Submit error:", err);
+      toast.error("Erro ao processar venda: " + (err.message || "Erro desconhecido"));
     } finally {
       setLoading(false);
     }
@@ -298,6 +430,16 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
             {form.watch("platform") === "hotmart" && (
               <p className="text-xs text-muted-foreground -mt-2">
                 Digite o ID da transação (HP...) e clique no botão de busca para preencher automaticamente os dados.
+                {existingSaleId && (
+                  <span className="block mt-1 text-primary font-medium">
+                    ✓ Venda já existe no sistema. Ao salvar, o vendedor será associado.
+                  </span>
+                )}
+              </p>
+            )}
+            {form.watch("platform") === "asaas" && (
+              <p className="text-xs text-muted-foreground -mt-2">
+                Se a venda já existir no sistema, o vendedor será associado automaticamente.
               </p>
             )}
             
@@ -478,7 +620,14 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
               </Button>
               <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Cadastrar Venda
+                {existingSaleId ? (
+                  <>
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Associar Vendedor
+                  </>
+                ) : (
+                  "Cadastrar Venda"
+                )}
               </Button>
             </div>
           </form>
