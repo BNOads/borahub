@@ -66,18 +66,22 @@ async function getAccessToken(): Promise<string> {
 
   console.log("Fetching new access token from Hotmart");
   
-  const basicToken = Deno.env.get("HOTMART_BASIC_TOKEN");
-  if (!basicToken) {
-    throw new Error("HOTMART_BASIC_TOKEN not configured");
+  const clientId = Deno.env.get("HOTMART_CLIENT_ID");
+  const clientSecret = Deno.env.get("HOTMART_CLIENT_SECRET");
+  
+  if (!clientId || !clientSecret) {
+    throw new Error("HOTMART_CLIENT_ID or HOTMART_CLIENT_SECRET not configured");
   }
 
-  const response = await fetch("https://api-sec-vlc.hotmart.com/security/oauth/token", {
+  // Create Basic auth header from client credentials
+  const credentials = btoa(`${clientId}:${clientSecret}`);
+
+  const response = await fetch("https://api-sec-vlc.hotmart.com/security/oauth/token?grant_type=client_credentials", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      "Authorization": basicToken,
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${credentials}`,
     },
-    body: JSON.stringify({ grant_type: "client_credentials" }),
   });
 
   if (!response.ok) {
