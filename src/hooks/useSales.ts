@@ -28,6 +28,7 @@ export interface Sale {
   commission_percent: number;
   sale_date: string;
   status: 'active' | 'cancelled';
+  proof_link: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -369,6 +370,72 @@ export function useUpdateSaleStatus() {
     },
     onError: (error: Error) => {
       toast.error('Erro ao atualizar status: ' + error.message);
+    },
+  });
+}
+
+export interface UpdateSaleInput {
+  id: string;
+  external_id?: string;
+  client_name?: string;
+  client_email?: string | null;
+  client_phone?: string | null;
+  product_id?: string | null;
+  product_name?: string;
+  total_value?: number;
+  platform?: 'hotmart' | 'asaas';
+  seller_id?: string;
+  commission_percent?: number;
+  sale_date?: string;
+  proof_link?: string | null;
+  status?: 'active' | 'cancelled';
+}
+
+export function useUpdateSale() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: UpdateSaleInput) => {
+      const { data, error } = await supabase
+        .from('sales')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // If status changed to cancelled, update installments and commissions
+      if (updates.status === 'cancelled') {
+        await supabase
+          .from('installments')
+          .update({ status: 'cancelled' })
+          .eq('sale_id', id);
+        
+        const { data: installments } = await supabase
+          .from('installments')
+          .select('id')
+          .eq('sale_id', id);
+        
+        if (installments) {
+          await supabase
+            .from('commissions')
+            .update({ status: 'cancelled' })
+            .in('installment_id', installments.map(i => i.id));
+        }
+      }
+      
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['sale'] });
+      queryClient.invalidateQueries({ queryKey: ['installments'] });
+      queryClient.invalidateQueries({ queryKey: ['commissions'] });
+      toast.success('Venda atualizada com sucesso');
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao atualizar venda: ' + error.message);
     },
   });
 }

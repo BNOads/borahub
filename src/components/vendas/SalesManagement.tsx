@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSales } from "@/hooks/useSales";
+import { useSales, Sale } from "@/hooks/useSales";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,9 +13,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { Plus, Search, Eye } from "lucide-react";
+import { Plus, Search, Eye, Pencil, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { CreateSaleModal } from "./CreateSaleModal";
+import { EditSaleModal } from "./EditSaleModal";
 import { SaleDetailsSheet } from "./SaleDetailsSheet";
 
 export function SalesManagement() {
@@ -23,6 +24,7 @@ export function SalesManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
   
   const filteredSales = sales?.filter(sale => 
     sale.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -127,13 +129,33 @@ export function SalesManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setSelectedSaleId(sale.id)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setEditingSale(sale)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setSelectedSaleId(sale.id)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {(sale as any).proof_link && (
+                            <a
+                              href={(sale as any).proof_link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Button variant="ghost" size="icon">
+                                <ExternalLink className="h-4 w-4 text-primary" />
+                              </Button>
+                            </a>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))
@@ -147,6 +169,12 @@ export function SalesManagement() {
       <CreateSaleModal 
         open={showCreateModal} 
         onOpenChange={setShowCreateModal} 
+      />
+      
+      <EditSaleModal
+        sale={editingSale}
+        open={!!editingSale}
+        onOpenChange={(open) => !open && setEditingSale(null)}
       />
       
       <SaleDetailsSheet 

@@ -617,6 +617,7 @@ serve(async (req) => {
           let created = 0;
           let updated = 0;
           let failed = 0;
+          let installmentsUpdated = 0;
           const errors: string[] = [];
           
           // Get default seller (first active seller) for scheduled syncs
@@ -666,23 +667,42 @@ serve(async (req) => {
                 const recurrencyNumber = sale.purchase.recurrency_number || 0;
                 const { data: installments } = await supabase
                   .from("installments")
-                  .select("id, installment_number")
+                  .select("id, installment_number, status")
                   .eq("sale_id", existingSale.id);
                 
                 for (const inst of installments || []) {
-                  const installmentStatus = inst.installment_number <= recurrencyNumber 
-                    ? mapHotmartStatus(sale.purchase.status)
-                    : "pending";
+                  const isPaid = inst.installment_number <= recurrencyNumber && 
+                                 (sale.purchase.status === "APPROVED" || sale.purchase.status === "COMPLETED");
                   
-                  await supabase
-                    .from("installments")
-                    .update({ 
-                      status: installmentStatus,
-                      payment_date: installmentStatus === "paid" && sale.purchase.approved_date
-                        ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
-                        : null,
-                    })
-                    .eq("id", inst.id);
+                  const newStatus = isPaid ? "paid" : 
+                                   (sale.purchase.status === "CANCELED" || sale.purchase.status === "REFUNDED") ? "cancelled" :
+                                   "pending";
+                  
+                  if (inst.status !== newStatus) {
+                    await supabase
+                      .from("installments")
+                      .update({ 
+                        status: newStatus,
+                        payment_date: isPaid && sale.purchase.approved_date
+                          ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
+                          : null,
+                      })
+                      .eq("id", inst.id);
+                    
+                    // Update commission
+                    const commissionStatus = newStatus === "paid" ? "released" :
+                                            newStatus === "cancelled" ? "cancelled" : "pending";
+                    
+                    await supabase
+                      .from("commissions")
+                      .update({ 
+                        status: commissionStatus,
+                        released_at: newStatus === "paid" ? new Date().toISOString() : null,
+                      })
+                      .eq("installment_id", inst.id);
+                    
+                    installmentsUpdated++;
+                  }
                 }
               } else {
                 const { data: newSale, error } = await supabase
@@ -728,6 +748,77 @@ serve(async (req) => {
             }
           }
           
+          // Also sync installments for existing Hotmart sales
+          console.log("Syncing installments for existing Hotmart sales...");
+          const { data: existingHotmartSales } = await supabase
+            .from("sales")
+            .select("id, external_id")
+            .eq("platform", "hotmart");
+          
+          for (const existingSale of existingHotmartSales || []) {
+            try {
+              // Get sale details from Hotmart
+              const summary = await fetchSaleSummary(accessToken, existingSale.external_id);
+              
+              if (!summary?.items?.[0]) continue;
+              
+              const saleInfo = summary.items[0];
+              const recurrencyNumber = saleInfo.purchase?.recurrency_number || 1;
+              const purchaseStatus = saleInfo.purchase?.status || "PENDING";
+              
+              // Get installments for this sale
+              const { data: installments } = await supabase
+                .from("installments")
+                .select("id, installment_number, status")
+                .eq("sale_id", existingSale.id)
+                .order("installment_number");
+              
+              if (!installments) continue;
+              
+              for (const installment of installments) {
+                // Determine if this installment is paid based on recurrency
+                const isPaid = installment.installment_number <= recurrencyNumber && 
+                               (purchaseStatus === "APPROVED" || purchaseStatus === "COMPLETED");
+                
+                const newStatus = isPaid ? "paid" : 
+                                 (purchaseStatus === "CANCELED" || purchaseStatus === "REFUNDED") ? "cancelled" :
+                                 "pending";
+                
+                if (installment.status !== newStatus) {
+                  // Update installment
+                  await supabase
+                    .from("installments")
+                    .update({ 
+                      status: newStatus,
+                      payment_date: isPaid ? new Date().toISOString().split('T')[0] : null,
+                    })
+                    .eq("id", installment.id);
+                  
+                  // Update commission
+                  const commissionStatus = newStatus === "paid" ? "released" :
+                                          newStatus === "cancelled" ? "cancelled" : "pending";
+                  
+                  await supabase
+                    .from("commissions")
+                    .update({ 
+                      status: commissionStatus,
+                      released_at: newStatus === "paid" ? new Date().toISOString() : null,
+                    })
+                    .eq("installment_id", installment.id);
+                  
+                  installmentsUpdated++;
+                }
+              }
+              
+              // Rate limiting
+              await new Promise(r => setTimeout(r, 100));
+            } catch (err: unknown) {
+              const errorMessage = err instanceof Error ? err.message : String(err);
+              console.error(`Error syncing installments for sale ${existingSale.external_id}:`, err);
+              errors.push(`Installment sync ${existingSale.external_id}: ${errorMessage}`);
+            }
+          }
+          
           // Update sync log with results
           if (logId) {
             await supabase
@@ -740,12 +831,12 @@ serve(async (req) => {
                 updated_records: updated,
                 failed_records: failed,
                 error_message: errors.length > 0 ? errors.slice(0, 5).join("; ") : null,
-                details: { errors: errors.slice(0, 20) },
+                details: { errors: errors.slice(0, 20), installments_updated: installmentsUpdated },
               })
               .eq("id", logId);
           }
           
-          console.log(`Scheduled sync completed: ${created} created, ${updated} updated, ${failed} failed`);
+          console.log(`Scheduled sync completed: ${created} created, ${updated} updated, ${installmentsUpdated} installments updated, ${failed} failed`);
           
           return new Response(JSON.stringify({ 
             success: true, 
@@ -753,6 +844,7 @@ serve(async (req) => {
             total: sales.length,
             created,
             updated,
+            installments_updated: installmentsUpdated,
             failed,
           }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },

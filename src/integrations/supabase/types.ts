@@ -1375,6 +1375,7 @@ export type Database = {
           platform: string
           product_id: string | null
           product_name: string
+          proof_link: string | null
           sale_date: string
           seller_id: string
           status: string
@@ -1394,6 +1395,7 @@ export type Database = {
           platform: string
           product_id?: string | null
           product_name: string
+          proof_link?: string | null
           sale_date: string
           seller_id: string
           status?: string
@@ -1413,6 +1415,7 @@ export type Database = {
           platform?: string
           product_id?: string | null
           product_name?: string
+          proof_link?: string | null
           sale_date?: string
           seller_id?: string
           status?: string
