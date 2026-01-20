@@ -87,6 +87,7 @@ export interface CreateSaleInput {
   seller_id: string;
   commission_percent: number;
   sale_date: string;
+  proof_link?: string;
 }
 
 // Products hooks

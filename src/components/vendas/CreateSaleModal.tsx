@@ -44,6 +44,7 @@ const formSchema = z.object({
   seller_id: z.string().min(1, "Vendedor obrigatório"),
   commission_percent: z.coerce.number().min(0).max(100),
   sale_date: z.string().min(1, "Data obrigatória"),
+  proof_link: z.string().url("Link inválido").min(1, "Link de comprovação obrigatório"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -78,6 +79,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
       seller_id: "",
       commission_percent: 10,
       sale_date: new Date().toISOString().split("T")[0],
+      proof_link: "",
     },
   });
   
@@ -261,6 +263,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
               seller_id: values.seller_id,
               commission_percent: values.commission_percent,
               product_id: values.product_id === "__none__" ? null : values.product_id,
+              proof_link: values.proof_link,
             })
             .eq('id', existingSale.id);
 
@@ -343,6 +346,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
         seller_id: values.seller_id,
         commission_percent: values.commission_percent,
         sale_date: values.sale_date,
+        proof_link: values.proof_link,
       });
       form.reset();
       setExistingSaleId(null);
@@ -613,6 +617,27 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="proof_link"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Link de Comprovação *</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="url" 
+                      placeholder="https://... (link do comprovante da venda)" 
+                      {...field} 
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground">
+                    Insira o link que comprove a venda (print, documento, etc.)
+                  </p>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
