@@ -150,6 +150,31 @@ export function useSyncHotmartProducts() {
   });
 }
 
+export function useSyncHotmartInstallments() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('hotmart-sync', {
+        body: { action: 'sync_installments' },
+      });
+      
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Falha ao sincronizar parcelas');
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['installments'] });
+      queryClient.invalidateQueries({ queryKey: ['commissions'] });
+      toast.success(`Parcelas sincronizadas: ${data.installments_updated} atualizadas`);
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao sincronizar parcelas: ' + error.message);
+    },
+  });
+}
+
 export function useCreateProduct() {
   const queryClient = useQueryClient();
   
