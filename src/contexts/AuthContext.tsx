@@ -11,6 +11,7 @@ export interface Profile {
   avatar_url?: string;
   role: 'admin' | 'collaborator';
   department?: string;
+  department_id?: string;
   job_title?: string;
   phone?: string;
   birth_date?: string;
