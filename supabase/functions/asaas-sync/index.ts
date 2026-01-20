@@ -112,7 +112,7 @@ serve(async (req) => {
       }
 
       case "sync_payments": {
-        const { startDate, endDate, sellerId, userId } = params;
+        const { startDate, endDate, sellerId, userId, onlyPaid = true } = params;
 
         if (!sellerId) {
           throw new Error("sellerId é obrigatório para sincronização");
@@ -123,11 +123,15 @@ serve(async (req) => {
         const limit = 100;
         let hasMore = true;
 
-        // Fetch all payments in date range
+        // Paid statuses in Asaas API
+        const paidStatuses = ["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"];
+
+        // Fetch payments in date range (optionally filter by paid status)
         while (hasMore) {
           let url = `${ASAAS_BASE_URL}/payments?offset=${offset}&limit=${limit}`;
           if (startDate) url += `&dateCreated[ge]=${startDate}`;
           if (endDate) url += `&dateCreated[le]=${endDate}`;
+          if (onlyPaid) url += `&status=RECEIVED&status=CONFIRMED&status=RECEIVED_IN_CASH`;
 
           const response = await fetch(url, { headers: asaasHeaders });
            if (!response.ok) {
