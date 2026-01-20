@@ -104,21 +104,23 @@ async function getAccessToken(): Promise<string> {
 
 async function fetchProducts(accessToken: string): Promise<HotmartProduct[]> {
   console.log("Fetching products from Hotmart");
-  
+
   const allProducts: HotmartProduct[] = [];
-  let page = 1;
-  let hasMore = true;
-  
-  while (hasMore) {
-    const response = await fetch(
-      `https://developers.hotmart.com/products/api/v1/products?page_token=${page}&max_results=50`,
-      {
-        headers: {
-          "Authorization": `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+  let nextPageToken: string | null = null;
+
+  while (true) {
+    const params = new URLSearchParams();
+    params.set("max_results", "50");
+    if (nextPageToken) params.set("page_token", nextPageToken);
+
+    const url = `https://developers.hotmart.com/products/api/v1/products?${params.toString()}`;
+
+    const response = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -129,15 +131,14 @@ async function fetchProducts(accessToken: string): Promise<HotmartProduct[]> {
     const data = await response.json();
     const products = data.items || [];
     allProducts.push(...products);
-    
-    // Check if there's a next page
-    hasMore = data.page_info?.next_page_token ? true : false;
-    page++;
-    
+
+    nextPageToken = data.page_info?.next_page_token ?? null;
+
     // Rate limiting: wait 100ms between requests
-    if (hasMore) await new Promise(r => setTimeout(r, 100));
+    if (!nextPageToken) break;
+    await new Promise((r) => setTimeout(r, 100));
   }
-  
+
   console.log(`Fetched ${allProducts.length} products`);
   return allProducts;
 }
