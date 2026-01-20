@@ -44,15 +44,16 @@ import { useQuery } from "@tanstack/react-query";
 interface HotmartProduct {
   id: number;
   name: string;
-  ucode: string;
+  ucode?: string;
   status: string;
+  price?: number;
 }
 
 interface HotmartSale {
-  transaction: string;
   product: { id: number; name: string };
   buyer: { name: string; email: string };
   purchase: {
+    transaction: string;
     approved_date?: number;
     status: string;
     price: { value: number };
@@ -134,7 +135,11 @@ export function HotmartSync() {
   
   async function handleFetchProducts() {
     try {
-      const data = await callHotmartApi("get_products");
+      const data = await callHotmartApi("get_products", {
+        includePrices: true,
+        priceDays: 30,
+        salesMaxPages: 6,
+      });
       setProducts(data.products || []);
       toast.success(`${data.products?.length || 0} produtos carregados`);
     } catch (error) {
@@ -461,6 +466,7 @@ export function HotmartSync() {
                     <TableRow>
                       <TableHead>ID</TableHead>
                       <TableHead>Nome</TableHead>
+                      <TableHead>Preço</TableHead>
                       <TableHead>Código</TableHead>
                       <TableHead>Status</TableHead>
                     </TableRow>
@@ -470,7 +476,15 @@ export function HotmartSync() {
                       <TableRow key={product.id}>
                         <TableCell className="font-mono">{product.id}</TableCell>
                         <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell className="font-mono text-xs">{product.ucode}</TableCell>
+                        <TableCell>
+                          {product.price
+                            ? new Intl.NumberFormat("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              }).format(product.price)
+                            : "-"}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{product.ucode || "-"}</TableCell>
                         <TableCell>
                           <Badge variant={product.status === "ACTIVE" ? "default" : "secondary"}>
                             {product.status}
@@ -572,8 +586,8 @@ export function HotmartSync() {
                     </TableHeader>
                     <TableBody>
                       {sales.map((sale) => (
-                        <TableRow key={sale.transaction}>
-                          <TableCell className="font-mono text-xs">{sale.transaction}</TableCell>
+                        <TableRow key={sale.purchase.transaction}>
+                          <TableCell className="font-mono text-xs">{sale.purchase.transaction}</TableCell>
                           <TableCell className="max-w-[200px] truncate">{sale.product.name}</TableCell>
                           <TableCell>
                             <div>

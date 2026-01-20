@@ -202,12 +202,14 @@ async function fetchSalesHistory(
   accessToken: string,
   startDate: Date,
   endDate: Date,
-  status?: string
+  status?: string,
+  options?: { maxPages?: number }
 ): Promise<HotmartSale[]> {
   console.log("Fetching sales history from Hotmart");
 
   const allSales: HotmartSale[] = [];
   let nextPageToken: string | null = null;
+  let pageCount = 0;
 
   const startTimestamp = startDate.getTime();
   const endTimestamp = endDate.getTime();
@@ -223,6 +225,8 @@ async function fetchSalesHistory(
   };
 
   while (true) {
+    pageCount++;
+
     const params = new URLSearchParams();
     params.set("start_date", String(startTimestamp));
     params.set("end_date", String(endTimestamp));
@@ -251,8 +255,10 @@ async function fetchSalesHistory(
 
     nextPageToken = data.page_info?.next_page_token ?? null;
 
+    const reachedPageLimit = !!options?.maxPages && pageCount >= options.maxPages;
+
     // Rate limiting: wait 100ms between requests
-    if (!nextPageToken) break;
+    if (!nextPageToken || reachedPageLimit) break;
     await new Promise((r) => setTimeout(r, 100));
   }
 
@@ -309,7 +315,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action, startDate, endDate, status, transactionId, sellerId } = await req.json();
+    const { action, startDate, endDate, status, transactionId, sellerId, includePrices, priceDays, salesMaxPages } = await req.json();
     
     console.log(`Hotmart sync action: ${action}`);
     
@@ -317,32 +323,42 @@ serve(async (req) => {
     
     switch (action) {
       case "get_products": {
+        const includePricesSafe = includePrices === true;
+        const priceDaysSafe = typeof priceDays === "number" ? priceDays : 30;
+        const salesMaxPagesSafe = typeof salesMaxPages === "number" ? salesMaxPages : 6;
+
         const products = await fetchProducts(accessToken);
-        
-        // Fetch recent sales to get product prices
+
+        if (!includePricesSafe) {
+          return new Response(JSON.stringify({ success: true, products }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Fast-ish price enrichment using a limited slice of recent sales
         console.log("Fetching recent sales to get product prices for get_products...");
         const endDate = new Date();
-        const startDate = new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000); // Last 90 days
-        const recentSales = await fetchSalesHistory(accessToken, startDate, endDate);
-        
+        const startDate = new Date(endDate.getTime() - priceDaysSafe * 24 * 60 * 60 * 1000);
+        const recentSales = await fetchSalesHistory(accessToken, startDate, endDate, undefined, {
+          maxPages: salesMaxPagesSafe,
+        });
+
         // Build price map from sales (using product.id)
         const productPrices = new Map<number, number>();
         for (const sale of recentSales) {
           const productId = sale.product.id;
           const price = sale.purchase.price.value;
-          // Keep the highest price found for each product
           if (!productPrices.has(productId) || price > productPrices.get(productId)!) {
             productPrices.set(productId, price);
           }
         }
         console.log(`Found prices for ${productPrices.size} products from sales`);
-        
-        // Add prices to products
-        const productsWithPrices = products.map(product => ({
+
+        const productsWithPrices = products.map((product) => ({
           ...product,
           price: productPrices.get(product.id) || 0,
         }));
-        
+
         return new Response(JSON.stringify({ success: true, products: productsWithPrices }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -355,8 +371,8 @@ serve(async (req) => {
         // Fetch recent sales to get product prices
         console.log("Fetching recent sales to get product prices...");
         const endDate = new Date();
-        const startDate = new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000); // Last 90 days
-        const recentSales = await fetchSalesHistory(accessToken, startDate, endDate);
+        const startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000); // Last 30 days (faster)
+        const recentSales = await fetchSalesHistory(accessToken, startDate, endDate, undefined, { maxPages: 20 });
         
         // Build price map from sales (using product.id)
         const productPrices = new Map<number, number>();

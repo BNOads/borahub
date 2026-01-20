@@ -8,6 +8,7 @@ export interface Product {
   name: string;
   description: string | null;
   default_commission_percent: number;
+  price?: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -118,8 +119,9 @@ export function useHotmartProducts() {
       return data.products as Array<{
         id: number;
         name: string;
-        ucode: string;
+        ucode?: string;
         status: string;
+        price?: number;
       }>;
     },
   });
