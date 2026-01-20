@@ -93,7 +93,7 @@ export function EditSaleModal({ sale, open, onOpenChange }: EditSaleModalProps) 
         total_value: sale.total_value,
         installments_count: sale.installments_count,
         platform: sale.platform,
-        seller_id: sale.seller_id,
+        seller_id: sale.seller_id || "", // Handle null seller_id
         commission_percent: sale.commission_percent,
         sale_date: sale.sale_date,
         proof_link: (sale as any).proof_link || "",
@@ -353,7 +353,7 @@ export function EditSaleModal({ sale, open, onOpenChange }: EditSaleModalProps) 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Vendedor *</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value || undefined}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione o vendedor" />
