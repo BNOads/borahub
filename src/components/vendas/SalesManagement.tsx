@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import { useSales, Sale, useCreateCsvImport, useProducts } from "@/hooks/useSales";
+import { useManualSales, Sale, useCreateCsvImport, useProducts } from "@/hooks/useSales";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ function useSellers() {
 }
 
 export function SalesManagement() {
-  const { data: sales, isLoading } = useSales();
+  const { data: sales, isLoading } = useManualSales();
   const { data: products } = useProducts();
   const { data: sellers } = useSellers();
   const queryClient = useQueryClient();

@@ -251,6 +251,32 @@ export function useSales(sellerId?: string) {
   });
 }
 
+// Hook para vendas cadastradas manualmente (exclui Hotmart)
+export function useManualSales(sellerId?: string) {
+  return useQuery({
+    queryKey: ['manual-sales', sellerId],
+    queryFn: async () => {
+      let query = supabase
+        .from('sales')
+        .select(`
+          *,
+          seller:profiles!sales_seller_id_fkey(id, full_name, email)
+        `)
+        .neq('platform', 'hotmart')
+        .order('sale_date', { ascending: false });
+      
+      if (sellerId) {
+        query = query.eq('seller_id', sellerId);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      return data as Sale[];
+    },
+  });
+}
+
 export function useSale(id: string) {
   return useQuery({
     queryKey: ['sale', id],
