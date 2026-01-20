@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useInstallments, useUpdateInstallment, useSyncHotmartInstallments } from "@/hooks/useSales";
+import { useInstallmentsWithSeller, useUpdateInstallment, useSyncHotmartInstallments } from "@/hooks/useSales";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export function InstallmentsManagement() {
-  const { data: installments, isLoading } = useInstallments();
+  const { data: installments, isLoading } = useInstallmentsWithSeller();
   const updateInstallment = useUpdateInstallment();
   const syncInstallments = useSyncHotmartInstallments();
   const [searchTerm, setSearchTerm] = useState("");
@@ -53,8 +53,8 @@ export function InstallmentsManagement() {
     refetchInterval: 60000, // Refetch every minute
   });
   
-  // Filter only installments from sales with assigned seller
-  const baseInstallments = installments?.filter(inst => inst.sale?.seller_id) || [];
+  // All installments already come from sales with assigned seller
+  const baseInstallments = installments || [];
   
   const filteredInstallments = baseInstallments.filter(inst => {
     const matchesSearch = 

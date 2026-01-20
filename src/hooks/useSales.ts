@@ -171,6 +171,7 @@ export function useSyncHotmartInstallments() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['installments'] });
+      queryClient.invalidateQueries({ queryKey: ['installments-with-seller'] });
       queryClient.invalidateQueries({ queryKey: ['commissions'] });
       toast.success(`Parcelas sincronizadas: ${data.installments_updated} atualizadas`);
     },
@@ -517,6 +518,44 @@ export function useInstallments(saleId?: string) {
       }
       
       const { data, error } = await query;
+      
+      if (error) throw error;
+      return data as (Installment & { sale: Sale & { seller_id: string | null } })[];
+    },
+  });
+}
+
+// Hook específico para buscar apenas parcelas de vendas com vendedor atribuído
+export function useInstallmentsWithSeller() {
+  return useQuery({
+    queryKey: ['installments-with-seller'],
+    queryFn: async () => {
+      // Primeiro busca os IDs das vendas que têm seller_id
+      const { data: salesWithSeller, error: salesError } = await supabase
+        .from('sales')
+        .select('id')
+        .not('seller_id', 'is', null);
+      
+      if (salesError) throw salesError;
+      
+      if (!salesWithSeller || salesWithSeller.length === 0) {
+        return [];
+      }
+      
+      const saleIds = salesWithSeller.map(s => s.id);
+      
+      // Busca as parcelas dessas vendas
+      const { data, error } = await supabase
+        .from('installments')
+        .select(`
+          *,
+          sale:sales(
+            id, external_id, client_name, product_name, platform, seller_id,
+            seller:profiles!sales_seller_id_fkey(id, full_name, email)
+          )
+        `)
+        .in('sale_id', saleIds)
+        .order('due_date', { ascending: true });
       
       if (error) throw error;
       return data as (Installment & { sale: Sale & { seller_id: string | null } })[];
