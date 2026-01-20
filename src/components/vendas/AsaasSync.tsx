@@ -27,6 +27,8 @@ interface AsaasPayment {
   paymentDate: string | null;
   dateCreated: string;
   installmentCount?: number;
+  invoiceNumber?: string;
+  invoiceUrl?: string;
 }
 
 // Hook to fetch sellers
@@ -338,7 +340,8 @@ export function AsaasSync() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>ID</TableHead>
+                        <TableHead>ID Pagamento</TableHead>
+                        <TableHead>Nº Fatura</TableHead>
                         <TableHead>Descrição</TableHead>
                         <TableHead>Valor</TableHead>
                         <TableHead>Tipo</TableHead>
@@ -351,6 +354,9 @@ export function AsaasSync() {
                         <TableRow key={payment.id}>
                           <TableCell className="font-mono text-xs">
                             {payment.id}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {payment.invoiceNumber || "-"}
                           </TableCell>
                           <TableCell>{payment.description || "-"}</TableCell>
                           <TableCell>{formatCurrency(payment.value)}</TableCell>
