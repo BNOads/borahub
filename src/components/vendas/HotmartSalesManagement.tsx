@@ -90,8 +90,9 @@ function useLastSync() {
     queryKey: ["last-hotmart-sync"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("hotmart_sync_logs")
-        .select("created_at, status, total_records, created_records, updated_records")
+        .from("csv_imports")
+        .select("created_at, records_created, records_updated, records_processed")
+        .eq("platform", "hotmart")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -329,7 +330,7 @@ export function HotmartSalesManagement() {
               {lastSync ? formatDistanceToNow(new Date(lastSync.created_at), { addSuffix: true, locale: ptBR }) : "Nunca"}
             </div>
             <p className="text-xs text-muted-foreground">
-              {lastSync && `${lastSync.created_records || 0} novas, ${lastSync.updated_records || 0} atualizadas`}
+              {lastSync && `${lastSync.records_created || 0} novas, ${lastSync.records_updated || 0} atualizadas`}
             </p>
           </CardContent>
         </Card>
