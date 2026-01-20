@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -100,6 +100,11 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
   const [existingSaleId, setExistingSaleId] = useState<string | null>(null);
   const [selectedAsaasSale, setSelectedAsaasSale] = useState<AsaasSaleOption | null>(null);
   
+  // Asaas filter states
+  const [asaasSearch, setAsaasSearch] = useState("");
+  const [asaasStartDate, setAsaasStartDate] = useState("");
+  const [asaasEndDate, setAsaasEndDate] = useState("");
+  
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -156,12 +161,36 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
     }
   }, [open, refetchAsaasSales]);
   
-  // Reset selected Asaas sale when platform changes
+  // Reset selected Asaas sale and filters when platform changes
   useEffect(() => {
     if (currentPlatform !== "asaas") {
       setSelectedAsaasSale(null);
+      setAsaasSearch("");
+      setAsaasStartDate("");
+      setAsaasEndDate("");
     }
   }, [currentPlatform]);
+  
+  // Filter Asaas sales based on search and date range
+  const filteredAsaasSales = useMemo(() => {
+    if (!asaasSales) return [];
+    
+    return asaasSales.filter((sale) => {
+      // Search filter
+      const searchLower = asaasSearch.toLowerCase();
+      const matchesSearch = !asaasSearch || 
+        sale.client_name.toLowerCase().includes(searchLower) ||
+        sale.external_id.toLowerCase().includes(searchLower) ||
+        sale.product_name.toLowerCase().includes(searchLower);
+      
+      // Date range filter
+      const saleDate = sale.sale_date;
+      const matchesStartDate = !asaasStartDate || saleDate >= asaasStartDate;
+      const matchesEndDate = !asaasEndDate || saleDate <= asaasEndDate;
+      
+      return matchesSearch && matchesStartDate && matchesEndDate;
+    });
+  }, [asaasSales, asaasSearch, asaasStartDate, asaasEndDate]);
   
   // Handle Asaas sale selection
   const handleAsaasSaleSelect = useCallback((saleId: string) => {
@@ -471,10 +500,37 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                 )}
               />
 
-              {/* Asaas: Show dropdown to select existing sale */}
+              {/* Asaas: Show filters and dropdown to select existing sale */}
               {currentPlatform === "asaas" ? (
-                <FormItem>
+                <div className="space-y-3 md:col-span-2">
                   <FormLabel>Selecionar Venda Asaas *</FormLabel>
+                  
+                  {/* Filters */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar cliente, ID ou produto..."
+                        value={asaasSearch}
+                        onChange={(e) => setAsaasSearch(e.target.value)}
+                        className="pl-8"
+                      />
+                    </div>
+                    <Input
+                      type="date"
+                      placeholder="Data inicial"
+                      value={asaasStartDate}
+                      onChange={(e) => setAsaasStartDate(e.target.value)}
+                    />
+                    <Input
+                      type="date"
+                      placeholder="Data final"
+                      value={asaasEndDate}
+                      onChange={(e) => setAsaasEndDate(e.target.value)}
+                    />
+                  </div>
+                  
+                  {/* Dropdown */}
                   <Select 
                     value={selectedAsaasSale?.id || ""} 
                     onValueChange={handleAsaasSaleSelect}
@@ -482,9 +538,9 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                     <SelectTrigger>
                       <SelectValue placeholder="Escolha uma venda para associar" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {asaasSales && asaasSales.length > 0 ? (
-                        asaasSales.map((sale) => (
+                    <SelectContent className="max-h-[300px]">
+                      {filteredAsaasSales.length > 0 ? (
+                        filteredAsaasSales.map((sale) => (
                           <SelectItem key={sale.id} value={sale.id}>
                             <div className="flex flex-col">
                               <span className="font-medium">{sale.client_name}</span>
@@ -496,15 +552,30 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                         ))
                       ) : (
                         <SelectItem value="__no_sales__" disabled>
-                          Nenhuma venda Asaas pendente
+                          {asaasSales?.length === 0 
+                            ? "Nenhuma venda Asaas pendente" 
+                            : "Nenhuma venda encontrada com os filtros aplicados"}
                         </SelectItem>
                       )}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {asaasSales?.length || 0} vendas Asaas sem vendedor associado
+                  <p className="text-xs text-muted-foreground">
+                    {filteredAsaasSales.length} de {asaasSales?.length || 0} vendas Asaas sem vendedor
+                    {(asaasSearch || asaasStartDate || asaasEndDate) && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setAsaasSearch("");
+                          setAsaasStartDate("");
+                          setAsaasEndDate("");
+                        }}
+                        className="ml-2 text-primary hover:underline"
+                      >
+                        Limpar filtros
+                      </button>
+                    )}
                   </p>
-                </FormItem>
+                </div>
               ) : (
                 <FormField
                   control={form.control}
