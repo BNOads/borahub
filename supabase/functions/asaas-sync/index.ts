@@ -114,9 +114,7 @@ serve(async (req) => {
       case "sync_payments": {
         const { startDate, endDate, sellerId, userId, onlyPaid = true } = params;
 
-        if (!sellerId) {
-          throw new Error("sellerId é obrigatório para sincronização");
-        }
+        // sellerId is optional - if null, sales will be created without a seller (pending assignment)
 
         let allPayments: any[] = [];
         let offset = 0;
@@ -189,7 +187,7 @@ serve(async (req) => {
               platform: "asaas",
               sale_date: payment.dateCreated,
               status: saleStatus,
-              seller_id: sellerId,
+              seller_id: sellerId || null, // Can be null - pending manual assignment
               commission_percent: commissionPercent,
               payment_type: mapPaymentType(payment.billingType),
               created_by: userId,
@@ -267,20 +265,22 @@ serve(async (req) => {
 
                 if (instError) throw instError;
 
-                // Create commission for this installment
-                const competenceMonth = new Date(dueDate);
-                competenceMonth.setDate(1);
+                // Create commission for this installment only if there's a seller
+                if (sellerId) {
+                  const competenceMonth = new Date(dueDate);
+                  competenceMonth.setDate(1);
 
-                await supabase.from("commissions").insert({
-                  installment_id: installment.id,
-                  seller_id: sellerId,
-                  installment_value: installmentValue,
-                  commission_percent: commissionPercent,
-                  commission_value: installmentValue * (commissionPercent / 100),
-                  competence_month: competenceMonth.toISOString().split("T")[0],
-                  status: installmentStatus === "paid" ? "released" : "pending",
-                  released_at: installmentStatus === "paid" ? new Date().toISOString() : null,
-                });
+                  await supabase.from("commissions").insert({
+                    installment_id: installment.id,
+                    seller_id: sellerId,
+                    installment_value: installmentValue,
+                    commission_percent: commissionPercent,
+                    commission_value: installmentValue * (commissionPercent / 100),
+                    competence_month: competenceMonth.toISOString().split("T")[0],
+                    status: installmentStatus === "paid" ? "released" : "pending",
+                    released_at: installmentStatus === "paid" ? new Date().toISOString() : null,
+                  });
+                }
               }
             }
           } catch (e: any) {
