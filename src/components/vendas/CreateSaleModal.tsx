@@ -370,7 +370,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
             .update({
               seller_id: values.seller_id,
               commission_percent: values.commission_percent,
-              product_id: values.product_id === "__none__" ? null : values.product_id,
+              product_id: values.product_id && values.product_id !== "__none__" && values.product_id !== "" ? values.product_id : null,
               proof_link: values.proof_link,
             })
             .eq('id', existingSale.id);
