@@ -266,9 +266,12 @@ async function fetchSalesHistory(
   return allSales;
 }
 
-async function fetchSaleSummary(accessToken: string, transactionId: string): Promise<any> {
+// Fetch sale details using history endpoint (returns purchase status)
+async function fetchSaleDetails(accessToken: string, transactionId: string): Promise<any> {
+  console.log(`Fetching sale details for transaction: ${transactionId}`);
+  
   const response = await fetch(
-    `https://developers.hotmart.com/payments/api/v1/sales/summary?transaction=${transactionId}`,
+    `https://developers.hotmart.com/payments/api/v1/sales/history?transaction=${transactionId}`,
     {
       headers: {
         "Authorization": `Bearer ${accessToken}`,
@@ -279,11 +282,13 @@ async function fetchSaleSummary(accessToken: string, transactionId: string): Pro
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("Sale summary fetch error:", response.status, errorText);
-    throw new Error(`Failed to fetch sale summary: ${response.status}`);
+    console.error("Sale details fetch error:", response.status, errorText);
+    throw new Error(`Failed to fetch sale details: ${response.status}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  console.log(`Sale details found: ${data.items?.length || 0} items, status: ${data.items?.[0]?.purchase?.status || 'unknown'}`);
+  return data;
 }
 
 function mapHotmartStatus(status: string): string {
@@ -455,13 +460,17 @@ serve(async (req) => {
         
         for (const sale of hotmartSales || []) {
           try {
-            // Get sale details from Hotmart
-            const summary = await fetchSaleSummary(accessToken, sale.external_id);
+            // Get sale details from Hotmart using history endpoint (returns actual status)
+            const details = await fetchSaleDetails(accessToken, sale.external_id);
             
-            if (!summary?.items?.[0]) continue;
+            if (!details?.items?.[0]) {
+              console.log(`No details found for transaction: ${sale.external_id}`);
+              continue;
+            }
             
-            const saleInfo = summary.items[0];
+            const saleInfo = details.items[0];
             const purchaseStatus = saleInfo.purchase?.status || "PENDING";
+            console.log(`Transaction ${sale.external_id}: status=${purchaseStatus}`);
             const isSingleInstallment = (sale.installments_count || 1) === 1;
             const recurrencyNumber = saleInfo.purchase?.recurrency_number || 0;
             
@@ -553,8 +562,9 @@ serve(async (req) => {
         if (!transactionId) {
           throw new Error("transactionId is required");
         }
-        const summary = await fetchSaleSummary(accessToken, transactionId);
-        return new Response(JSON.stringify({ success: true, summary }), {
+        // Use history endpoint to get full sale details including purchase status
+        const details = await fetchSaleDetails(accessToken, transactionId);
+        return new Response(JSON.stringify({ success: true, summary: details }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -889,12 +899,12 @@ serve(async (req) => {
           
           for (const existingSale of existingHotmartSales || []) {
             try {
-              // Get sale details from Hotmart
-              const summary = await fetchSaleSummary(accessToken, existingSale.external_id);
+              // Get sale details from Hotmart using history endpoint
+              const details = await fetchSaleDetails(accessToken, existingSale.external_id);
               
-              if (!summary?.items?.[0]) continue;
+              if (!details?.items?.[0]) continue;
               
-              const saleInfo = summary.items[0];
+              const saleInfo = details.items[0];
               const recurrencyNumber = saleInfo.purchase?.recurrency_number || 1;
               const purchaseStatus = saleInfo.purchase?.status || "PENDING";
               
