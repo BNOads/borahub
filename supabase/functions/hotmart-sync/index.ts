@@ -291,12 +291,25 @@ async function fetchSaleDetails(accessToken: string, transactionId: string): Pro
   return data;
 }
 
+// Status considerados como "pago" pela Hotmart (inclui COMPLETE e COMPLETED)
+const PAID_STATUSES = new Set(["APPROVED", "COMPLETE", "COMPLETED"]);
+const CANCELLED_STATUSES = new Set(["CANCELED", "REFUNDED", "CHARGEBACK"]);
+
+function isPaidStatus(status: string): boolean {
+  return PAID_STATUSES.has(status);
+}
+
+function isCancelledStatus(status: string): boolean {
+  return CANCELLED_STATUSES.has(status);
+}
+
 function mapHotmartStatus(status: string): string {
   const statusMap: Record<string, string> = {
     "APPROVED": "paid",
+    "COMPLETE": "paid",
     "COMPLETED": "paid",
     "CANCELED": "cancelled",
-    "REFUNDED": "refunded",
+    "REFUNDED": "cancelled",
     "CHARGEBACK": "chargeback",
     "WAITING_PAYMENT": "pending",
     "PENDING": "pending",
@@ -485,30 +498,33 @@ serve(async (req) => {
             
             for (const installment of installments) {
               // Determine if this installment is paid:
-              // - For single-installment sales: check if purchase status is APPROVED/COMPLETED
+              // - For single-installment sales: check if purchase status is APPROVED/COMPLETE/COMPLETED
               // - For multi-installment sales: check recurrency_number
-              let isPaid = false;
+              let installmentIsPaid = false;
               
               if (isSingleInstallment || installment.total_installments === 1) {
-                // Single payment sale - mark as paid if status is APPROVED or COMPLETED
-                isPaid = purchaseStatus === "APPROVED" || purchaseStatus === "COMPLETED";
+                // Single payment sale - mark as paid if status is APPROVED, COMPLETE or COMPLETED
+                installmentIsPaid = isPaidStatus(purchaseStatus);
               } else {
                 // Multi-installment sale - use recurrency_number
-                isPaid = installment.installment_number <= recurrencyNumber && 
-                         (purchaseStatus === "APPROVED" || purchaseStatus === "COMPLETED");
+                installmentIsPaid = installment.installment_number <= recurrencyNumber && isPaidStatus(purchaseStatus);
               }
               
-              const newStatus = isPaid ? "paid" : 
-                               (purchaseStatus === "CANCELED" || purchaseStatus === "REFUNDED") ? "cancelled" :
+              const newStatus = installmentIsPaid ? "paid" : 
+                               isCancelledStatus(purchaseStatus) ? "cancelled" :
                                "pending";
               
+              // Log para debug
+              console.log(`Installment ${installment.installment_number}: current=${installment.status}, calculated=${newStatus}, hotmartStatus=${purchaseStatus}`);
+              
               if (installment.status !== newStatus) {
+                console.log(`Updating installment ${installment.id}: ${installment.status} -> ${newStatus}`);
                 // Update installment
                 await supabase
                   .from("installments")
                   .update({ 
                     status: newStatus,
-                    payment_date: isPaid ? new Date().toISOString().split('T')[0] : null,
+                    payment_date: installmentIsPaid ? new Date().toISOString().split('T')[0] : null,
                   })
                   .eq("id", installment.id);
                 
@@ -813,11 +829,10 @@ serve(async (req) => {
                   .eq("sale_id", existingSale.id);
                 
                 for (const inst of installments || []) {
-                  const isPaid = inst.installment_number <= recurrencyNumber && 
-                                 (sale.purchase.status === "APPROVED" || sale.purchase.status === "COMPLETED");
+                  const instIsPaid = inst.installment_number <= recurrencyNumber && isPaidStatus(sale.purchase.status);
                   
-                  const newStatus = isPaid ? "paid" : 
-                                   (sale.purchase.status === "CANCELED" || sale.purchase.status === "REFUNDED") ? "cancelled" :
+                  const newStatus = instIsPaid ? "paid" : 
+                                   isCancelledStatus(sale.purchase.status) ? "cancelled" :
                                    "pending";
                   
                   if (inst.status !== newStatus) {
@@ -825,7 +840,7 @@ serve(async (req) => {
                       .from("installments")
                       .update({ 
                         status: newStatus,
-                        payment_date: isPaid && sale.purchase.approved_date
+                        payment_date: instIsPaid && sale.purchase.approved_date
                           ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
                           : null,
                       })
@@ -919,11 +934,10 @@ serve(async (req) => {
               
               for (const installment of installments) {
                 // Determine if this installment is paid based on recurrency
-                const isPaid = installment.installment_number <= recurrencyNumber && 
-                               (purchaseStatus === "APPROVED" || purchaseStatus === "COMPLETED");
+                const instIsPaid = installment.installment_number <= recurrencyNumber && isPaidStatus(purchaseStatus);
                 
-                const newStatus = isPaid ? "paid" : 
-                                 (purchaseStatus === "CANCELED" || purchaseStatus === "REFUNDED") ? "cancelled" :
+                const newStatus = instIsPaid ? "paid" : 
+                                 isCancelledStatus(purchaseStatus) ? "cancelled" :
                                  "pending";
                 
                 if (installment.status !== newStatus) {
@@ -932,7 +946,7 @@ serve(async (req) => {
                     .from("installments")
                     .update({ 
                       status: newStatus,
-                      payment_date: isPaid ? new Date().toISOString().split('T')[0] : null,
+                      payment_date: instIsPaid ? new Date().toISOString().split('T')[0] : null,
                     })
                     .eq("id", installment.id);
                   
