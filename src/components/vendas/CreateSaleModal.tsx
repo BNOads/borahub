@@ -154,20 +154,25 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
       const product = saleInfo.product;
       const purchase = saleInfo.purchase;
 
-      if (buyer?.name) form.setValue("client_name", buyer.name);
-      if (buyer?.email) form.setValue("client_email", buyer.email);
-      if (buyer?.phone) form.setValue("client_phone", buyer.phone || "");
-      if (product?.name) form.setValue("product_name", product.name);
-      if (purchase?.price?.value) form.setValue("total_value", purchase.price.value);
+      console.log("Lookup data:", { buyer, product, purchase });
+
+      // Use shouldDirty and shouldTouch to force re-render
+      const setValueOptions = { shouldDirty: true, shouldTouch: true, shouldValidate: true };
+
+      if (buyer?.name) form.setValue("client_name", buyer.name, setValueOptions);
+      if (buyer?.email) form.setValue("client_email", buyer.email, setValueOptions);
+      if (buyer?.phone) form.setValue("client_phone", buyer.phone || "", setValueOptions);
+      if (product?.name) form.setValue("product_name", product.name, setValueOptions);
+      if (purchase?.price?.value) form.setValue("total_value", purchase.price.value, setValueOptions);
       if (purchase?.payment?.installments_number) {
-        form.setValue("installments_count", purchase.payment.installments_number);
+        form.setValue("installments_count", purchase.payment.installments_number, setValueOptions);
       }
       if (purchase?.approved_date) {
         const saleDate = new Date(purchase.approved_date).toISOString().split("T")[0];
-        form.setValue("sale_date", saleDate);
+        form.setValue("sale_date", saleDate, setValueOptions);
       } else if (purchase?.order_date) {
         const saleDate = new Date(purchase.order_date).toISOString().split("T")[0];
-        form.setValue("sale_date", saleDate);
+        form.setValue("sale_date", saleDate, setValueOptions);
       }
 
       if (product?.name && products) {
@@ -176,8 +181,8 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                p.description?.includes(product.ucode)
         );
         if (matchedProduct) {
-          form.setValue("product_id", matchedProduct.id);
-          form.setValue("commission_percent", Number(matchedProduct.default_commission_percent));
+          form.setValue("product_id", matchedProduct.id, setValueOptions);
+          form.setValue("commission_percent", Number(matchedProduct.default_commission_percent), setValueOptions);
         }
       }
 
