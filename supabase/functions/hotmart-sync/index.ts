@@ -446,6 +446,197 @@ serve(async (req) => {
         });
       }
       
+      case "scheduled_sync": {
+        // Automated sync triggered by cron job
+        console.log("Starting scheduled Hotmart sync");
+        
+        // Create sync log entry
+        const { data: syncLog, error: logError } = await supabase
+          .from("hotmart_sync_logs")
+          .insert({
+            sync_type: "scheduled",
+            status: "running",
+          })
+          .select("id")
+          .single();
+        
+        if (logError) {
+          console.error("Failed to create sync log:", logError);
+        }
+        
+        const logId = syncLog?.id;
+        
+        try {
+          // Sync last 24 hours of sales
+          const start = new Date(Date.now() - 24 * 60 * 60 * 1000);
+          const end = new Date();
+          
+          console.log(`Fetching sales from ${start.toISOString()} to ${end.toISOString()}`);
+          const sales = await fetchSalesHistory(accessToken, start, end);
+          
+          let created = 0;
+          let updated = 0;
+          let failed = 0;
+          const errors: string[] = [];
+          
+          // Get default seller (first active seller) for scheduled syncs
+          const { data: defaultSeller } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("is_active", true)
+            .limit(1)
+            .single();
+          
+          for (const sale of sales) {
+            try {
+              const saleData = {
+                external_id: sale.transaction,
+                client_name: sale.buyer.name,
+                client_email: sale.buyer.email,
+                client_phone: sale.buyer.phone || null,
+                product_name: sale.product.name,
+                total_value: sale.purchase.price.value,
+                installments_count: sale.purchase.payment.installments_number || 1,
+                platform: "hotmart",
+                commission_percent: 0,
+                sale_date: sale.purchase.approved_date 
+                  ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
+                  : new Date().toISOString().split('T')[0],
+                status: mapHotmartStatus(sale.purchase.status) === "paid" ? "active" : "cancelled",
+                seller_id: defaultSeller?.id || null,
+              };
+              
+              // Check if sale already exists
+              const { data: existingSale } = await supabase
+                .from("sales")
+                .select("id")
+                .eq("external_id", sale.transaction)
+                .single();
+              
+              if (existingSale) {
+                const { error } = await supabase
+                  .from("sales")
+                  .update(saleData)
+                  .eq("id", existingSale.id);
+                
+                if (error) throw error;
+                updated++;
+                
+                // Update installments status based on recurrency_number
+                const recurrencyNumber = sale.purchase.recurrency_number || 0;
+                const { data: installments } = await supabase
+                  .from("installments")
+                  .select("id, installment_number")
+                  .eq("sale_id", existingSale.id);
+                
+                for (const inst of installments || []) {
+                  const installmentStatus = inst.installment_number <= recurrencyNumber 
+                    ? mapHotmartStatus(sale.purchase.status)
+                    : "pending";
+                  
+                  await supabase
+                    .from("installments")
+                    .update({ 
+                      status: installmentStatus,
+                      payment_date: installmentStatus === "paid" && sale.purchase.approved_date
+                        ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
+                        : null,
+                    })
+                    .eq("id", inst.id);
+                }
+              } else {
+                const { data: newSale, error } = await supabase
+                  .from("sales")
+                  .insert(saleData)
+                  .select("id")
+                  .single();
+                
+                if (error) throw error;
+                created++;
+                
+                // Create installments
+                const installmentValue = saleData.total_value / saleData.installments_count;
+                const installments = [];
+                for (let i = 1; i <= saleData.installments_count; i++) {
+                  const recurrencyNumber = sale.purchase.recurrency_number || 0;
+                  const installmentStatus = i <= recurrencyNumber 
+                    ? mapHotmartStatus(sale.purchase.status)
+                    : "pending";
+                  
+                  installments.push({
+                    sale_id: newSale.id,
+                    installment_number: i,
+                    total_installments: saleData.installments_count,
+                    value: installmentValue,
+                    due_date: new Date(
+                      new Date(saleData.sale_date).getTime() + (i - 1) * 30 * 24 * 60 * 60 * 1000
+                    ).toISOString().split('T')[0],
+                    status: installmentStatus,
+                    payment_date: installmentStatus === "paid" && sale.purchase.approved_date
+                      ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
+                      : null,
+                  });
+                }
+                
+                await supabase.from("installments").insert(installments);
+              }
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              console.error("Error processing sale:", sale.transaction, error);
+              failed++;
+              errors.push(`${sale.transaction}: ${errorMessage}`);
+            }
+          }
+          
+          // Update sync log with results
+          if (logId) {
+            await supabase
+              .from("hotmart_sync_logs")
+              .update({
+                completed_at: new Date().toISOString(),
+                status: failed === 0 ? "success" : "partial",
+                total_records: sales.length,
+                created_records: created,
+                updated_records: updated,
+                failed_records: failed,
+                error_message: errors.length > 0 ? errors.slice(0, 5).join("; ") : null,
+                details: { errors: errors.slice(0, 20) },
+              })
+              .eq("id", logId);
+          }
+          
+          console.log(`Scheduled sync completed: ${created} created, ${updated} updated, ${failed} failed`);
+          
+          return new Response(JSON.stringify({ 
+            success: true, 
+            scheduled: true,
+            total: sales.length,
+            created,
+            updated,
+            failed,
+          }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          console.error("Scheduled sync error:", error);
+          
+          // Update sync log with error
+          if (logId) {
+            await supabase
+              .from("hotmart_sync_logs")
+              .update({
+                completed_at: new Date().toISOString(),
+                status: "error",
+                error_message: errorMessage,
+              })
+              .eq("id", logId);
+          }
+          
+          throw error;
+        }
+      }
+      
       default:
         throw new Error(`Unknown action: ${action}`);
     }

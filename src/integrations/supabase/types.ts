@@ -779,6 +779,51 @@ export type Database = {
         }
         Relationships: []
       }
+      hotmart_sync_logs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_records: number | null
+          details: Json | null
+          error_message: string | null
+          failed_records: number | null
+          id: string
+          started_at: string
+          status: string
+          sync_type: string
+          total_records: number | null
+          updated_records: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_records?: number | null
+          details?: Json | null
+          error_message?: string | null
+          failed_records?: number | null
+          id?: string
+          started_at?: string
+          status?: string
+          sync_type: string
+          total_records?: number | null
+          updated_records?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_records?: number | null
+          details?: Json | null
+          error_message?: string | null
+          failed_records?: number | null
+          id?: string
+          started_at?: string
+          status?: string
+          sync_type?: string
+          total_records?: number | null
+          updated_records?: number | null
+        }
+        Relationships: []
+      }
       ia_agents: {
         Row: {
           created_at: string | null
