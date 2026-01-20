@@ -10,10 +10,10 @@ import { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 export function SalesDashboard() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   
-  // For admin/manager, show all data; for sellers, show only their own
-  const isAdminOrManager = profile?.job_title?.toLowerCase().includes('admin') || 
+  // For admin/manager/financeiro, show all data; for sellers, show only their own
+  const isAdminOrManager = isAdmin || 
                            profile?.job_title?.toLowerCase().includes('gerente') ||
                            profile?.job_title?.toLowerCase().includes('financeiro');
   
