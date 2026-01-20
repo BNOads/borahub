@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SalesDashboard } from "@/components/vendas/SalesDashboard";
 import { SalesManagement } from "@/components/vendas/SalesManagement";
-import { HotmartSalesManagement } from "@/components/vendas/HotmartSalesManagement";
+import { AllSalesManagement } from "@/components/vendas/AllSalesManagement";
 import { InstallmentsManagement } from "@/components/vendas/InstallmentsManagement";
 import { HotmartSync } from "@/components/vendas/HotmartSync";
 import { AsaasSync } from "@/components/vendas/AsaasSync";
@@ -86,7 +86,7 @@ export default function VendasView() {
         </TabsContent>
 
         <TabsContent value="realizadas" className="space-y-4">
-          <HotmartSalesManagement />
+          <AllSalesManagement />
         </TabsContent>
 
         <TabsContent value="vendas" className="space-y-4">
