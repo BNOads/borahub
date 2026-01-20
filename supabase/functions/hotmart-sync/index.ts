@@ -106,12 +106,12 @@ async function fetchProducts(accessToken: string): Promise<HotmartProduct[]> {
   console.log("Fetching products from Hotmart");
   
   const allProducts: HotmartProduct[] = [];
-  let page = 0;
+  let page = 1;
   let hasMore = true;
   
   while (hasMore) {
     const response = await fetch(
-      `https://developers.hotmart.com/products/api/v1/products?page=${page}&rows=50`,
+      `https://developers.hotmart.com/products/api/v1/products?page_token=${page}&max_results=50`,
       {
         headers: {
           "Authorization": `Bearer ${accessToken}`,
@@ -130,7 +130,8 @@ async function fetchProducts(accessToken: string): Promise<HotmartProduct[]> {
     const products = data.items || [];
     allProducts.push(...products);
     
-    hasMore = products.length === 50;
+    // Check if there's a next page
+    hasMore = data.page_info?.next_page_token ? true : false;
     page++;
     
     // Rate limiting: wait 100ms between requests
