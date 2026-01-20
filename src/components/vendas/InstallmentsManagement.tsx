@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useInstallments, useUpdateInstallment, useSyncHotmartInstallments } from "@/hooks/useSales";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -21,7 +23,8 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency } from "@/components/funnel-panel/types";
 import { Search, CheckCircle, Clock, AlertTriangle, XCircle, Ban, RefreshCw, Check, X } from "lucide-react";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export function InstallmentsManagement() {
   const { data: installments, isLoading } = useInstallments();
@@ -29,6 +32,24 @@ export function InstallmentsManagement() {
   const syncInstallments = useSyncHotmartInstallments();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  
+  // Fetch last sync info
+  const { data: lastSync } = useQuery({
+    queryKey: ['last-installment-sync'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('hotmart_sync_logs')
+        .select('*')
+        .eq('sync_type', 'installments')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    refetchInterval: 60000, // Refetch every minute
+  });
   
   const filteredInstallments = installments?.filter(inst => {
     const matchesSearch = 
@@ -142,14 +163,27 @@ export function InstallmentsManagement() {
           </Select>
         </div>
         
-        <Button 
-          onClick={() => syncInstallments.mutate()} 
-          disabled={syncInstallments.isPending}
-          variant="outline"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${syncInstallments.isPending ? 'animate-spin' : ''}`} />
-          {syncInstallments.isPending ? 'Sincronizando...' : 'Sincronizar Hotmart'}
-        </Button>
+        <div className="flex flex-col items-end gap-1">
+          <Button 
+            onClick={() => syncInstallments.mutate()} 
+            disabled={syncInstallments.isPending}
+            variant="outline"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${syncInstallments.isPending ? 'animate-spin' : ''}`} />
+            {syncInstallments.isPending ? 'Sincronizando...' : 'Sincronizar Hotmart'}
+          </Button>
+          {lastSync && (
+            <span className="text-xs text-muted-foreground">
+              Última sincronização: {formatDistanceToNow(new Date(lastSync.completed_at || lastSync.started_at), { addSuffix: true, locale: ptBR })}
+              {lastSync.status === 'success' && (
+                <CheckCircle className="inline h-3 w-3 ml-1 text-success" />
+              )}
+              {lastSync.status === 'partial' && (
+                <AlertTriangle className="inline h-3 w-3 ml-1 text-warning" />
+              )}
+            </span>
+          )}
+        </div>
       </div>
 
       <Card>
