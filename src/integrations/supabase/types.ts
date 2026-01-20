@@ -1380,7 +1380,7 @@ export type Database = {
           product_name: string
           proof_link: string | null
           sale_date: string
-          seller_id: string
+          seller_id: string | null
           status: string
           total_value: number
           updated_at: string | null
@@ -1400,7 +1400,7 @@ export type Database = {
           product_name: string
           proof_link?: string | null
           sale_date: string
-          seller_id: string
+          seller_id?: string | null
           status?: string
           total_value: number
           updated_at?: string | null
@@ -1420,7 +1420,7 @@ export type Database = {
           product_name?: string
           proof_link?: string | null
           sale_date?: string
-          seller_id?: string
+          seller_id?: string | null
           status?: string
           total_value?: number
           updated_at?: string | null
