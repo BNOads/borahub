@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from "react";
 import { useSales, Sale, useCreateCsvImport, useProducts } from "@/hooks/useSales";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,8 +28,9 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { Plus, Search, Eye, Pencil, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Filter, Upload, FileText, ShoppingCart } from "lucide-react";
+import { Plus, Search, Eye, Pencil, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Filter, Upload, FileText, ShoppingCart, X, Trash2, UserCheck, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { CreateSaleModal } from "./CreateSaleModal";
 import { EditSaleModal } from "./EditSaleModal";
@@ -59,11 +60,18 @@ export function SalesManagement() {
   const { data: sales, isLoading } = useSales();
   const { data: products } = useProducts();
   const { data: sellers } = useSellers();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [activeTab, setActiveTab] = useState("list");
+  
+  // Bulk selection state
+  const [selectedSaleIds, setSelectedSaleIds] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState<string>("");
+  const [bulkSellerId, setBulkSellerId] = useState<string>("");
+  const [bulkProcessing, setBulkProcessing] = useState(false);
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -81,6 +89,154 @@ export function SalesManagement() {
   const [selectedProduct, setSelectedProduct] = useState("");
   const [defaultCommission, setDefaultCommission] = useState("10");
   const [salesProcessing, setSalesProcessing] = useState(false);
+
+  // Bulk selection handlers
+  const toggleSelectSale = (saleId: string) => {
+    const newSelected = new Set(selectedSaleIds);
+    if (newSelected.has(saleId)) {
+      newSelected.delete(saleId);
+    } else {
+      newSelected.add(saleId);
+    }
+    setSelectedSaleIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedSaleIds.size === filteredAndSortedSales.length) {
+      setSelectedSaleIds(new Set());
+    } else {
+      setSelectedSaleIds(new Set(filteredAndSortedSales.map(s => s.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedSaleIds(new Set());
+    setBulkAction("");
+    setBulkSellerId("");
+  };
+
+  const handleBulkAction = async () => {
+    if (selectedSaleIds.size === 0) {
+      toast.error("Selecione pelo menos uma venda");
+      return;
+    }
+
+    setBulkProcessing(true);
+    const saleIds = Array.from(selectedSaleIds);
+
+    try {
+      switch (bulkAction) {
+        case "activate": {
+          const { error } = await supabase
+            .from("sales")
+            .update({ status: "active" })
+            .in("id", saleIds);
+          if (error) throw error;
+          toast.success(`${saleIds.length} venda(s) ativada(s)`);
+          break;
+        }
+        case "cancel": {
+          const { error } = await supabase
+            .from("sales")
+            .update({ status: "cancelled" })
+            .in("id", saleIds);
+          if (error) throw error;
+          
+          // Cancel related installments and commissions
+          const { data: installments } = await supabase
+            .from("installments")
+            .select("id")
+            .in("sale_id", saleIds);
+          
+          if (installments && installments.length > 0) {
+            const installmentIds = installments.map(i => i.id);
+            await supabase
+              .from("installments")
+              .update({ status: "cancelled" })
+              .in("id", installmentIds);
+            await supabase
+              .from("commissions")
+              .update({ status: "cancelled" })
+              .in("installment_id", installmentIds);
+          }
+          
+          toast.success(`${saleIds.length} venda(s) cancelada(s)`);
+          break;
+        }
+        case "change_seller": {
+          if (!bulkSellerId) {
+            toast.error("Selecione um vendedor");
+            return;
+          }
+          
+          const { error } = await supabase
+            .from("sales")
+            .update({ seller_id: bulkSellerId })
+            .in("id", saleIds);
+          if (error) throw error;
+          
+          // Update commissions seller
+          const { data: installments } = await supabase
+            .from("installments")
+            .select("id")
+            .in("sale_id", saleIds);
+          
+          if (installments && installments.length > 0) {
+            await supabase
+              .from("commissions")
+              .update({ seller_id: bulkSellerId })
+              .in("installment_id", installments.map(i => i.id));
+          }
+          
+          toast.success(`Vendedor alterado em ${saleIds.length} venda(s)`);
+          break;
+        }
+        case "delete": {
+          // Delete commissions first
+          const { data: installments } = await supabase
+            .from("installments")
+            .select("id")
+            .in("sale_id", saleIds);
+          
+          if (installments && installments.length > 0) {
+            await supabase
+              .from("commissions")
+              .delete()
+              .in("installment_id", installments.map(i => i.id));
+          }
+          
+          // Delete installments
+          await supabase
+            .from("installments")
+            .delete()
+            .in("sale_id", saleIds);
+          
+          // Delete sales
+          const { error } = await supabase
+            .from("sales")
+            .delete()
+            .in("id", saleIds);
+          if (error) throw error;
+          
+          toast.success(`${saleIds.length} venda(s) excluída(s)`);
+          break;
+        }
+        default:
+          toast.error("Selecione uma ação");
+          return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
+      queryClient.invalidateQueries({ queryKey: ["installments"] });
+      queryClient.invalidateQueries({ queryKey: ["commissions"] });
+      clearSelection();
+    } catch (err: any) {
+      console.error("Bulk action error:", err);
+      toast.error("Erro ao processar ação: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
   
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -460,6 +616,82 @@ export function SalesManagement() {
             </div>
           </div>
 
+          {/* Bulk Action Bar */}
+          {selectedSaleIds.size > 0 && (
+            <Card className="border-primary bg-primary/5">
+              <CardContent className="py-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="font-medium">
+                      {selectedSaleIds.size} selecionada{selectedSaleIds.size !== 1 ? 's' : ''}
+                    </Badge>
+                    <Button variant="ghost" size="sm" onClick={clearSelection}>
+                      <X className="h-4 w-4 mr-1" />
+                      Limpar
+                    </Button>
+                  </div>
+                  
+                  <div className="flex-1 flex flex-wrap items-center gap-2">
+                    <Select value={bulkAction} onValueChange={setBulkAction}>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Ação em massa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="activate">
+                          <span className="flex items-center gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                            Ativar vendas
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="cancel">
+                          <span className="flex items-center gap-2">
+                            <X className="h-4 w-4 text-destructive" />
+                            Cancelar vendas
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="change_seller">
+                          <span className="flex items-center gap-2">
+                            <UserCheck className="h-4 w-4" />
+                            Alterar vendedor
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="delete">
+                          <span className="flex items-center gap-2 text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                            Excluir vendas
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    {bulkAction === "change_seller" && (
+                      <Select value={bulkSellerId} onValueChange={setBulkSellerId}>
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue placeholder="Selecione o vendedor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sellers?.map((seller) => (
+                            <SelectItem key={seller.id} value={seller.id}>
+                              {seller.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+
+                    <Button 
+                      onClick={handleBulkAction} 
+                      disabled={!bulkAction || bulkProcessing}
+                      variant={bulkAction === "delete" ? "destructive" : "default"}
+                    >
+                      {bulkProcessing ? "Processando..." : "Aplicar"}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
@@ -474,6 +706,13 @@ export function SalesManagement() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={filteredAndSortedSales.length > 0 && selectedSaleIds.size === filteredAndSortedSales.length}
+                          onCheckedChange={toggleSelectAll}
+                          aria-label="Selecionar todas"
+                        />
+                      </TableHead>
                       <TableHead 
                         className="cursor-pointer hover:bg-muted/50 select-none"
                         onClick={() => handleSort("external_id")}
@@ -552,19 +791,26 @@ export function SalesManagement() {
                   <TableBody>
                     {isLoading ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8">
+                        <TableCell colSpan={10} className="text-center py-8">
                           Carregando...
                         </TableCell>
                       </TableRow>
                     ) : filteredAndSortedSales.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                           Nenhuma venda encontrada
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredAndSortedSales.map((sale) => (
-                        <TableRow key={sale.id}>
+                        <TableRow key={sale.id} className={selectedSaleIds.has(sale.id) ? "bg-muted/50" : ""}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedSaleIds.has(sale.id)}
+                              onCheckedChange={() => toggleSelectSale(sale.id)}
+                              aria-label={`Selecionar venda ${sale.external_id}`}
+                            />
+                          </TableCell>
                           <TableCell className="font-mono text-xs">
                             {sale.external_id}
                           </TableCell>
