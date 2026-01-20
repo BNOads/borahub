@@ -24,7 +24,7 @@ export interface Sale {
   product_name: string;
   total_value: number;
   installments_count: number;
-  platform: 'hotmart' | 'asaas';
+  platform: string;
   seller_id: string;
   commission_percent: number;
   sale_date: string;
@@ -83,7 +83,7 @@ export interface CreateSaleInput {
   product_name: string;
   total_value: number;
   installments_count: number;
-  platform: 'hotmart' | 'asaas';
+  platform: string;
   seller_id: string;
   commission_percent: number;
   sale_date: string;
@@ -436,7 +436,7 @@ export interface UpdateSaleInput {
   product_id?: string | null;
   product_name?: string;
   total_value?: number;
-  platform?: 'hotmart' | 'asaas';
+  platform?: string;
   seller_id?: string;
   commission_percent?: number;
   sale_date?: string;
@@ -680,7 +680,7 @@ export function useCreateCsvImport() {
   
   return useMutation({
     mutationFn: async (importData: {
-      platform: 'hotmart' | 'asaas';
+      platform: string;
       filename: string;
       records: {
         external_id: string;

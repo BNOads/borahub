@@ -77,7 +77,7 @@ export function CsvImport() {
   const salesFileInputRef = useRef<HTMLInputElement>(null);
   
   const [activeTab, setActiveTab] = useState("installments");
-  const [platform, setPlatform] = useState<"hotmart" | "asaas">("hotmart");
+  const [platform, setPlatform] = useState<"csv_hotmart" | "csv_asaas" | "csv_manual">("csv_manual");
   const [csvData, setCsvData] = useState<string[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<string, string>>({});
@@ -435,14 +435,15 @@ export function CsvImport() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
-                  <Label>Plataforma</Label>
-                  <Select value={platform} onValueChange={(v: "hotmart" | "asaas") => setPlatform(v)}>
+                  <Label>Plataforma de Origem</Label>
+                  <Select value={platform} onValueChange={(v: "csv_hotmart" | "csv_asaas" | "csv_manual") => setPlatform(v)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="hotmart">Hotmart</SelectItem>
-                      <SelectItem value="asaas">Asaas</SelectItem>
+                      <SelectItem value="csv_manual">CSV Manual</SelectItem>
+                      <SelectItem value="csv_hotmart">CSV Hotmart</SelectItem>
+                      <SelectItem value="csv_asaas">CSV Asaas</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -632,13 +633,14 @@ export function CsvImport() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-4">
-                <Select value={platform} onValueChange={(v: "hotmart" | "asaas") => setPlatform(v)}>
+                <Select value={platform} onValueChange={(v: "csv_hotmart" | "csv_asaas" | "csv_manual") => setPlatform(v)}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="hotmart">Hotmart</SelectItem>
-                    <SelectItem value="asaas">Asaas</SelectItem>
+                    <SelectItem value="csv_manual">CSV Manual</SelectItem>
+                    <SelectItem value="csv_hotmart">CSV Hotmart</SelectItem>
+                    <SelectItem value="csv_asaas">CSV Asaas</SelectItem>
                   </SelectContent>
                 </Select>
                 
