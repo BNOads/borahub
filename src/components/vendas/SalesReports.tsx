@@ -59,9 +59,13 @@ export function SalesReports() {
   const [sellerFilter, setSellerFilter] = useState<string>("all");
   const [commissionSort, setCommissionSort] = useState<{ column: string; direction: 'asc' | 'desc' }>({ column: 'sellerName', direction: 'asc' });
   
-  // Calculate seller performance
+  // Calculate seller performance based on COMMISSION COMPETENCE MONTH (not sale date)
+  // This ensures cards and detail table show consistent data
   const sellerPerformance = useMemo(() => {
     if (!sales || !commissions || !installments) return [];
+    
+    const rangeStart = startOfMonth(parseISO(dateRange.start));
+    const rangeEnd = endOfMonth(parseISO(dateRange.end));
     
     const sellerMap = new Map<string, {
       id: string;
@@ -85,25 +89,34 @@ export function SalesReports() {
       }>;
     }>();
     
-    // Filter sales by date range, platform, and seller
-    const filteredSales = sales.filter(sale => {
-      if (!sale.seller_id) return false;
-      
-      const saleDate = parseISO(sale.sale_date);
-      const inDateRange = isWithinInterval(saleDate, {
-        start: parseISO(dateRange.start),
-        end: parseISO(dateRange.end),
-      });
-      const matchesPlatform = platformFilter === "all" || sale.platform === platformFilter;
-      const matchesSeller = sellerFilter === "all" || sale.seller_id === sellerFilter;
-      return inDateRange && matchesPlatform && matchesSeller;
-    });
+    // Track which sales we've already counted (to avoid duplicates)
+    const countedSales = new Set<string>();
     
-    // Aggregate by seller
-    filteredSales.forEach(sale => {
-      const sellerId = sale.seller_id;
-      const sellerName = sale.seller?.full_name || 'Desconhecido';
-      const sellerEmail = sale.seller?.email || '';
+    // Build performance based on commissions with competence in range
+    commissions.forEach((comm: any) => {
+      const installment = comm.installment;
+      const sale = installment?.sale;
+      const seller = comm.seller;
+      
+      if (!installment || !sale || !sale.seller_id) return;
+      
+      // Check if commission competence is in date range
+      const inCompetenceRange = isWithinInterval(parseISO(comm.competence_month), {
+        start: rangeStart,
+        end: rangeEnd,
+      });
+      
+      if (!inCompetenceRange) return;
+      
+      // Apply filters
+      const matchesPlatform = platformFilter === "all" || sale.platform === platformFilter;
+      const matchesSeller = sellerFilter === "all" || comm.seller_id === sellerFilter;
+      
+      if (!matchesPlatform || !matchesSeller) return;
+      
+      const sellerId = comm.seller_id;
+      const sellerName = seller?.full_name || 'Desconhecido';
+      const sellerEmail = seller?.email || '';
       
       if (!sellerMap.has(sellerId)) {
         sellerMap.set(sellerId, {
@@ -122,13 +135,15 @@ export function SalesReports() {
         });
       }
       
-      const seller = sellerMap.get(sellerId)!;
-      if (sale.status === 'active') {
-        seller.totalSales += 1;
-        seller.totalRevenue += Number(sale.total_value);
+      const sellerData = sellerMap.get(sellerId)!;
+      
+      // Count sales only once per sale
+      if (!countedSales.has(sale.id) && sale.status === 'active') {
+        countedSales.add(sale.id);
+        sellerData.totalSales += 1;
+        sellerData.totalRevenue += Number(sale.total_value);
         
-        // Add sale details
-        seller.salesDetails.push({
+        sellerData.salesDetails.push({
           date: sale.sale_date,
           client: sale.client_name,
           product: sale.product_name,
@@ -137,45 +152,23 @@ export function SalesReports() {
           status: sale.status,
         });
       }
-    });
-    
-    // Create saleIds set for filtering
-    const saleIds = new Set(filteredSales.map(s => s.id));
-    
-    // Add commission data - ONLY for sales in the filtered period
-    commissions?.forEach(comm => {
-      // Find the installment and then the sale to check if it's in the filtered set
-      const installment = installments?.find(i => i.id === comm.installment_id);
-      if (installment && saleIds.has(installment.sale_id)) {
-        const seller = sellerMap.get(comm.seller_id);
-        if (seller) {
-          if (comm.status === 'released') {
-            seller.commissionReleased += Number(comm.commission_value);
-          } else if (comm.status === 'pending') {
-            seller.commissionPending += Number(comm.commission_value);
-          } else if (comm.status === 'suspended') {
-            seller.commissionSuspended += Number(comm.commission_value);
-          }
-        }
+      
+      // Add commission values
+      if (comm.status === 'released') {
+        sellerData.commissionReleased += Number(comm.commission_value);
+      } else if (comm.status === 'pending') {
+        sellerData.commissionPending += Number(comm.commission_value);
+      } else if (comm.status === 'suspended') {
+        sellerData.commissionSuspended += Number(comm.commission_value);
       }
-    });
-    
-    // Count installments by status
-    installments?.forEach(inst => {
-      if (saleIds.has(inst.sale_id)) {
-        const sale = sales.find(s => s.id === inst.sale_id);
-        if (sale) {
-          const seller = sellerMap.get(sale.seller_id);
-          if (seller) {
-            if (inst.status === 'overdue') {
-              seller.overdueInstallments += 1;
-            } else if (inst.status === 'paid') {
-              seller.paidInstallments += 1;
-            } else if (inst.status === 'pending') {
-              seller.pendingInstallments += 1;
-            }
-          }
-        }
+      
+      // Count installment statuses
+      if (installment.status === 'overdue') {
+        sellerData.overdueInstallments += 1;
+      } else if (installment.status === 'paid') {
+        sellerData.paidInstallments += 1;
+      } else if (installment.status === 'pending') {
+        sellerData.pendingInstallments += 1;
       }
     });
     
@@ -313,38 +306,52 @@ export function SalesReports() {
     }));
   }
   
-  // Calculate revenue by status
+  // Calculate revenue by status - based on COMMISSION COMPETENCE MONTH
+  // This ensures consistency with the cards and detail table
   const revenueByStatus = useMemo(() => {
-    if (!installments || !sales) return { received: 0, pending: 0, overdue: 0 };
+    if (!commissions) return { received: 0, pending: 0, overdue: 0 };
     
-    const saleIds = new Set(
-      sales
-        .filter(s => {
-          if (!s.seller_id) return false;
-          const saleDate = parseISO(s.sale_date);
-          return isWithinInterval(saleDate, {
-            start: parseISO(dateRange.start),
-            end: parseISO(dateRange.end),
-          }) && (platformFilter === "all" || s.platform === platformFilter)
-            && (sellerFilter === "all" || s.seller_id === sellerFilter);
-        })
-        .map(s => s.id)
-    );
+    const rangeStart = startOfMonth(parseISO(dateRange.start));
+    const rangeEnd = endOfMonth(parseISO(dateRange.end));
     
-    return installments.reduce((acc, inst) => {
-      if (!saleIds.has(inst.sale_id)) return acc;
+    // Track installments we've already counted to avoid duplicates
+    const countedInstallments = new Set<string>();
+    
+    return commissions.reduce((acc: { received: number; pending: number; overdue: number }, comm: any) => {
+      const installment = comm.installment;
+      const sale = installment?.sale;
       
-      const value = Number(inst.value);
-      if (inst.status === 'paid') {
+      if (!installment || !sale || !sale.seller_id) return acc;
+      
+      // Check if commission competence is in date range
+      const inCompetenceRange = isWithinInterval(parseISO(comm.competence_month), {
+        start: rangeStart,
+        end: rangeEnd,
+      });
+      
+      if (!inCompetenceRange) return acc;
+      
+      // Apply filters
+      const matchesPlatform = platformFilter === "all" || sale.platform === platformFilter;
+      const matchesSeller = sellerFilter === "all" || comm.seller_id === sellerFilter;
+      
+      if (!matchesPlatform || !matchesSeller) return acc;
+      
+      // Only count each installment once
+      if (countedInstallments.has(installment.id)) return acc;
+      countedInstallments.add(installment.id);
+      
+      const value = Number(installment.value);
+      if (installment.status === 'paid') {
         acc.received += value;
-      } else if (inst.status === 'pending') {
+      } else if (installment.status === 'pending') {
         acc.pending += value;
-      } else if (inst.status === 'overdue') {
+      } else if (installment.status === 'overdue') {
         acc.overdue += value;
       }
       return acc;
     }, { received: 0, pending: 0, overdue: 0 });
-  }, [installments, sales, dateRange, platformFilter, sellerFilter]);
+  }, [commissions, dateRange, platformFilter, sellerFilter]);
   
   function exportToCSV() {
     const headers = ['Vendedor', 'Email', 'Total Vendas', 'Faturamento', 'Comissão Liberada', 'Comissão Pendente', 'Comissão Suspensa', 'Parcelas Pagas', 'Parcelas Pendentes', 'Inadimplência'];
