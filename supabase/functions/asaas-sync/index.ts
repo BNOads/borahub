@@ -6,7 +6,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ASAAS_BASE_URL = "https://api.asaas.com/v3";
+function getAsaasBaseUrl(): string {
+  // Supported env vars (configure as secrets):
+  // - ASAAS_BASE_URL: full base URL override (e.g. https://sandbox.asaas.com/api/v3)
+  // - ASAAS_ENV: "sandbox" | "prod" (default: prod)
+  const explicit = Deno.env.get("ASAAS_BASE_URL")?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+
+  const env = (Deno.env.get("ASAAS_ENV") || "prod").trim().toLowerCase();
+  if (env === "sandbox") return "https://sandbox.asaas.com/api/v3";
+  return "https://api.asaas.com/v3";
+}
 
 const ASAAS_STATUS_MAP: Record<string, string> = {
   "RECEIVED": "paid",
@@ -60,6 +70,8 @@ serve(async (req) => {
 
     console.log(`[asaas-sync] Action: ${action}`, params);
 
+    const ASAAS_BASE_URL = getAsaasBaseUrl();
+
     const asaasHeaders = {
       "Content-Type": "application/json",
       "access_token": ASAAS_API_KEY,
@@ -76,12 +88,14 @@ serve(async (req) => {
 
         console.log(`[asaas-sync] Fetching payments from: ${url}`);
 
-        const response = await fetch(url, { headers: asaasHeaders });
+         const response = await fetch(url, { headers: asaasHeaders });
         
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`[asaas-sync] Asaas API error: ${errorText}`);
-          throw new Error(`Asaas API error: ${response.status} - ${errorText}`);
+           throw new Error(
+             `Asaas API error (${ASAAS_BASE_URL}): ${response.status} - ${errorText}`
+           );
         }
 
         const data = await response.json();
@@ -116,9 +130,11 @@ serve(async (req) => {
           if (endDate) url += `&dateCreated[le]=${endDate}`;
 
           const response = await fetch(url, { headers: asaasHeaders });
-          if (!response.ok) {
+           if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Asaas API error: ${response.status} - ${errorText}`);
+             throw new Error(
+               `Asaas API error (${ASAAS_BASE_URL}): ${response.status} - ${errorText}`
+             );
           }
 
           const data = await response.json();
@@ -333,7 +349,7 @@ serve(async (req) => {
               { headers: asaasHeaders }
             );
 
-            if (!response.ok) {
+               if (!response.ok) {
               console.log(`[asaas-sync] Payment ${sale.external_id} not found`);
               continue;
             }
