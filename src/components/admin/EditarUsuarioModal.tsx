@@ -7,6 +7,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,6 +21,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Profile } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useDepartments } from '@/hooks/useDepartments';
 
 interface EditarUsuarioModalProps {
     open: boolean;
@@ -29,12 +38,14 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
     onSuccess,
 }) => {
     const { toast } = useToast();
+    const { departments } = useDepartments();
     const [isLoading, setIsLoading] = useState(false);
 
     const [formData, setFormData] = useState({
         full_name: user.full_name,
         display_name: user.display_name || '',
         job_title: user.job_title || '',
+        department_id: user.department_id || '',
         phone: user.phone || '',
         bio: user.bio || '',
     });
@@ -45,6 +56,7 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
             full_name: user.full_name,
             display_name: user.display_name || '',
             job_title: user.job_title || '',
+            department_id: user.department_id || '',
             phone: user.phone || '',
             bio: user.bio || '',
         });
@@ -55,8 +67,21 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
         setIsLoading(true);
 
         try {
-            // Nesta versão simplificada, apenas simulamos a atualização
-            // pois a tabela profiles não existe no banco externo
+            const { error } = await supabase
+                .from('profiles')
+                .update({
+                    full_name: formData.full_name,
+                    display_name: formData.display_name || null,
+                    job_title: formData.job_title || null,
+                    department_id: formData.department_id || null,
+                    phone: formData.phone || null,
+                    bio: formData.bio || null,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', user.id);
+
+            if (error) throw error;
+
             toast({
                 title: 'Perfil atualizado!',
                 description: 'As informações do usuário foram atualizadas com sucesso.',
@@ -107,6 +132,27 @@ export const EditarUsuarioModal: React.FC<EditarUsuarioModalProps> = ({
                                 onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
                                 disabled={isLoading}
                             />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="department_id">Departamento</Label>
+                            <Select
+                                value={formData.department_id}
+                                onValueChange={(value) => setFormData({ ...formData, department_id: value })}
+                                disabled={isLoading}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione um departamento" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">Nenhum</SelectItem>
+                                    {departments.map((dept) => (
+                                        <SelectItem key={dept.id} value={dept.id}>
+                                            {dept.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
 
                         <div className="space-y-2">

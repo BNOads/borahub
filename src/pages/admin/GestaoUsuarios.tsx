@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Table,
     TableBody,
@@ -28,24 +29,30 @@ import {
     UserX,
     UserCheck,
     KeyRound,
-    Edit
+    Edit,
+    Users,
+    Building2,
+    ListTodo
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { NovoUsuarioModal } from '@/components/admin/NovoUsuarioModal';
 import { EditarUsuarioModal } from '@/components/admin/EditarUsuarioModal';
 import { ResetSenhaDialog } from '@/components/admin/ResetSenhaDialog';
 import { UserTasksModal } from '@/components/admin/UserTasksModal';
+import { DepartamentosTab } from '@/components/admin/DepartamentosTab';
 import { Profile } from '@/contexts/AuthContext';
-import { ListTodo } from 'lucide-react';
+import { useDepartments } from '@/hooks/useDepartments';
 
 export default function GestaoUsuarios() {
     const { profile: currentUser } = useAuth();
     const { toast } = useToast();
+    const { departments } = useDepartments();
 
     const [usuarios, setUsuarios] = useState<Profile[]>([]);
     const [filteredUsuarios, setFilteredUsuarios] = useState<Profile[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('usuarios');
 
     const [showNovoUsuarioModal, setShowNovoUsuarioModal] = useState(false);
     const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
@@ -57,18 +64,27 @@ export default function GestaoUsuarios() {
     const loadUsuarios = async () => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
+            // Fetch profiles
+            const { data: profiles, error: profilesError } = await supabase
                 .from('profiles')
                 .select('*')
                 .order('created_at', { ascending: false });
 
-            if (error) throw error;
+            if (profilesError) throw profilesError;
+
+            // Fetch user roles
+            const { data: roles, error: rolesError } = await supabase
+                .from('user_roles')
+                .select('user_id, role');
+
+            if (rolesError) console.warn('Error fetching roles:', rolesError);
+
+            // Map roles to profiles
+            const rolesMap = new Map(roles?.map(r => [r.user_id, r.role]) || []);
             
-            // Add default role to all profiles
-            const profilesWithRoles = (data || []).map((profile: any) => ({
+            const profilesWithRoles = (profiles || []).map((profile: any) => ({
                 ...profile,
-                role: 'collaborator' as const,
-                department: profile.department_id || undefined,
+                role: rolesMap.get(profile.id) || 'collaborator',
             }));
             
             setUsuarios(profilesWithRoles as Profile[]);
@@ -93,15 +109,16 @@ export default function GestaoUsuarios() {
     useEffect(() => {
         const filtered = usuarios.filter(user => {
             const searchLower = searchTerm.toLowerCase();
+            const dept = departments.find(d => d.id === user.department_id);
             return (
                 user.full_name.toLowerCase().includes(searchLower) ||
                 user.email.toLowerCase().includes(searchLower) ||
-                user.department?.toLowerCase().includes(searchLower) ||
+                dept?.name.toLowerCase().includes(searchLower) ||
                 user.job_title?.toLowerCase().includes(searchLower)
             );
         });
         setFilteredUsuarios(filtered);
-    }, [searchTerm, usuarios]);
+    }, [searchTerm, usuarios, departments]);
 
     // Alternar permissão admin
     const handleToggleAdmin = async (user: Profile) => {
@@ -219,6 +236,12 @@ export default function GestaoUsuarios() {
         return new Date(date).toLocaleDateString('pt-BR');
     };
 
+    const getDepartmentName = (departmentId?: string) => {
+        if (!departmentId) return '-';
+        const dept = departments.find(d => d.id === departmentId);
+        return dept?.name || '-';
+    };
+
     return (
         <div className="container mx-auto py-8 px-4">
             {/* Header */}
@@ -229,160 +252,179 @@ export default function GestaoUsuarios() {
                         {usuarios.length} usuários cadastrados
                     </p>
                 </div>
-
-                <Button onClick={() => setShowNovoUsuarioModal(true)}>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Adicionar Usuário
-                </Button>
             </div>
 
-            {/* Search */}
-            <div className="mb-6">
-                <div className="relative max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Buscar por nome, email, departamento..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9"
-                    />
-                </div>
-            </div>
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <TabsList>
+                    <TabsTrigger value="usuarios" className="gap-2">
+                        <Users className="w-4 h-4" />
+                        Usuários
+                    </TabsTrigger>
+                    <TabsTrigger value="departamentos" className="gap-2">
+                        <Building2 className="w-4 h-4" />
+                        Departamentos
+                    </TabsTrigger>
+                </TabsList>
 
-            {/* Table */}
-            <div className="border rounded-lg overflow-hidden bg-card">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Usuário</TableHead>
-                            <TableHead>Departamento</TableHead>
-                            <TableHead>Cargo</TableHead>
-                            <TableHead>Permissão</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Último acesso</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredUsuarios.map((user) => (
-                            <TableRow
-                                key={user.id}
-                                className="cursor-pointer hover:bg-accent/5"
-                                onClick={() => {
-                                    setSelectedUser(user);
-                                    setShowTasksModal(true);
-                                }}
-                            >
-                                <TableCell>
-                                    <div className="flex items-center gap-3">
-                                        <Avatar>
-                                            <AvatarImage src={user.avatar_url} />
-                                            <AvatarFallback>{getInitials(user.full_name)}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <p className="font-medium">{user.full_name}</p>
-                                            <p className="text-sm text-muted-foreground">{user.email}</p>
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell>{user.department || '-'}</TableCell>
-                                <TableCell>{user.job_title || '-'}</TableCell>
-                                <TableCell>
-                                    <Badge
-                                        variant={user.role === 'admin' ? 'default' : 'secondary'}
-                                        className={user.role === 'admin' ? 'bg-amber-500 hover:bg-amber-600' : ''}
-                                    >
-                                        {user.role === 'admin' && <Shield className="w-3 h-3 mr-1" />}
-                                        {user.role === 'admin' ? 'Admin' : 'Colaborador'}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>
-                                    <Badge variant={user.is_active ? 'default' : 'destructive'}>
-                                        {user.is_active ? 'Ativo' : 'Inativo'}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>{formatDate(user.last_login_at)}</TableCell>
-                                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon">
-                                                <MoreVertical className="w-4 h-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => {
-                                                setSelectedUser(user);
-                                                setShowTasksModal(true);
-                                            }}>
-                                                <ListTodo className="w-4 h-4 mr-2" />
-                                                Ver Tarefas
-                                            </DropdownMenuItem>
-
-                                            <DropdownMenuItem onClick={() => {
-                                                setSelectedUser(user);
-                                                setShowEditarModal(true);
-                                            }}>
-                                                <Edit className="w-4 h-4 mr-2" />
-                                                Editar perfil
-                                            </DropdownMenuItem>
-
-                                            <DropdownMenuItem onClick={() => {
-                                                setSelectedUser(user);
-                                                setShowResetDialog(true);
-                                            }}>
-                                                <KeyRound className="w-4 h-4 mr-2" />
-                                                Resetar senha
-                                            </DropdownMenuItem>
-
-                                            <DropdownMenuItem
-                                                onClick={() => handleToggleAdmin(user)}
-                                                disabled={user.id === currentUser?.id}
-                                            >
-                                                {user.role === 'admin' ? (
-                                                    <>
-                                                        <ShieldOff className="w-4 h-4 mr-2" />
-                                                        Remover Admin
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Shield className="w-4 h-4 mr-2" />
-                                                        Tornar Admin
-                                                    </>
-                                                )}
-                                            </DropdownMenuItem>
-
-                                            <DropdownMenuItem
-                                                onClick={() => handleToggleActive(user)}
-                                                disabled={user.id === currentUser?.id}
-                                            >
-                                                {user.is_active ? (
-                                                    <>
-                                                        <UserX className="w-4 h-4 mr-2" />
-                                                        Desativar
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <UserCheck className="w-4 h-4 mr-2" />
-                                                        Reativar
-                                                    </>
-                                                )}
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-
-                {filteredUsuarios.length === 0 && (
-                    <div className="text-center py-12">
-                        <p className="text-muted-foreground">
-                            {searchTerm ? 'Nenhum usuário encontrado.' : 'Nenhum usuário cadastrado.'}
-                        </p>
+                <TabsContent value="usuarios" className="space-y-6">
+                    {/* Search and Add */}
+                    <div className="flex flex-col sm:flex-row gap-4 justify-between">
+                        <div className="relative max-w-md flex-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Buscar por nome, email, departamento..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-9"
+                            />
+                        </div>
+                        <Button onClick={() => setShowNovoUsuarioModal(true)}>
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Adicionar Usuário
+                        </Button>
                     </div>
-                )}
-            </div>
+
+                    {/* Table */}
+                    <div className="border rounded-lg overflow-hidden bg-card">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Usuário</TableHead>
+                                    <TableHead>Departamento</TableHead>
+                                    <TableHead>Cargo</TableHead>
+                                    <TableHead>Permissão</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Último acesso</TableHead>
+                                    <TableHead className="text-right">Ações</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredUsuarios.map((user) => (
+                                    <TableRow
+                                        key={user.id}
+                                        className="cursor-pointer hover:bg-accent/5"
+                                        onClick={() => {
+                                            setSelectedUser(user);
+                                            setShowTasksModal(true);
+                                        }}
+                                    >
+                                        <TableCell>
+                                            <div className="flex items-center gap-3">
+                                                <Avatar>
+                                                    <AvatarImage src={user.avatar_url} />
+                                                    <AvatarFallback>{getInitials(user.full_name)}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <p className="font-medium">{user.full_name}</p>
+                                                    <p className="text-sm text-muted-foreground">{user.email}</p>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>{getDepartmentName(user.department_id)}</TableCell>
+                                        <TableCell>{user.job_title || '-'}</TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant={user.role === 'admin' ? 'default' : 'secondary'}
+                                                className={user.role === 'admin' ? 'bg-amber-500 hover:bg-amber-600' : ''}
+                                            >
+                                                {user.role === 'admin' && <Shield className="w-3 h-3 mr-1" />}
+                                                {user.role === 'admin' ? 'Admin' : 'Colaborador'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={user.is_active ? 'default' : 'destructive'}>
+                                                {user.is_active ? 'Ativo' : 'Inativo'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>{formatDate(user.last_login_at)}</TableCell>
+                                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon">
+                                                        <MoreVertical className="w-4 h-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem onClick={() => {
+                                                        setSelectedUser(user);
+                                                        setShowTasksModal(true);
+                                                    }}>
+                                                        <ListTodo className="w-4 h-4 mr-2" />
+                                                        Ver Tarefas
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuItem onClick={() => {
+                                                        setSelectedUser(user);
+                                                        setShowEditarModal(true);
+                                                    }}>
+                                                        <Edit className="w-4 h-4 mr-2" />
+                                                        Editar perfil
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuItem onClick={() => {
+                                                        setSelectedUser(user);
+                                                        setShowResetDialog(true);
+                                                    }}>
+                                                        <KeyRound className="w-4 h-4 mr-2" />
+                                                        Resetar senha
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleToggleAdmin(user)}
+                                                        disabled={user.id === currentUser?.id}
+                                                    >
+                                                        {user.role === 'admin' ? (
+                                                            <>
+                                                                <ShieldOff className="w-4 h-4 mr-2" />
+                                                                Remover Admin
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Shield className="w-4 h-4 mr-2" />
+                                                                Tornar Admin
+                                                            </>
+                                                        )}
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleToggleActive(user)}
+                                                        disabled={user.id === currentUser?.id}
+                                                    >
+                                                        {user.is_active ? (
+                                                            <>
+                                                                <UserX className="w-4 h-4 mr-2" />
+                                                                Desativar
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <UserCheck className="w-4 h-4 mr-2" />
+                                                                Reativar
+                                                            </>
+                                                        )}
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+
+                        {filteredUsuarios.length === 0 && (
+                            <div className="text-center py-12">
+                                <p className="text-muted-foreground">
+                                    {searchTerm ? 'Nenhum usuário encontrado.' : 'Nenhum usuário cadastrado.'}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="departamentos">
+                    <DepartamentosTab />
+                </TabsContent>
+            </Tabs>
 
             {/* Modals */}
             <NovoUsuarioModal
