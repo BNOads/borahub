@@ -34,7 +34,6 @@ export function InstallmentsManagement() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all");
   const [platformFilter, setPlatformFilter] = useState<string>("all");
-  const [showWithoutSeller, setShowWithoutSeller] = useState<boolean>(false);
   
   // Fetch last sync info
   const { data: lastSync } = useQuery({
@@ -54,15 +53,8 @@ export function InstallmentsManagement() {
     refetchInterval: 60000, // Refetch every minute
   });
   
-  // Filter installments based on seller assignment preference
-  const baseInstallments = installments?.filter(inst => {
-    // If showWithoutSeller is true, show all installments (with or without seller)
-    // Otherwise, only show installments from sales with assigned seller
-    if (showWithoutSeller) {
-      return true;
-    }
-    return inst.sale?.seller_id;
-  }) || [];
+  // Filter only installments from sales with assigned seller
+  const baseInstallments = installments?.filter(inst => inst.sale?.seller_id) || [];
   
   const filteredInstallments = baseInstallments.filter(inst => {
     const matchesSearch = 
@@ -215,14 +207,6 @@ export function InstallmentsManagement() {
               <SelectItem value="manual">Manual</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            variant={showWithoutSeller ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowWithoutSeller(!showWithoutSeller)}
-            className="whitespace-nowrap"
-          >
-            {showWithoutSeller ? "Todas as Vendas" : "Só Com Vendedor"}
-          </Button>
         </div>
         
         <div className="flex flex-col items-end gap-1">
@@ -232,7 +216,7 @@ export function InstallmentsManagement() {
             variant="outline"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${syncInstallments.isPending ? 'animate-spin' : ''}`} />
-            {syncInstallments.isPending ? 'Sincronizando...' : 'Sincronizar Hotmart'}
+            {syncInstallments.isPending ? 'Sincronizando...' : 'Sincronizar Hotmart e Asaas'}
           </Button>
           {lastSync && (
             <span className="text-xs text-muted-foreground">
