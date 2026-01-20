@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -27,7 +27,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCreateSale, useProducts } from "@/hooks/useSales";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search, CheckCircle, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 
 const formSchema = z.object({
   external_id: z.string().min(1, "ID obrigatório"),
@@ -56,6 +57,8 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
   const createSale = useCreateSale();
   const [sellers, setSellers] = useState<{ id: string; full_name: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupStatus, setLookupStatus] = useState<"idle" | "success" | "error">("idle");
   
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -77,7 +80,6 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
   
   useEffect(() => {
     async function fetchSellers() {
-      // Fetch users from Vendas department
       const { data: salesDept } = await supabase
         .from('departments')
         .select('id')
@@ -93,7 +95,6 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
         
         setSellers(data || []);
       } else {
-        // Fallback: fetch all active users
         const { data } = await supabase
           .from('profiles')
           .select('id, full_name')
@@ -105,6 +106,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
     
     if (open) {
       fetchSellers();
+      setLookupStatus("idle");
     }
   }, [open]);
   
@@ -116,6 +118,79 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
       form.setValue("commission_percent", Number(selectedProduct.default_commission_percent));
     }
   }, [selectedProduct, form]);
+
+  const lookupSale = useCallback(async () => {
+    const externalId = form.getValues("external_id");
+    const platform = form.getValues("platform");
+
+    if (!externalId || externalId.length < 5) {
+      toast.error("Insira um ID válido para consultar");
+      return;
+    }
+
+    if (platform !== "hotmart") {
+      toast.info("Consulta automática disponível apenas para Hotmart");
+      return;
+    }
+
+    setLookupLoading(true);
+    setLookupStatus("idle");
+
+    try {
+      const { data, error } = await supabase.functions.invoke("hotmart-sync", {
+        body: { action: "get_sale_summary", transactionId: externalId },
+      });
+
+      if (error) throw error;
+
+      const saleInfo = data?.summary?.items?.[0];
+      if (!saleInfo) {
+        setLookupStatus("error");
+        toast.error("Venda não encontrada na Hotmart");
+        return;
+      }
+
+      const buyer = saleInfo.buyer;
+      const product = saleInfo.product;
+      const purchase = saleInfo.purchase;
+
+      if (buyer?.name) form.setValue("client_name", buyer.name);
+      if (buyer?.email) form.setValue("client_email", buyer.email);
+      if (buyer?.phone) form.setValue("client_phone", buyer.phone || "");
+      if (product?.name) form.setValue("product_name", product.name);
+      if (purchase?.price?.value) form.setValue("total_value", purchase.price.value);
+      if (purchase?.payment?.installments_number) {
+        form.setValue("installments_count", purchase.payment.installments_number);
+      }
+      if (purchase?.approved_date) {
+        const saleDate = new Date(purchase.approved_date).toISOString().split("T")[0];
+        form.setValue("sale_date", saleDate);
+      } else if (purchase?.order_date) {
+        const saleDate = new Date(purchase.order_date).toISOString().split("T")[0];
+        form.setValue("sale_date", saleDate);
+      }
+
+      if (product?.name && products) {
+        const matchedProduct = products.find(
+          p => p.name.toLowerCase() === product.name.toLowerCase() ||
+               p.description?.includes(product.ucode)
+        );
+        if (matchedProduct) {
+          form.setValue("product_id", matchedProduct.id);
+          form.setValue("commission_percent", Number(matchedProduct.default_commission_percent));
+        }
+      }
+
+      setLookupStatus("success");
+      toast.success("Dados da venda carregados com sucesso!");
+    } catch (err: any) {
+      console.error("Lookup error:", err);
+      setLookupStatus("error");
+      toast.error("Erro ao consultar venda: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setLookupLoading(false);
+    }
+  }, [form, products]);
   
   async function onSubmit(values: FormValues) {
     setLoading(true);
@@ -153,20 +228,6 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="external_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>ID da Plataforma *</FormLabel>
-                    <FormControl>
-                      <Input placeholder="ID Hotmart ou Asaas" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
                 name="platform"
                 render={({ field }) => (
                   <FormItem>
@@ -186,7 +247,51 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="external_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>ID da Transação *</FormLabel>
+                    <div className="flex gap-2">
+                      <FormControl>
+                        <Input 
+                          placeholder="Ex: HP1234567890" 
+                          {...field} 
+                          className="flex-1"
+                        />
+                      </FormControl>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={lookupSale}
+                        disabled={lookupLoading || form.watch("platform") !== "hotmart"}
+                        title={form.watch("platform") === "hotmart" ? "Consultar na Hotmart" : "Consulta disponível apenas para Hotmart"}
+                      >
+                        {lookupLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : lookupStatus === "success" ? (
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                        ) : lookupStatus === "error" ? (
+                          <AlertCircle className="h-4 w-4 text-destructive" />
+                        ) : (
+                          <Search className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
+
+            {form.watch("platform") === "hotmart" && (
+              <p className="text-xs text-muted-foreground -mt-2">
+                Digite o ID da transação (HP...) e clique no botão de busca para preencher automaticamente os dados.
+              </p>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FormField
@@ -239,7 +344,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Produto Cadastrado</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um produto" />
@@ -325,7 +430,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Vendedor *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione o vendedor" />
