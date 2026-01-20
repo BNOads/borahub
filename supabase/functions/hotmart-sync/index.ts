@@ -17,6 +17,17 @@ interface HotmartProduct {
   name: string;
   ucode: string;
   status: string;
+  price?: number;
+}
+
+interface HotmartProductPlan {
+  price: {
+    currency_code: string;
+    value: number;
+  };
+  payment_mode: string;
+  name: string;
+  code: string;
 }
 
 interface HotmartSale {
@@ -102,7 +113,31 @@ async function getAccessToken(): Promise<string> {
   return data.access_token;
 }
 
-async function fetchProducts(accessToken: string): Promise<HotmartProduct[]> {
+async function fetchProductPlans(accessToken: string, productId: number): Promise<HotmartProductPlan[]> {
+  try {
+    const url = `https://developers.hotmart.com/products/api/v1/products/${productId}/plans`;
+
+    const response = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.log(`No plans found for product ${productId}`);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.items || [];
+  } catch (err) {
+    console.error(`Error fetching plans for product ${productId}:`, err);
+    return [];
+  }
+}
+
+async function fetchProducts(accessToken: string, includePrices: boolean = false): Promise<HotmartProduct[]> {
   console.log("Fetching products from Hotmart");
 
   const allProducts: HotmartProduct[] = [];
@@ -137,6 +172,21 @@ async function fetchProducts(accessToken: string): Promise<HotmartProduct[]> {
     // Rate limiting: wait 100ms between requests
     if (!nextPageToken) break;
     await new Promise((r) => setTimeout(r, 100));
+  }
+
+  // Fetch prices for each product if requested
+  if (includePrices) {
+    console.log("Fetching prices for products...");
+    for (const product of allProducts) {
+      const plans = await fetchProductPlans(accessToken, product.id);
+      if (plans.length > 0) {
+        // Get the highest price among all plans (main product price)
+        const maxPrice = Math.max(...plans.map(p => p.price?.value || 0));
+        product.price = maxPrice;
+      }
+      // Rate limiting
+      await new Promise((r) => setTimeout(r, 100));
+    }
   }
 
   console.log(`Fetched ${allProducts.length} products`);
@@ -269,7 +319,8 @@ serve(async (req) => {
       }
 
       case "sync_products": {
-        const hotmartProducts = await fetchProducts(accessToken);
+        // Fetch products with prices
+        const hotmartProducts = await fetchProducts(accessToken, true);
         
         let created = 0;
         let updated = 0;
@@ -287,6 +338,7 @@ serve(async (req) => {
             name: product.name,
             description: `Hotmart ID: ${product.id} | UCode: ${product.ucode}`,
             is_active: product.status === "ACTIVE",
+            price: product.price || 0,
           };
           
           if (existingProduct) {
@@ -306,7 +358,7 @@ serve(async (req) => {
           }
         }
         
-        return new Response(JSON.stringify({ 
+        return new Response(JSON.stringify({
           success: true, 
           total: hotmartProducts.length,
           created,
