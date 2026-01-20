@@ -51,7 +51,10 @@ export function InstallmentsManagement() {
     refetchInterval: 60000, // Refetch every minute
   });
   
-  const filteredInstallments = installments?.filter(inst => {
+  // Filter only installments from sales with assigned seller
+  const installmentsWithSeller = installments?.filter(inst => inst.sale?.seller_id) || [];
+  
+  const filteredInstallments = installmentsWithSeller.filter(inst => {
     const matchesSearch = 
       inst.sale?.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inst.sale?.external_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -60,7 +63,7 @@ export function InstallmentsManagement() {
     const matchesStatus = statusFilter === "all" || inst.status === statusFilter;
     
     return matchesSearch && matchesStatus;
-  }) || [];
+  });
   
   const statusIcons = {
     pending: <Clock className="h-4 w-4" />,
