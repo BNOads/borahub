@@ -321,7 +321,7 @@ export function SalesReports() {
       const installment = comm.installment;
       const sale = installment?.sale;
       
-      if (!installment || !sale || !sale.seller_id) return acc;
+      if (!installment || !sale || !comm.seller_id) return acc;
       
       // Check if commission competence is in date range
       const inCompetenceRange = isWithinInterval(parseISO(comm.competence_month), {
