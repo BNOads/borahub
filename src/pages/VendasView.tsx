@@ -4,12 +4,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SalesDashboard } from "@/components/vendas/SalesDashboard";
 import { SalesManagement } from "@/components/vendas/SalesManagement";
 import { InstallmentsManagement } from "@/components/vendas/InstallmentsManagement";
-import { CsvImport } from "@/components/vendas/CsvImport";
 import { HotmartSync } from "@/components/vendas/HotmartSync";
 import { SyncLogs } from "@/components/vendas/SyncLogs";
 import { ProductsManagement } from "@/components/vendas/ProductsManagement";
 import { SalesReports } from "@/components/vendas/SalesReports";
-import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, Upload, RefreshCw, History } from "lucide-react";
+import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, RefreshCw, History } from "lucide-react";
 
 export default function VendasView() {
   const { profile } = useAuth();
@@ -34,7 +33,7 @@ export default function VendasView() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 h-auto gap-1">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 h-auto gap-1">
           <TabsTrigger value="dashboard" className="flex items-center gap-2 py-2">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Dashboard</span>
@@ -54,10 +53,6 @@ export default function VendasView() {
           <TabsTrigger value="sync-logs" className="flex items-center gap-2 py-2">
             <History className="h-4 w-4" />
             <span className="hidden sm:inline">Logs</span>
-          </TabsTrigger>
-          <TabsTrigger value="importar" className="flex items-center gap-2 py-2">
-            <Upload className="h-4 w-4" />
-            <span className="hidden sm:inline">CSV</span>
           </TabsTrigger>
           <TabsTrigger value="produtos" className="flex items-center gap-2 py-2">
             <Package className="h-4 w-4" />
@@ -87,10 +82,6 @@ export default function VendasView() {
 
         <TabsContent value="sync-logs" className="space-y-4">
           <SyncLogs />
-        </TabsContent>
-
-        <TabsContent value="importar" className="space-y-4">
-          <CsvImport />
         </TabsContent>
 
         <TabsContent value="produtos" className="space-y-4">
