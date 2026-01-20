@@ -31,19 +31,21 @@ interface HotmartProductPlan {
 }
 
 interface HotmartSale {
-  transaction: string;
   product: {
     id: number;
     name: string;
-    ucode: string;
+    ucode?: string;
   };
   buyer: {
     name: string;
     email: string;
     phone?: string;
+    ucode?: string;
   };
   purchase: {
+    transaction: string;
     approved_date?: number;
+    order_date?: number;
     status: string;
     price: {
       value: number;
@@ -52,11 +54,14 @@ interface HotmartSale {
     payment: {
       type: string;
       installments_number: number;
+      method?: string;
     };
     recurrency_number?: number;
+    is_subscription?: boolean;
   };
   producer?: {
     name: string;
+    ucode?: string;
   };
   affiliates?: Array<{
     affiliate_code: string;
@@ -313,7 +318,32 @@ serve(async (req) => {
     switch (action) {
       case "get_products": {
         const products = await fetchProducts(accessToken);
-        return new Response(JSON.stringify({ success: true, products }), {
+        
+        // Fetch recent sales to get product prices
+        console.log("Fetching recent sales to get product prices for get_products...");
+        const endDate = new Date();
+        const startDate = new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000); // Last 90 days
+        const recentSales = await fetchSalesHistory(accessToken, startDate, endDate);
+        
+        // Build price map from sales (using product.id)
+        const productPrices = new Map<number, number>();
+        for (const sale of recentSales) {
+          const productId = sale.product.id;
+          const price = sale.purchase.price.value;
+          // Keep the highest price found for each product
+          if (!productPrices.has(productId) || price > productPrices.get(productId)!) {
+            productPrices.set(productId, price);
+          }
+        }
+        console.log(`Found prices for ${productPrices.size} products from sales`);
+        
+        // Add prices to products
+        const productsWithPrices = products.map(product => ({
+          ...product,
+          price: productPrices.get(product.id) || 0,
+        }));
+        
+        return new Response(JSON.stringify({ success: true, products: productsWithPrices }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -328,14 +358,14 @@ serve(async (req) => {
         const startDate = new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000); // Last 90 days
         const recentSales = await fetchSalesHistory(accessToken, startDate, endDate);
         
-        // Build price map from sales
-        const productPrices = new Map<string, number>();
+        // Build price map from sales (using product.id)
+        const productPrices = new Map<number, number>();
         for (const sale of recentSales) {
-          const ucode = sale.product.ucode;
+          const productId = sale.product.id;
           const price = sale.purchase.price.value;
           // Keep the highest price found for each product
-          if (!productPrices.has(ucode) || price > productPrices.get(ucode)!) {
-            productPrices.set(ucode, price);
+          if (!productPrices.has(productId) || price > productPrices.get(productId)!) {
+            productPrices.set(productId, price);
           }
         }
         console.log(`Found prices for ${productPrices.size} products from sales`);
@@ -353,7 +383,7 @@ serve(async (req) => {
             .maybeSingle();
           
           // Get price from sales or default to 0
-          const priceFromSales = productPrices.get(product.ucode) || 0;
+          const priceFromSales = productPrices.get(product.id) || 0;
           
           const productData = {
             name: product.name,
@@ -514,7 +544,7 @@ serve(async (req) => {
         for (const sale of sales) {
           try {
             const saleData = {
-              external_id: sale.transaction,
+              external_id: sale.purchase.transaction,
               client_name: sale.buyer.name,
               client_email: sale.buyer.email,
               client_phone: sale.buyer.phone || null,
@@ -534,7 +564,7 @@ serve(async (req) => {
             const { data: existingSale } = await supabase
               .from("sales")
               .select("id")
-              .eq("external_id", sale.transaction)
+              .eq("external_id", sale.purchase.transaction)
               .single();
             
             if (existingSale) {
@@ -622,9 +652,9 @@ serve(async (req) => {
             }
           } catch (error: unknown) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error("Error processing sale:", sale.transaction, error);
+            console.error("Error processing sale:", sale.purchase.transaction, error);
             failed++;
-            errors.push(`${sale.transaction}: ${errorMessage}`);
+            errors.push(`${sale.purchase.transaction}: ${errorMessage}`);
           }
         }
         
@@ -705,7 +735,7 @@ serve(async (req) => {
           for (const sale of sales) {
             try {
               const saleData = {
-                external_id: sale.transaction,
+                external_id: sale.purchase.transaction,
                 client_name: sale.buyer.name,
                 client_email: sale.buyer.email,
                 client_phone: sale.buyer.phone || null,
@@ -725,7 +755,7 @@ serve(async (req) => {
               const { data: existingSale } = await supabase
                 .from("sales")
                 .select("id")
-                .eq("external_id", sale.transaction)
+                .eq("external_id", sale.purchase.transaction)
                 .single();
               
               if (existingSale) {
@@ -816,9 +846,9 @@ serve(async (req) => {
               }
             } catch (error: unknown) {
               const errorMessage = error instanceof Error ? error.message : String(error);
-              console.error("Error processing sale:", sale.transaction, error);
+              console.error("Error processing sale:", sale.purchase.transaction, error);
               failed++;
-              errors.push(`${sale.transaction}: ${errorMessage}`);
+              errors.push(`${sale.purchase.transaction}: ${errorMessage}`);
             }
           }
           
