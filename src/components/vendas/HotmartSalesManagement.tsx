@@ -1,8 +1,9 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,80 +21,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/components/funnel-panel/types";
 import { 
   Search, 
-  UserPlus, 
-  ArrowUpDown, 
-  ArrowUp, 
-  ArrowDown, 
   ShoppingCart, 
-  Users, 
   RefreshCw,
   Clock,
-  CheckCircle2,
-  AlertCircle,
-  DollarSign
+  Loader2
 } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, subDays, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
-type SortField = "external_id" | "client_name" | "product_name" | "total_value" | "sale_date" | "seller_name";
+type SortField = "transaction" | "client_name" | "product_name" | "total_value" | "sale_date";
 type SortDirection = "asc" | "desc";
 
 interface HotmartSale {
-  id: string;
-  external_id: string;
-  client_name: string;
-  client_email: string | null;
-  product_name: string;
-  total_value: number;
-  installments_count: number;
-  sale_date: string;
-  status: string;
-  platform: string;
-  seller_id: string | null;
-  seller?: {
-    full_name: string;
-    display_name: string | null;
-  } | null;
-}
-
-function useHotmartSales() {
-  return useQuery({
-    queryKey: ["hotmart-sales"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sales")
-        .select(`
-          *,
-          seller:profiles!sales_seller_id_fkey(full_name, display_name)
-        `)
-        .eq("platform", "hotmart")
-        .order("sale_date", { ascending: false });
-      
-      if (error) throw error;
-      return data as HotmartSale[];
-    },
-  });
-}
-
-function useSellers() {
-  return useQuery({
-    queryKey: ["sellers-sales"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, display_name")
-        .eq("is_active", true)
-        .order("full_name");
-      
-      if (error) throw error;
-      return data;
-    },
-  });
+  product: { id: number; name: string };
+  buyer: { name: string; email: string };
+  purchase: {
+    transaction: string;
+    approved_date?: number;
+    status: string;
+    price: { value: number };
+    payment: { installments_number: number };
+  };
 }
 
 function useLastSync() {
@@ -111,22 +63,23 @@ function useLastSync() {
       if (error) throw error;
       return data;
     },
-    refetchInterval: 60000, // Refetch every minute
+    refetchInterval: 60000,
   });
 }
 
 export function HotmartSalesManagement() {
-  const { data: hotmartSales, isLoading, refetch } = useHotmartSales();
-  const { data: sellers } = useSellers();
   const { data: lastSync, refetch: refetchLastSync } = useLastSync();
   const queryClient = useQueryClient();
   
+  // Filters
+  const [startDate, setStartDate] = useState(format(subDays(new Date(), 30), "yyyy-MM-dd"));
+  const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [statusFilter, setStatusFilter] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [selectedSaleIds, setSelectedSaleIds] = useState<Set<string>>(new Set());
-  const [assigningSeller, setAssigningSeller] = useState(false);
-  const [selectedSellerId, setSelectedSellerId] = useState<string>("");
-  const [commissionPercent, setCommissionPercent] = useState("10");
+  
+  // Data from API
+  const [sales, setSales] = useState<HotmartSale[]>([]);
+  const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   
   // Sorting
@@ -141,17 +94,34 @@ export function HotmartSalesManagement() {
       setSortDirection("asc");
     }
   };
-  
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) {
-      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+
+  // Fetch sales from Hotmart API
+  const handleFetchSales = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("hotmart-sync", {
+        body: { 
+          action: "get_sales",
+          startDate,
+          endDate,
+          status: statusFilter || undefined,
+        },
+      });
+      
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+      
+      setSales(data.sales || []);
+      toast.success(`${data.sales?.length || 0} vendas carregadas da Hotmart`);
+    } catch (err: any) {
+      console.error("Fetch sales error:", err);
+      toast.error("Erro ao buscar vendas: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setLoading(false);
     }
-    return sortDirection === "asc" 
-      ? <ArrowUp className="h-3 w-3 ml-1" /> 
-      : <ArrowDown className="h-3 w-3 ml-1" />;
   };
 
-  // Manual sync handler
+  // Manual sync handler - saves to database
   const handleManualSync = async () => {
     setSyncing(true);
     try {
@@ -163,9 +133,9 @@ export function HotmartSalesManagement() {
       
       if (data.success) {
         toast.success(`Sincronização concluída: ${data.created} novas, ${data.updated} atualizadas`);
-        refetch();
         refetchLastSync();
-        queryClient.invalidateQueries({ queryKey: ["pending-sales"] });
+        queryClient.invalidateQueries({ queryKey: ["sales"] });
+        queryClient.invalidateQueries({ queryKey: ["hotmart-sales"] });
       } else {
         throw new Error(data.error || "Erro na sincronização");
       }
@@ -177,25 +147,18 @@ export function HotmartSalesManagement() {
     }
   };
 
+  // Filter and sort sales
   const filteredAndSortedSales = useMemo(() => {
-    let result = hotmartSales || [];
-    
-    // Apply status filter
-    if (filterStatus === "pending") {
-      result = result.filter(sale => !sale.seller_id);
-    } else if (filterStatus === "assigned") {
-      result = result.filter(sale => sale.seller_id);
-    }
+    let result = sales;
     
     // Apply search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(sale => 
-        sale.client_name.toLowerCase().includes(term) ||
-        sale.external_id.toLowerCase().includes(term) ||
-        sale.product_name.toLowerCase().includes(term) ||
-        sale.client_email?.toLowerCase().includes(term) ||
-        sale.seller?.full_name?.toLowerCase().includes(term)
+        sale.buyer.name.toLowerCase().includes(term) ||
+        sale.buyer.email.toLowerCase().includes(term) ||
+        sale.product.name.toLowerCase().includes(term) ||
+        sale.purchase.transaction.toLowerCase().includes(term)
       );
     }
     
@@ -205,29 +168,25 @@ export function HotmartSalesManagement() {
       let bValue: string | number;
       
       switch (sortField) {
-        case "external_id":
-          aValue = a.external_id;
-          bValue = b.external_id;
+        case "transaction":
+          aValue = a.purchase.transaction;
+          bValue = b.purchase.transaction;
           break;
         case "client_name":
-          aValue = a.client_name.toLowerCase();
-          bValue = b.client_name.toLowerCase();
+          aValue = a.buyer.name.toLowerCase();
+          bValue = b.buyer.name.toLowerCase();
           break;
         case "product_name":
-          aValue = a.product_name.toLowerCase();
-          bValue = b.product_name.toLowerCase();
+          aValue = a.product.name.toLowerCase();
+          bValue = b.product.name.toLowerCase();
           break;
         case "total_value":
-          aValue = a.total_value;
-          bValue = b.total_value;
+          aValue = a.purchase.price.value;
+          bValue = b.purchase.price.value;
           break;
         case "sale_date":
-          aValue = new Date(a.sale_date).getTime();
-          bValue = new Date(b.sale_date).getTime();
-          break;
-        case "seller_name":
-          aValue = a.seller?.full_name?.toLowerCase() || "zzz";
-          bValue = b.seller?.full_name?.toLowerCase() || "zzz";
+          aValue = a.purchase.approved_date || 0;
+          bValue = b.purchase.approved_date || 0;
           break;
         default:
           return 0;
@@ -239,139 +198,31 @@ export function HotmartSalesManagement() {
     });
     
     return result;
-  }, [hotmartSales, searchTerm, filterStatus, sortField, sortDirection]);
-
-  // Selection handlers
-  const toggleSelectSale = (saleId: string) => {
-    const newSelected = new Set(selectedSaleIds);
-    if (newSelected.has(saleId)) {
-      newSelected.delete(saleId);
-    } else {
-      newSelected.add(saleId);
-    }
-    setSelectedSaleIds(newSelected);
-  };
-
-  const toggleSelectAll = () => {
-    const unassignedSales = filteredAndSortedSales.filter(s => !s.seller_id);
-    if (selectedSaleIds.size === unassignedSales.length && unassignedSales.length > 0) {
-      setSelectedSaleIds(new Set());
-    } else {
-      setSelectedSaleIds(new Set(unassignedSales.map(s => s.id)));
-    }
-  };
-
-  const clearSelection = () => {
-    setSelectedSaleIds(new Set());
-    setSelectedSellerId("");
-  };
-
-  // Assign seller to selected sales
-  const handleAssignSeller = async () => {
-    if (selectedSaleIds.size === 0) {
-      toast.error("Selecione pelo menos uma venda");
-      return;
-    }
-    
-    if (!selectedSellerId) {
-      toast.error("Selecione um vendedor");
-      return;
-    }
-    
-    setAssigningSeller(true);
-    const saleIds = Array.from(selectedSaleIds);
-    
-    try {
-      const commission = parseFloat(commissionPercent) || 10;
-      
-      // Update sales with seller
-      const { error: salesError } = await supabase
-        .from("sales")
-        .update({ 
-          seller_id: selectedSellerId,
-          commission_percent: commission
-        })
-        .in("id", saleIds);
-      
-      if (salesError) throw salesError;
-      
-      // Get installments for these sales
-      const { data: installments } = await supabase
-        .from("installments")
-        .select("id, sale_id, value, due_date, status")
-        .in("sale_id", saleIds);
-      
-      if (installments && installments.length > 0) {
-        // Create or update commissions for each installment
-        for (const inst of installments) {
-          const commissionValue = (inst.value * commission) / 100;
-          const competenceMonth = inst.due_date.substring(0, 7) + "-01";
-          
-          // Check if commission exists
-          const { data: existingCommission } = await supabase
-            .from("commissions")
-            .select("id")
-            .eq("installment_id", inst.id)
-            .maybeSingle();
-          
-          if (existingCommission) {
-            await supabase
-              .from("commissions")
-              .update({
-                seller_id: selectedSellerId,
-                commission_percent: commission,
-                commission_value: commissionValue,
-              })
-              .eq("id", existingCommission.id);
-          } else {
-            await supabase
-              .from("commissions")
-              .insert({
-                installment_id: inst.id,
-                seller_id: selectedSellerId,
-                installment_value: inst.value,
-                commission_percent: commission,
-                commission_value: commissionValue,
-                competence_month: competenceMonth,
-                status: inst.status === "paid" ? "released" : "pending",
-              });
-          }
-        }
-      }
-      
-      toast.success(`${saleIds.length} venda(s) atribuída(s) ao vendedor`);
-      
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ["hotmart-sales"] });
-      queryClient.invalidateQueries({ queryKey: ["sales"] });
-      queryClient.invalidateQueries({ queryKey: ["commissions"] });
-      
-      clearSelection();
-    } catch (err: any) {
-      console.error("Error assigning seller:", err);
-      toast.error("Erro ao atribuir vendedor: " + (err.message || "Erro desconhecido"));
-    } finally {
-      setAssigningSeller(false);
-    }
-  };
+  }, [sales, searchTerm, sortField, sortDirection]);
 
   // Stats
   const stats = useMemo(() => {
-    const sales = hotmartSales || [];
-    const totalValue = sales.reduce((sum, sale) => sum + sale.total_value, 0);
-    const pendingCount = sales.filter(s => !s.seller_id).length;
-    const pendingValue = sales.filter(s => !s.seller_id).reduce((sum, s) => sum + s.total_value, 0);
-    const assignedCount = sales.filter(s => s.seller_id).length;
+    const totalValue = sales.reduce((sum, sale) => sum + sale.purchase.price.value, 0);
+    const approvedCount = sales.filter(s => s.purchase.status === "APPROVED" || s.purchase.status === "COMPLETED").length;
+    const canceledCount = sales.filter(s => s.purchase.status === "CANCELED" || s.purchase.status === "REFUNDED").length;
     
-    return { total: sales.length, totalValue, pendingCount, pendingValue, assignedCount };
-  }, [hotmartSales]);
+    return { total: sales.length, totalValue, approvedCount, canceledCount };
+  }, [sales]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
+  function formatStatus(status: string) {
+    const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+      "APPROVED": { label: "Aprovado", variant: "default" },
+      "COMPLETED": { label: "Completo", variant: "default" },
+      "CANCELED": { label: "Cancelado", variant: "destructive" },
+      "REFUNDED": { label: "Reembolsado", variant: "destructive" },
+      "CHARGEBACK": { label: "Chargeback", variant: "destructive" },
+      "WAITING_PAYMENT": { label: "Aguardando", variant: "secondary" },
+      "PENDING": { label: "Pendente", variant: "secondary" },
+      "EXPIRED": { label: "Expirado", variant: "outline" },
+    };
+    
+    const mapped = statusMap[status] || { label: status, variant: "outline" as const };
+    return <Badge variant={mapped.variant}>{mapped.label}</Badge>;
   }
 
   return (
@@ -382,7 +233,7 @@ export function HotmartSalesManagement() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium flex items-center gap-2">
               <ShoppingCart className="h-4 w-4 text-primary" />
-              Total Hotmart
+              Total Carregado
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -395,31 +246,21 @@ export function HotmartSalesManagement() {
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-warning" />
-              Sem Vendedor
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-primary">Aprovadas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-warning">{stats.pendingCount}</div>
-            <p className="text-xs text-muted-foreground">
-              {formatCurrency(stats.pendingValue)} pendente
-            </p>
+            <div className="text-2xl font-bold text-primary">{stats.approvedCount}</div>
+            <p className="text-xs text-muted-foreground">Vendas aprovadas</p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-              Com Vendedor
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-destructive">Canceladas</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-primary">{stats.assignedCount}</div>
-            <p className="text-xs text-muted-foreground">
-              Atribuídas a vendedores
-            </p>
+            <div className="text-2xl font-bold text-destructive">{stats.canceledCount}</div>
+            <p className="text-xs text-muted-foreground">Canceladas/Reembolsadas</p>
           </CardContent>
         </Card>
         
@@ -441,14 +282,14 @@ export function HotmartSalesManagement() {
         </Card>
       </div>
 
-      {/* Action Bar */}
+      {/* Main Card */}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <CardTitle className="text-lg">Vendas Realizadas na Hotmart</CardTitle>
               <CardDescription>
-                Todas as vendas sincronizadas da plataforma Hotmart
+                Busque vendas diretamente da API Hotmart
               </CardDescription>
             </div>
             <Button 
@@ -458,222 +299,160 @@ export function HotmartSalesManagement() {
               className="gap-2"
             >
               <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? "Sincronizando..." : "Sincronizar Agora"}
+              {syncing ? "Salvando..." : "Salvar no Banco"}
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Search and Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
+          {/* Filters */}
+          <div className="flex flex-wrap gap-4 items-end">
+            <div className="space-y-2">
+              <Label>Data Inicial</Label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-[160px]"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Data Final</Label>
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-[160px]"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select 
+                value={statusFilter || "__all__"} 
+                onValueChange={(v) => setStatusFilter(v === "__all__" ? "" : v)}
+              >
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">Todos</SelectItem>
+                  <SelectItem value="APPROVED">Aprovado</SelectItem>
+                  <SelectItem value="COMPLETED">Completo</SelectItem>
+                  <SelectItem value="CANCELED">Cancelado</SelectItem>
+                  <SelectItem value="REFUNDED">Reembolsado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <Button onClick={handleFetchSales} disabled={loading}>
+              {loading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Buscar Vendas
+            </Button>
+          </div>
+
+          {/* Search */}
+          {sales.length > 0 && (
+            <div className="relative max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por cliente, ID, produto ou vendedor..."
+                placeholder="Buscar por cliente, produto ou transação..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
               />
             </div>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filtrar por status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as vendas</SelectItem>
-                <SelectItem value="pending">Sem vendedor</SelectItem>
-                <SelectItem value="assigned">Com vendedor</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Bulk Assignment Bar */}
-          {selectedSaleIds.size > 0 && (
-            <div className="flex flex-wrap items-center gap-3 p-3 bg-accent/10 rounded-lg border border-accent/20">
-              <Badge variant="secondary" className="text-sm">
-                {selectedSaleIds.size} selecionada(s)
-              </Badge>
-              
-              <Select value={selectedSellerId} onValueChange={setSelectedSellerId}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Selecionar vendedor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sellers?.map((seller) => (
-                    <SelectItem key={seller.id} value={seller.id}>
-                      {seller.full_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Comissão:</span>
-                <Input
-                  type="number"
-                  value={commissionPercent}
-                  onChange={(e) => setCommissionPercent(e.target.value)}
-                  className="w-20"
-                  min="0"
-                  max="100"
-                />
-                <span className="text-sm text-muted-foreground">%</span>
-              </div>
-              
-              <Button 
-                onClick={handleAssignSeller}
-                disabled={!selectedSellerId || assigningSeller}
-                className="gap-2"
-              >
-                <UserPlus className="h-4 w-4" />
-                {assigningSeller ? "Atribuindo..." : "Atribuir Vendedor"}
-              </Button>
-              
-              <Button variant="ghost" size="sm" onClick={clearSelection}>
-                Limpar
-              </Button>
-            </div>
           )}
 
           {/* Table */}
-          <div className="rounded-md border overflow-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">
-                    <Checkbox
-                      checked={
-                        selectedSaleIds.size === filteredAndSortedSales.filter(s => !s.seller_id).length && 
-                        filteredAndSortedSales.filter(s => !s.seller_id).length > 0
-                      }
-                      onCheckedChange={toggleSelectAll}
-                    />
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort("external_id")}
-                  >
-                    <div className="flex items-center">
-                      ID <SortIcon field="external_id" />
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort("client_name")}
-                  >
-                    <div className="flex items-center">
-                      Cliente <SortIcon field="client_name" />
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort("product_name")}
-                  >
-                    <div className="flex items-center">
-                      Produto <SortIcon field="product_name" />
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50 text-right"
-                    onClick={() => handleSort("total_value")}
-                  >
-                    <div className="flex items-center justify-end">
-                      Valor <SortIcon field="total_value" />
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-center">Parcelas</TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort("sale_date")}
-                  >
-                    <div className="flex items-center">
-                      Data <SortIcon field="sale_date" />
-                    </div>
-                  </TableHead>
-                  <TableHead 
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleSort("seller_name")}
-                  >
-                    <div className="flex items-center">
-                      Vendedor <SortIcon field="seller_name" />
-                    </div>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAndSortedSales.length === 0 ? (
+          {sales.length > 0 ? (
+            <div className="rounded-md border overflow-auto">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      <div className="flex flex-col items-center gap-2">
-                        <ShoppingCart className="h-8 w-8 opacity-50" />
-                        <span>Nenhuma venda encontrada</span>
-                        <Button variant="outline" size="sm" onClick={handleManualSync} disabled={syncing}>
-                          <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                          Sincronizar com Hotmart
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredAndSortedSales.map((sale) => (
-                    <TableRow 
-                      key={sale.id}
-                      className={selectedSaleIds.has(sale.id) ? "bg-accent/10" : ""}
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("transaction")}
                     >
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedSaleIds.has(sale.id)}
-                          onCheckedChange={() => toggleSelectSale(sale.id)}
-                          disabled={!!sale.seller_id}
-                        />
-                      </TableCell>
+                      Transação
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("product_name")}
+                    >
+                      Produto
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("client_name")}
+                    >
+                      Cliente
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 text-right"
+                      onClick={() => handleSort("total_value")}
+                    >
+                      Valor
+                    </TableHead>
+                    <TableHead className="text-center">Parcelas</TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handleSort("sale_date")}
+                    >
+                      Data
+                    </TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredAndSortedSales.map((sale) => (
+                    <TableRow key={sale.purchase.transaction}>
                       <TableCell className="font-mono text-xs">
-                        {sale.external_id.substring(0, 12)}...
+                        {sale.purchase.transaction.substring(0, 12)}...
+                      </TableCell>
+                      <TableCell className="max-w-[200px] truncate">
+                        {sale.product.name}
                       </TableCell>
                       <TableCell>
                         <div>
-                          <p className="font-medium truncate max-w-[150px]">{sale.client_name}</p>
-                          {sale.client_email && (
-                            <p className="text-xs text-muted-foreground truncate max-w-[150px]">
-                              {sale.client_email}
-                            </p>
-                          )}
+                          <div className="font-medium truncate max-w-[150px]">{sale.buyer.name}</div>
+                          <div className="text-xs text-muted-foreground truncate max-w-[150px]">
+                            {sale.buyer.email}
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <p className="truncate max-w-[150px]">{sale.product_name}</p>
-                      </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(sale.total_value)}
+                        {formatCurrency(sale.purchase.price.value)}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant="outline">{sale.installments_count}x</Badge>
+                        <Badge variant="outline">{sale.purchase.payment.installments_number || 1}x</Badge>
                       </TableCell>
                       <TableCell>
-                        {format(new Date(sale.sale_date), "dd/MM/yyyy", { locale: ptBR })}
+                        {sale.purchase.approved_date
+                          ? format(new Date(sale.purchase.approved_date), "dd/MM/yyyy", { locale: ptBR })
+                          : "-"}
                       </TableCell>
-                      <TableCell>
-                        {sale.seller ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <Users className="h-3 w-3" />
-                            {sale.seller.display_name || sale.seller.full_name}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-warning border-warning/50">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            Pendente
-                          </Badge>
-                        )}
-                      </TableCell>
+                      <TableCell>{formatStatus(sale.purchase.status)}</TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-30" />
+              <p>Defina os filtros e clique em "Buscar Vendas" para visualizar</p>
+              <p className="text-xs mt-2">As vendas serão buscadas diretamente da API Hotmart</p>
+            </div>
+          )}
           
           {/* Footer info */}
           <div className="text-xs text-muted-foreground text-center">
-            A sincronização automática ocorre a cada 15 minutos
+            Clique em "Salvar no Banco" para sincronizar as vendas com o sistema
           </div>
         </CardContent>
       </Card>
