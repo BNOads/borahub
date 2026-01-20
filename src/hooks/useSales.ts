@@ -505,7 +505,7 @@ export function useInstallments(saleId?: string) {
         .select(`
           *,
           sale:sales(
-            id, external_id, client_name, product_name, platform,
+            id, external_id, client_name, product_name, platform, seller_id,
             seller:profiles!sales_seller_id_fkey(id, full_name, email)
           )
         `)
@@ -518,7 +518,7 @@ export function useInstallments(saleId?: string) {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data as (Installment & { sale: Sale })[];
+      return data as (Installment & { sale: Sale & { seller_id: string | null } })[];
     },
   });
 }
