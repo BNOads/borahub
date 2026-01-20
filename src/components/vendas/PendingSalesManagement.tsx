@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -22,8 +22,8 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { Search, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, CheckCircle2, Users, RefreshCw, Clock } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { Search, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, AlertCircle, CheckCircle2, Users } from "lucide-react";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 
@@ -77,7 +77,7 @@ function useSellers() {
 }
 
 export function PendingSalesManagement() {
-  const { data: pendingSales, isLoading, refetch } = usePendingSales();
+  const { data: pendingSales, isLoading } = usePendingSales();
   const { data: sellers } = useSellers();
   const queryClient = useQueryClient();
   
@@ -86,52 +86,6 @@ export function PendingSalesManagement() {
   const [assigningSeller, setAssigningSeller] = useState(false);
   const [selectedSellerId, setSelectedSellerId] = useState<string>("");
   const [commissionPercent, setCommissionPercent] = useState("10");
-  const [syncing, setSyncing] = useState(false);
-  const [lastSync, setLastSync] = useState<Date | null>(null);
-  
-  // Auto-sync every 15 minutes
-  useEffect(() => {
-    // Initial sync on mount
-    handleSync(true);
-    
-    // Set up interval for auto-sync every 15 minutes
-    const intervalId = setInterval(() => {
-      handleSync(true);
-    }, 15 * 60 * 1000); // 15 minutes in milliseconds
-    
-    return () => clearInterval(intervalId);
-  }, []);
-  
-  // Manual sync handler
-  const handleSync = async (silent = false) => {
-    if (syncing) return;
-    
-    setSyncing(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("hotmart-sync", {
-        body: { action: "sync_sales" },
-      });
-      
-      if (error) throw error;
-      
-      setLastSync(new Date());
-      
-      // Refresh the pending sales list
-      await refetch();
-      queryClient.invalidateQueries({ queryKey: ["sales"] });
-      
-      if (!silent) {
-        toast.success(`Sincronização concluída: ${data.created || 0} novas, ${data.updated || 0} atualizadas`);
-      }
-    } catch (err: any) {
-      console.error("Sync error:", err);
-      if (!silent) {
-        toast.error("Erro na sincronização: " + (err.message || "Erro desconhecido"));
-      }
-    } finally {
-      setSyncing(false);
-    }
-  };
   
   // Sorting
   const [sortField, setSortField] = useState<SortField>("sale_date");
@@ -394,32 +348,10 @@ export function PendingSalesManagement() {
       {/* Action Bar */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <CardTitle className="text-lg">Vendas Hotmart Sem Vendedor</CardTitle>
-              <CardDescription>
-                Selecione vendas e atribua um vendedor para que elas apareçam na aba "Realizadas"
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-3">
-              {lastSync && (
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  <span>Última sync: {formatDistanceToNow(lastSync, { addSuffix: true, locale: ptBR })}</span>
-                </div>
-              )}
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleSync(false)}
-                disabled={syncing}
-                className="gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-                {syncing ? "Sincronizando..." : "Sincronizar Hotmart"}
-              </Button>
-            </div>
-          </div>
+          <CardTitle className="text-lg">Vendas Hotmart Sem Vendedor</CardTitle>
+          <CardDescription>
+            Selecione vendas e atribua um vendedor para que elas apareçam na aba "Vendas Cadastradas"
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Search and Filters */}
