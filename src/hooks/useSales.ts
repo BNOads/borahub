@@ -50,6 +50,7 @@ export interface Installment {
   due_date: string;
   status: 'pending' | 'paid' | 'overdue' | 'cancelled' | 'refunded';
   payment_date: string | null;
+  external_installment_id?: string | null;
   created_at: string;
   updated_at: string;
   sale?: Sale;

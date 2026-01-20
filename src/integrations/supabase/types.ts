@@ -858,6 +858,7 @@ export type Database = {
         Row: {
           created_at: string | null
           due_date: string
+          external_installment_id: string | null
           id: string
           installment_number: number
           payment_date: string | null
@@ -870,6 +871,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           due_date: string
+          external_installment_id?: string | null
           id?: string
           installment_number: number
           payment_date?: string | null
@@ -882,6 +884,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           due_date?: string
+          external_installment_id?: string | null
           id?: string
           installment_number?: number
           payment_date?: string | null
