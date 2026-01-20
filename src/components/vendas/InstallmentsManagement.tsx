@@ -33,6 +33,8 @@ export function InstallmentsManagement() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all");
+  const [platformFilter, setPlatformFilter] = useState<string>("all");
+  const [showWithoutSeller, setShowWithoutSeller] = useState<boolean>(false);
   
   // Fetch last sync info
   const { data: lastSync } = useQuery({
@@ -52,10 +54,17 @@ export function InstallmentsManagement() {
     refetchInterval: 60000, // Refetch every minute
   });
   
-  // Filter only installments from sales with assigned seller
-  const installmentsWithSeller = installments?.filter(inst => inst.sale?.seller_id) || [];
+  // Filter installments based on seller assignment preference
+  const baseInstallments = installments?.filter(inst => {
+    // If showWithoutSeller is true, show all installments (with or without seller)
+    // Otherwise, only show installments from sales with assigned seller
+    if (showWithoutSeller) {
+      return true;
+    }
+    return inst.sale?.seller_id;
+  }) || [];
   
-  const filteredInstallments = installmentsWithSeller.filter(inst => {
+  const filteredInstallments = baseInstallments.filter(inst => {
     const matchesSearch = 
       inst.sale?.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inst.sale?.external_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -70,7 +79,10 @@ export function InstallmentsManagement() {
       (paymentTypeFilter === "avista" && isAVista) ||
       (paymentTypeFilter === "parcelado" && !isAVista);
     
-    return matchesSearch && matchesStatus && matchesPaymentType;
+    // Filter by platform
+    const matchesPlatform = platformFilter === "all" || inst.sale?.platform === platformFilter;
+    
+    return matchesSearch && matchesStatus && matchesPaymentType && matchesPlatform;
   });
   
   const statusIcons = {
@@ -192,6 +204,25 @@ export function InstallmentsManagement() {
               </SelectItem>
             </SelectContent>
           </Select>
+          <Select value={platformFilter} onValueChange={setPlatformFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Plataforma" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas Plataformas</SelectItem>
+              <SelectItem value="hotmart">Hotmart</SelectItem>
+              <SelectItem value="asaas">Asaas</SelectItem>
+              <SelectItem value="manual">Manual</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant={showWithoutSeller ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowWithoutSeller(!showWithoutSeller)}
+            className="whitespace-nowrap"
+          >
+            {showWithoutSeller ? "Todas as Vendas" : "Só Com Vendedor"}
+          </Button>
         </div>
         
         <div className="flex flex-col items-end gap-1">
