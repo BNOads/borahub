@@ -21,7 +21,13 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { BarChart3, TrendingUp, Users, Download, FileSpreadsheet, FileText, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Download, FileSpreadsheet, FileText, ArrowUpDown, ArrowUp, ArrowDown, Info, Calendar, CalendarClock } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { format, subMonths, startOfMonth, endOfMonth, parseISO, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import * as XLSX from "xlsx";
@@ -600,111 +606,161 @@ export function SalesReports() {
         </CardContent>
       </Card>
       
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Faturamento Bruto
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(totals.totalRevenue)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {totals.totalSales} vendas no período
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Recebido
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">
-              {formatCurrency(revenueByStatus.received)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Parcelas pagas
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pendente
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-muted-foreground">
-              {formatCurrency(revenueByStatus.pending)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              A receber
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Em Atraso
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {formatCurrency(revenueByStatus.overdue)}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Inadimplência
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Summary Cards - Faturamento (por competência) */}
+      <TooltipProvider>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <CalendarClock className="h-3.5 w-3.5" />
+            <span>Valores calculados por <strong>mês de competência</strong> das parcelas</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3.5 w-3.5 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>Os valores abaixo são calculados com base no mês de competência (vencimento/pagamento) das parcelas, não pela data da venda original. Isso garante consistência contábil.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  Faturamento Bruto
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 font-normal">
+                    <Calendar className="h-2.5 w-2.5 mr-0.5" />
+                    Venda
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(totals.totalRevenue)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {totals.totalSales} vendas no período
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  Recebido
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 font-normal">
+                    <CalendarClock className="h-2.5 w-2.5 mr-0.5" />
+                    Competência
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-success">
+                  {formatCurrency(revenueByStatus.received)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Parcelas pagas
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  Pendente
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 font-normal">
+                    <CalendarClock className="h-2.5 w-2.5 mr-0.5" />
+                    Competência
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-muted-foreground">
+                  {formatCurrency(revenueByStatus.pending)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  A receber
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+                  Em Atraso
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 font-normal">
+                    <CalendarClock className="h-2.5 w-2.5 mr-0.5" />
+                    Competência
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-destructive">
+                  {formatCurrency(revenueByStatus.overdue)}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Inadimplência
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </TooltipProvider>
       
-      {/* Commission Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-success/5 border-success/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Comissões Liberadas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">
-              {formatCurrency(totals.commissionReleased)}
-            </div>
-            <p className="text-xs text-muted-foreground">Já pagas aos vendedores</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-muted">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Comissões Provisionadas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(totals.commissionPending)}
-            </div>
-            <p className="text-xs text-muted-foreground">Aguardando liberação</p>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-destructive/5 border-destructive/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Comissões Suspensas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {formatCurrency(totals.commissionSuspended)}
-            </div>
-            <p className="text-xs text-muted-foreground">Por inadimplência</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Commission Summary - por competência */}
+      <TooltipProvider>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <CalendarClock className="h-3.5 w-3.5" />
+            <span>Comissões calculadas por <strong>mês de competência</strong></span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3.5 w-3.5 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p>As comissões são vinculadas ao mês de competência da parcela correspondente. Isso permite uma visão contábil precisa de quanto foi gerado em comissões para cada período.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="bg-success/5 border-success/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Comissões Liberadas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-success">
+                  {formatCurrency(totals.commissionReleased)}
+                </div>
+                <p className="text-xs text-muted-foreground">Já pagas aos vendedores</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-muted">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Comissões Provisionadas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(totals.commissionPending)}
+                </div>
+                <p className="text-xs text-muted-foreground">Aguardando liberação</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-destructive/5 border-destructive/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Comissões Suspensas</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-destructive">
+                  {formatCurrency(totals.commissionSuspended)}
+                </div>
+                <p className="text-xs text-muted-foreground">Por inadimplência</p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </TooltipProvider>
       
       {/* Seller Performance Table */}
       <Card>
