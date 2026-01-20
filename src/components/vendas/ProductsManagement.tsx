@@ -37,11 +37,12 @@ interface ProductFormData {
   name: string;
   description: string;
   default_commission_percent: number;
+  price: number;
   is_active: boolean;
 }
 
 type SortDirection = "asc" | "desc" | null;
-type SortField = "name" | "default_commission_percent";
+type SortField = "name" | "default_commission_percent" | "price";
 
 export function ProductsManagement() {
   const { data: products, isLoading } = useProducts();
@@ -55,6 +56,7 @@ export function ProductsManagement() {
     name: "",
     description: "",
     default_commission_percent: 10,
+    price: 0,
     is_active: true,
   });
   const [saving, setSaving] = useState(false);
@@ -126,6 +128,8 @@ export function ProductsManagement() {
           comparison = a.name.localeCompare(b.name);
         } else if (sortField === "default_commission_percent") {
           comparison = a.default_commission_percent - b.default_commission_percent;
+        } else if (sortField === "price") {
+          comparison = ((a as any).price || 0) - ((b as any).price || 0);
         }
         return sortDirection === "desc" ? -comparison : comparison;
       });
@@ -222,6 +226,7 @@ export function ProductsManagement() {
       name: "",
       description: "",
       default_commission_percent: 10,
+      price: 0,
       is_active: true,
     });
   }
@@ -231,6 +236,7 @@ export function ProductsManagement() {
       name: product.name,
       description: product.description || "",
       default_commission_percent: Number(product.default_commission_percent),
+      price: Number(product.price) || 0,
       is_active: product.is_active,
     });
     setEditingProduct(product.id);
@@ -290,6 +296,18 @@ export function ProductsManagement() {
           max="100"
           value={formData.default_commission_percent}
           onChange={(e) => setFormData(f => ({ ...f, default_commission_percent: parseFloat(e.target.value) }))}
+        />
+      </div>
+      
+      <div>
+        <Label htmlFor="price">Preço (R$)</Label>
+        <Input
+          id="price"
+          type="number"
+          step="0.01"
+          min="0"
+          value={formData.price}
+          onChange={(e) => setFormData(f => ({ ...f, price: parseFloat(e.target.value) || 0 }))}
         />
       </div>
       
@@ -477,6 +495,15 @@ export function ProductsManagement() {
                   <TableHead>Origem</TableHead>
                   <TableHead 
                     className="cursor-pointer select-none hover:bg-muted/50"
+                    onClick={() => handleSort("price")}
+                  >
+                    <div className="flex items-center">
+                      Preço
+                      {getSortIcon("price")}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer select-none hover:bg-muted/50"
                     onClick={() => handleSort("default_commission_percent")}
                   >
                     <div className="flex items-center">
@@ -491,13 +518,13 @@ export function ProductsManagement() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
+                    <TableCell colSpan={7} className="text-center py-8">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto" />
                     </TableCell>
                   </TableRow>
                 ) : filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                       {products?.length === 0 
                         ? 'Nenhum produto cadastrado. Clique em "Sincronizar Hotmart" para importar.'
                         : 'Nenhum produto encontrado com os filtros aplicados.'}
@@ -534,6 +561,9 @@ export function ProductsManagement() {
                               Manual
                             </Badge>
                           )}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {((product as any).price || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </TableCell>
                         <TableCell>{product.default_commission_percent}%</TableCell>
                         <TableCell>
