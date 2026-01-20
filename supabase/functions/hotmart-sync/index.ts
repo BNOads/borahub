@@ -20,6 +20,17 @@ interface HotmartProduct {
   price?: number;
 }
 
+interface HotmartOffer {
+  code: string;
+  name: string;
+  is_main_offer: boolean;
+  price: {
+    value: number;
+    currency_code: string;
+  };
+  payment_mode: string;
+}
+
 interface HotmartProductPlan {
   price: {
     currency_code: string;
@@ -116,6 +127,30 @@ async function getAccessToken(): Promise<string> {
   
   console.log("Access token obtained successfully");
   return data.access_token;
+}
+
+async function fetchProductOffers(accessToken: string, ucode: string): Promise<HotmartOffer[]> {
+  try {
+    const url = `https://developers.hotmart.com/products/api/v1/products/${ucode}/offers`;
+
+    const response = await fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.log(`No offers found for product ucode ${ucode}`);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.items || [];
+  } catch (err) {
+    console.error(`Error fetching offers for product ${ucode}:`, err);
+    return [];
+  }
 }
 
 async function fetchProductPlans(accessToken: string, productId: number): Promise<HotmartProductPlan[]> {
@@ -342,8 +377,6 @@ serve(async (req) => {
     switch (action) {
       case "get_products": {
         const includePricesSafe = includePrices === true;
-        const priceDaysSafe = typeof priceDays === "number" ? priceDays : 30;
-        const salesMaxPagesSafe = typeof salesMaxPages === "number" ? salesMaxPages : 6;
 
         const products = await fetchProducts(accessToken);
 
@@ -353,29 +386,35 @@ serve(async (req) => {
           });
         }
 
-        // Fast-ish price enrichment using a limited slice of recent sales
-        console.log("Fetching recent sales to get product prices for get_products...");
-        const endDate = new Date();
-        const startDate = new Date(endDate.getTime() - priceDaysSafe * 24 * 60 * 60 * 1000);
-        const recentSales = await fetchSalesHistory(accessToken, startDate, endDate, undefined, {
-          maxPages: salesMaxPagesSafe,
-        });
-
-        // Build price map from sales (using product.id)
-        const productPrices = new Map<number, number>();
-        for (const sale of recentSales) {
-          const productId = sale.product.id;
-          const price = sale.purchase.price.value;
-          if (!productPrices.has(productId) || price > productPrices.get(productId)!) {
-            productPrices.set(productId, price);
+        // Fetch prices from Offers API for each product
+        console.log("Fetching product prices from Offers API for get_products...");
+        const productsWithPrices = [];
+        
+        for (const product of products) {
+          const offers = await fetchProductOffers(accessToken, product.ucode);
+          
+          // Get price from main offer, or fallback to highest price
+          let productPrice = 0;
+          const mainOffer = offers.find(o => o.is_main_offer);
+          if (mainOffer?.price?.value) {
+            productPrice = mainOffer.price.value;
+          } else if (offers.length > 0) {
+            const maxPrice = Math.max(...offers.map(o => o.price?.value || 0));
+            if (maxPrice > 0) {
+              productPrice = maxPrice;
+            }
           }
+          
+          productsWithPrices.push({
+            ...product,
+            price: productPrice,
+          });
+          
+          // Rate limiting
+          await new Promise(r => setTimeout(r, 50));
         }
-        console.log(`Found prices for ${productPrices.size} products from sales`);
-
-        const productsWithPrices = products.map((product) => ({
-          ...product,
-          price: productPrices.get(product.id) || 0,
-        }));
+        
+        console.log(`Fetched prices for ${productsWithPrices.filter(p => p.price > 0).length} products`);
 
         return new Response(JSON.stringify({ success: true, products: productsWithPrices }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -383,31 +422,36 @@ serve(async (req) => {
       }
 
       case "sync_products": {
-        // Fetch products without individual price lookups (faster sync)
+        // Fetch products and get prices from offers API
         const hotmartProducts = await fetchProducts(accessToken, false);
         
-        // Fetch recent sales to get product prices
-        console.log("Fetching recent sales to get product prices...");
-        const endDate = new Date();
-        const startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000); // Last 30 days (faster)
-        const recentSales = await fetchSalesHistory(accessToken, startDate, endDate, undefined, { maxPages: 20 });
-        
-        // Build price map from sales (using product.id)
-        const productPrices = new Map<number, number>();
-        for (const sale of recentSales) {
-          const productId = sale.product.id;
-          const price = sale.purchase.price.value;
-          // Keep the highest price found for each product
-          if (!productPrices.has(productId) || price > productPrices.get(productId)!) {
-            productPrices.set(productId, price);
-          }
-        }
-        console.log(`Found prices for ${productPrices.size} products from sales`);
+        console.log("Fetching product prices from Offers API...");
         
         let created = 0;
         let updated = 0;
+        let pricesFound = 0;
         
         for (const product of hotmartProducts) {
+          // Fetch the product offers to get the correct price
+          const offers = await fetchProductOffers(accessToken, product.ucode);
+          
+          // Get price from main offer, or fallback to first offer with price
+          let productPrice = 0;
+          const mainOffer = offers.find(o => o.is_main_offer);
+          if (mainOffer?.price?.value) {
+            productPrice = mainOffer.price.value;
+            pricesFound++;
+          } else if (offers.length > 0) {
+            // Get highest price from all offers
+            const maxPrice = Math.max(...offers.map(o => o.price?.value || 0));
+            if (maxPrice > 0) {
+              productPrice = maxPrice;
+              pricesFound++;
+            }
+          }
+          
+          console.log(`Product ${product.name}: price from offers = ${productPrice}`);
+          
           // Check if product already exists by name or ucode
           const { data: existingProduct } = await supabase
             .from("products")
@@ -416,14 +460,11 @@ serve(async (req) => {
             .limit(1)
             .maybeSingle();
           
-          // Get price from sales or default to 0
-          const priceFromSales = productPrices.get(product.id) || 0;
-          
           const productData = {
             name: product.name,
             description: `Hotmart ID: ${product.id} | UCode: ${product.ucode}`,
             is_active: product.status === "ACTIVE",
-            price: priceFromSales,
+            price: productPrice,
           };
           
           if (existingProduct) {
@@ -441,6 +482,9 @@ serve(async (req) => {
               });
             created++;
           }
+          
+          // Rate limiting between products
+          await new Promise(r => setTimeout(r, 100));
         }
         
         return new Response(JSON.stringify({
@@ -448,7 +492,7 @@ serve(async (req) => {
           total: hotmartProducts.length,
           created,
           updated,
-          pricesFound: productPrices.size,
+          pricesFound,
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
