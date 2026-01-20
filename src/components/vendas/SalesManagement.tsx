@@ -821,8 +821,16 @@ export function SalesManagement() {
                             {sale.external_id}
                           </TableCell>
                           <TableCell>
-                            <div>
-                              <p className="font-medium">{sale.client_name}</p>
+                            <div
+                              className="cursor-pointer hover:text-primary transition-colors"
+                              onClick={() => setSelectedSaleId(sale.id)}
+                              role="button"
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") setSelectedSaleId(sale.id);
+                              }}
+                            >
+                              <p className="font-medium hover:underline">{sale.client_name}</p>
                               {sale.client_email && (
                                 <p className="text-xs text-muted-foreground">{sale.client_email}</p>
                               )}

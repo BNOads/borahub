@@ -200,35 +200,37 @@ export function SalesReports() {
   }, [sellerPerformance]);
   
   // Detailed commissions list - ALL commissions (not just released)
+  // NOTE: We build this list primarily from `useCommissions()` data (which already includes
+  // the related installment + sale). This avoids missing rows when other queries are filtered
+  // differently (ex.: a paid installment exists, but sales/installments lists are not in sync).
   const commissionsDetail = useMemo(() => {
-    if (!commissions || !installments || !sales) return [];
-    
-    const saleIds = new Set(
-      sales
-        .filter(s => {
-          if (!s.seller_id) return false;
-          const saleDate = parseISO(s.sale_date);
-          return isWithinInterval(saleDate, {
-            start: parseISO(dateRange.start),
-            end: parseISO(dateRange.end),
-          }) && (platformFilter === "all" || s.platform === platformFilter)
-            && (sellerFilter === "all" || s.seller_id === sellerFilter);
-        })
-        .map(s => s.id)
-    );
-    
+    if (!commissions) return [];
+
+    const rangeStart = startOfMonth(parseISO(dateRange.start));
+    const rangeEnd = endOfMonth(parseISO(dateRange.end));
+
     return commissions
-      .map(comm => {
-        const installment = installments.find(i => i.id === comm.installment_id);
-        if (!installment || !saleIds.has(installment.sale_id)) return null;
-        
-        const sale = sales.find(s => s.id === installment.sale_id);
-        if (!sale) return null;
-        
+      .map((comm: any) => {
+        const installment = comm.installment;
+        const sale = installment?.sale;
+        const seller = comm.seller;
+
+        if (!installment || !sale) return null;
+
+        const inCompetenceRange = isWithinInterval(parseISO(comm.competence_month), {
+          start: rangeStart,
+          end: rangeEnd,
+        });
+
+        const matchesPlatform = platformFilter === "all" || sale.platform === platformFilter;
+        const matchesSeller = sellerFilter === "all" || comm.seller_id === sellerFilter;
+
+        if (!inCompetenceRange || !matchesPlatform || !matchesSeller) return null;
+
         return {
           id: comm.id,
-          sellerName: sale.seller?.full_name || 'Desconhecido',
-          sellerEmail: sale.seller?.email || '',
+          sellerName: seller?.full_name || "Desconhecido",
+          sellerEmail: seller?.email || "",
           externalId: sale.external_id,
           clientName: sale.client_name,
           productName: sale.product_name,
@@ -260,7 +262,7 @@ export function SalesReports() {
         competenceMonth: string;
         releasedAt: string | null;
       }>;
-  }, [commissions, installments, sales, dateRange, platformFilter, sellerFilter]);
+  }, [commissions, dateRange, platformFilter, sellerFilter]);
   
   // Sorted commissions detail
   const sortedCommissionsDetail = useMemo(() => {
