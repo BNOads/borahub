@@ -138,22 +138,28 @@ export function SalesReports() {
       }
     });
     
-    // Add commission data
+    // Create saleIds set for filtering
+    const saleIds = new Set(filteredSales.map(s => s.id));
+    
+    // Add commission data - ONLY for sales in the filtered period
     commissions?.forEach(comm => {
-      const seller = sellerMap.get(comm.seller_id);
-      if (seller) {
-        if (comm.status === 'released') {
-          seller.commissionReleased += Number(comm.commission_value);
-        } else if (comm.status === 'pending') {
-          seller.commissionPending += Number(comm.commission_value);
-        } else if (comm.status === 'suspended') {
-          seller.commissionSuspended += Number(comm.commission_value);
+      // Find the installment and then the sale to check if it's in the filtered set
+      const installment = installments?.find(i => i.id === comm.installment_id);
+      if (installment && saleIds.has(installment.sale_id)) {
+        const seller = sellerMap.get(comm.seller_id);
+        if (seller) {
+          if (comm.status === 'released') {
+            seller.commissionReleased += Number(comm.commission_value);
+          } else if (comm.status === 'pending') {
+            seller.commissionPending += Number(comm.commission_value);
+          } else if (comm.status === 'suspended') {
+            seller.commissionSuspended += Number(comm.commission_value);
+          }
         }
       }
     });
     
     // Count installments by status
-    const saleIds = new Set(filteredSales.map(s => s.id));
     installments?.forEach(inst => {
       if (saleIds.has(inst.sale_id)) {
         const sale = sales.find(s => s.id === inst.sale_id);
@@ -191,6 +197,76 @@ export function SalesReports() {
       commissionSuspended: 0,
     });
   }, [sellerPerformance]);
+  
+  // Detailed commissions list - all commissions from all sales of all sellers
+  const commissionsDetail = useMemo(() => {
+    if (!commissions || !installments || !sales) return [];
+    
+    const saleIds = new Set(
+      sales
+        .filter(s => {
+          if (!s.seller_id) return false;
+          const saleDate = parseISO(s.sale_date);
+          return isWithinInterval(saleDate, {
+            start: parseISO(dateRange.start),
+            end: parseISO(dateRange.end),
+          }) && (platformFilter === "all" || s.platform === platformFilter)
+            && (sellerFilter === "all" || s.seller_id === sellerFilter);
+        })
+        .map(s => s.id)
+    );
+    
+    return commissions
+      .map(comm => {
+        const installment = installments.find(i => i.id === comm.installment_id);
+        if (!installment || !saleIds.has(installment.sale_id)) return null;
+        
+        const sale = sales.find(s => s.id === installment.sale_id);
+        if (!sale) return null;
+        
+        return {
+          id: comm.id,
+          sellerName: sale.seller?.full_name || 'Desconhecido',
+          sellerEmail: sale.seller?.email || '',
+          externalId: sale.external_id,
+          clientName: sale.client_name,
+          productName: sale.product_name,
+          installmentNumber: installment.installment_number,
+          totalInstallments: installment.total_installments,
+          installmentValue: Number(installment.value),
+          installmentStatus: installment.status,
+          commissionPercent: Number(comm.commission_percent),
+          commissionValue: Number(comm.commission_value),
+          commissionStatus: comm.status,
+          competenceMonth: comm.competence_month,
+          releasedAt: comm.released_at,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        // Sort by seller name, then by competence month
+        if (a!.sellerName !== b!.sellerName) {
+          return a!.sellerName.localeCompare(b!.sellerName);
+        }
+        return a!.competenceMonth.localeCompare(b!.competenceMonth);
+      }) as Array<{
+        id: string;
+        sellerName: string;
+        sellerEmail: string;
+        externalId: string;
+        clientName: string;
+        productName: string;
+        installmentNumber: number;
+        totalInstallments: number;
+        installmentValue: number;
+        installmentStatus: string;
+        commissionPercent: number;
+        commissionValue: number;
+        commissionStatus: string;
+        competenceMonth: string;
+        releasedAt: string | null;
+      }>;
+  }, [commissions, installments, sales, dateRange, platformFilter, sellerFilter]);
   
   // Calculate revenue by status
   const revenueByStatus = useMemo(() => {
@@ -644,6 +720,146 @@ export function SalesReports() {
               </TableBody>
             </Table>
           </div>
+        </CardContent>
+      </Card>
+      
+      {/* Detailed Commissions Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Detalhamento de Comissões
+          </CardTitle>
+          <CardDescription>
+            Todas as comissões de todas as vendas ({commissionsDetail.length} registros)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Vendedor</TableHead>
+                  <TableHead>ID Venda</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Produto</TableHead>
+                  <TableHead className="text-center">Parcela</TableHead>
+                  <TableHead className="text-right">Valor Parcela</TableHead>
+                  <TableHead className="text-center">%</TableHead>
+                  <TableHead className="text-right">Comissão</TableHead>
+                  <TableHead>Competência</TableHead>
+                  <TableHead>Status Parcela</TableHead>
+                  <TableHead>Status Comissão</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {commissionsDetail.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                      Nenhuma comissão encontrada para o período
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  commissionsDetail.map((comm) => (
+                    <TableRow key={comm.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-sm">{comm.sellerName}</p>
+                          <p className="text-xs text-muted-foreground">{comm.sellerEmail}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{comm.externalId}</TableCell>
+                      <TableCell className="text-sm">{comm.clientName}</TableCell>
+                      <TableCell className="text-sm max-w-[150px] truncate" title={comm.productName}>
+                        {comm.productName}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {comm.totalInstallments === 1 ? (
+                          <Badge variant="outline" className="bg-accent/10 text-accent text-xs">À Vista</Badge>
+                        ) : (
+                          <span className="text-sm">{comm.installmentNumber}/{comm.totalInstallments}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right text-sm">
+                        {formatCurrency(comm.installmentValue)}
+                      </TableCell>
+                      <TableCell className="text-center text-sm">
+                        {comm.commissionPercent}%
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        {formatCurrency(comm.commissionValue)}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {format(parseISO(comm.competenceMonth), 'MMM/yy', { locale: ptBR })}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            comm.installmentStatus === 'paid' 
+                              ? 'bg-success/10 text-success border-success/20' 
+                              : comm.installmentStatus === 'overdue'
+                              ? 'bg-destructive/10 text-destructive border-destructive/20'
+                              : 'bg-muted'
+                          }
+                        >
+                          {comm.installmentStatus === 'paid' ? 'Paga' : 
+                           comm.installmentStatus === 'pending' ? 'Pendente' : 
+                           comm.installmentStatus === 'overdue' ? 'Atrasada' : comm.installmentStatus}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            comm.commissionStatus === 'released' 
+                              ? 'bg-success/10 text-success border-success/20' 
+                              : comm.commissionStatus === 'suspended'
+                              ? 'bg-destructive/10 text-destructive border-destructive/20'
+                              : 'bg-muted'
+                          }
+                        >
+                          {comm.commissionStatus === 'released' ? 'Liberada' : 
+                           comm.commissionStatus === 'pending' ? 'Provisionada' : 
+                           comm.commissionStatus === 'suspended' ? 'Suspensa' : comm.commissionStatus}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          
+          {/* Commission Summary at bottom */}
+          {commissionsDetail.length > 0 && (
+            <div className="mt-4 pt-4 border-t flex flex-wrap gap-4 justify-end">
+              <div className="text-sm">
+                <span className="text-muted-foreground">Total Liberadas: </span>
+                <span className="font-bold text-success">
+                  {formatCurrency(commissionsDetail.filter(c => c.commissionStatus === 'released').reduce((sum, c) => sum + c.commissionValue, 0))}
+                </span>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Total Provisionadas: </span>
+                <span className="font-bold">
+                  {formatCurrency(commissionsDetail.filter(c => c.commissionStatus === 'pending').reduce((sum, c) => sum + c.commissionValue, 0))}
+                </span>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Total Suspensas: </span>
+                <span className="font-bold text-destructive">
+                  {formatCurrency(commissionsDetail.filter(c => c.commissionStatus === 'suspended').reduce((sum, c) => sum + c.commissionValue, 0))}
+                </span>
+              </div>
+              <div className="text-sm">
+                <span className="text-muted-foreground">Total Geral: </span>
+                <span className="font-bold">
+                  {formatCurrency(commissionsDetail.reduce((sum, c) => sum + c.commissionValue, 0))}
+                </span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
