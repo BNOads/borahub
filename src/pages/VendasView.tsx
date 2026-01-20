@@ -6,10 +6,11 @@ import { SalesManagement } from "@/components/vendas/SalesManagement";
 import { HotmartSalesManagement } from "@/components/vendas/HotmartSalesManagement";
 import { InstallmentsManagement } from "@/components/vendas/InstallmentsManagement";
 import { HotmartSync } from "@/components/vendas/HotmartSync";
+import { AsaasSync } from "@/components/vendas/AsaasSync";
 import { SyncLogs } from "@/components/vendas/SyncLogs";
 import { ProductsManagement } from "@/components/vendas/ProductsManagement";
 import { SalesReports } from "@/components/vendas/SalesReports";
-import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, RefreshCw, History, ShoppingCart } from "lucide-react";
+import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, RefreshCw, History, ShoppingCart, CreditCard } from "lucide-react";
 
 export default function VendasView() {
   const { profile } = useAuth();
@@ -64,6 +65,10 @@ export default function VendasView() {
                 <RefreshCw className="h-3 w-3" />
                 <span className="hidden sm:inline">Hotmart</span>
               </TabsTrigger>
+              <TabsTrigger value="asaas" className="flex items-center gap-1.5 py-1.5 px-3 text-xs text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-muted/50">
+                <CreditCard className="h-3 w-3" />
+                <span className="hidden sm:inline">Asaas</span>
+              </TabsTrigger>
               <TabsTrigger value="produtos" className="flex items-center gap-1.5 py-1.5 px-3 text-xs text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-muted/50">
                 <Package className="h-3 w-3" />
                 <span className="hidden sm:inline">Produtos</span>
@@ -94,6 +99,10 @@ export default function VendasView() {
 
         <TabsContent value="hotmart" className="space-y-4">
           <HotmartSync />
+        </TabsContent>
+
+        <TabsContent value="asaas" className="space-y-4">
+          <AsaasSync />
         </TabsContent>
 
         <TabsContent value="sync-logs" className="space-y-4">
