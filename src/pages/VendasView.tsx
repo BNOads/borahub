@@ -3,13 +3,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SalesDashboard } from "@/components/vendas/SalesDashboard";
 import { SalesManagement } from "@/components/vendas/SalesManagement";
-import { PendingSalesManagement } from "@/components/vendas/PendingSalesManagement";
+import { HotmartSalesManagement } from "@/components/vendas/HotmartSalesManagement";
 import { InstallmentsManagement } from "@/components/vendas/InstallmentsManagement";
 import { HotmartSync } from "@/components/vendas/HotmartSync";
 import { SyncLogs } from "@/components/vendas/SyncLogs";
 import { ProductsManagement } from "@/components/vendas/ProductsManagement";
 import { SalesReports } from "@/components/vendas/SalesReports";
-import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, RefreshCw, History, AlertCircle } from "lucide-react";
+import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, RefreshCw, History, ShoppingCart } from "lucide-react";
 
 export default function VendasView() {
   const { profile } = useAuth();
@@ -40,9 +40,9 @@ export default function VendasView() {
               <BarChart3 className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
             </TabsTrigger>
-            <TabsTrigger value="pendentes" className="flex items-center gap-2 py-2">
-              <AlertCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">Pendentes</span>
+            <TabsTrigger value="realizadas" className="flex items-center gap-2 py-2">
+              <ShoppingCart className="h-4 w-4" />
+              <span className="hidden sm:inline">Realizadas</span>
             </TabsTrigger>
             <TabsTrigger value="vendas" className="flex items-center gap-2 py-2">
               <DollarSign className="h-4 w-4" />
@@ -80,8 +80,8 @@ export default function VendasView() {
           <SalesDashboard />
         </TabsContent>
 
-        <TabsContent value="pendentes" className="space-y-4">
-          <PendingSalesManagement />
+        <TabsContent value="realizadas" className="space-y-4">
+          <HotmartSalesManagement />
         </TabsContent>
 
         <TabsContent value="vendas" className="space-y-4">
