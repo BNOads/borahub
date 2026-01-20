@@ -103,6 +103,52 @@ export function useProducts() {
   });
 }
 
+export function useHotmartProducts() {
+  return useQuery({
+    queryKey: ['hotmart-products'],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('hotmart-sync', {
+        body: { action: 'get_products' },
+      });
+      
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Failed to fetch Hotmart products');
+      
+      return data.products as Array<{
+        id: number;
+        name: string;
+        ucode: string;
+        status: string;
+      }>;
+    },
+  });
+}
+
+export function useSyncHotmartProducts() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async () => {
+      // Fetch products from Hotmart
+      const { data, error } = await supabase.functions.invoke('hotmart-sync', {
+        body: { action: 'sync_products' },
+      });
+      
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Failed to sync products');
+      
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success(`Produtos sincronizados: ${data.created} criados, ${data.updated} atualizados`);
+    },
+    onError: (error: Error) => {
+      toast.error('Erro ao sincronizar produtos: ' + error.message);
+    },
+  });
+}
+
 export function useCreateProduct() {
   const queryClient = useQueryClient();
   
