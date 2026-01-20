@@ -267,6 +267,54 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      case "sync_products": {
+        const hotmartProducts = await fetchProducts(accessToken);
+        
+        let created = 0;
+        let updated = 0;
+        
+        for (const product of hotmartProducts) {
+          // Check if product already exists by name or ucode
+          const { data: existingProduct } = await supabase
+            .from("products")
+            .select("id")
+            .or(`name.eq.${product.name},description.ilike.%${product.ucode}%`)
+            .limit(1)
+            .maybeSingle();
+          
+          const productData = {
+            name: product.name,
+            description: `Hotmart ID: ${product.id} | UCode: ${product.ucode}`,
+            is_active: product.status === "ACTIVE",
+          };
+          
+          if (existingProduct) {
+            await supabase
+              .from("products")
+              .update(productData)
+              .eq("id", existingProduct.id);
+            updated++;
+          } else {
+            await supabase
+              .from("products")
+              .insert({
+                ...productData,
+                default_commission_percent: 10, // Default commission
+              });
+            created++;
+          }
+        }
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          total: hotmartProducts.length,
+          created,
+          updated,
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       
       case "get_sales": {
         const start = startDate ? new Date(startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
