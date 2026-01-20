@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { Search, CheckCircle, Clock, AlertTriangle, XCircle, Ban, RefreshCw, Check, X } from "lucide-react";
+import { Search, CheckCircle, Clock, AlertTriangle, XCircle, Ban, RefreshCw, Check, X, CreditCard, Banknote } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -32,6 +32,7 @@ export function InstallmentsManagement() {
   const syncInstallments = useSyncHotmartInstallments();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all");
   
   // Fetch last sync info
   const { data: lastSync } = useQuery({
@@ -62,7 +63,14 @@ export function InstallmentsManagement() {
     
     const matchesStatus = statusFilter === "all" || inst.status === statusFilter;
     
-    return matchesSearch && matchesStatus;
+    // Filter by payment type (à vista = 1 installment, parcelado = multiple)
+    const isAVista = inst.total_installments === 1;
+    const matchesPaymentType = 
+      paymentTypeFilter === "all" || 
+      (paymentTypeFilter === "avista" && isAVista) ||
+      (paymentTypeFilter === "parcelado" && !isAVista);
+    
+    return matchesSearch && matchesStatus && matchesPaymentType;
   });
   
   const statusIcons = {
@@ -156,12 +164,32 @@ export function InstallmentsManagement() {
               <SelectValue placeholder="Filtrar status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="all">Todos os Status</SelectItem>
               <SelectItem value="pending">Pendentes</SelectItem>
               <SelectItem value="paid">Pagas</SelectItem>
               <SelectItem value="overdue">Atrasadas</SelectItem>
               <SelectItem value="cancelled">Canceladas</SelectItem>
               <SelectItem value="refunded">Estornadas</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Tipo de pagamento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os Tipos</SelectItem>
+              <SelectItem value="avista">
+                <div className="flex items-center gap-2">
+                  <Banknote className="h-4 w-4" />
+                  À Vista
+                </div>
+              </SelectItem>
+              <SelectItem value="parcelado">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  Parcelado
+                </div>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -231,7 +259,17 @@ export function InstallmentsManagement() {
                       <TableCell>{inst.sale?.client_name}</TableCell>
                       <TableCell>{inst.sale?.product_name}</TableCell>
                       <TableCell>
-                        {inst.installment_number}/{inst.total_installments}
+                        {inst.total_installments === 1 ? (
+                          <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20 flex items-center gap-1 w-fit">
+                            <Banknote className="h-3 w-3" />
+                            À Vista
+                          </Badge>
+                        ) : (
+                          <span className="flex items-center gap-1">
+                            <CreditCard className="h-3 w-3 text-muted-foreground" />
+                            {inst.installment_number}/{inst.total_installments}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(inst.value)}
