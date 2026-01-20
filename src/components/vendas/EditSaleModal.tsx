@@ -38,7 +38,7 @@ const formSchema = z.object({
   product_name: z.string().min(1, "Nome do produto obrigatório"),
   total_value: z.coerce.number().positive("Valor deve ser positivo"),
   installments_count: z.coerce.number().int().min(1).max(24),
-  platform: z.enum(["hotmart", "asaas"]),
+  platform: z.string(),
   seller_id: z.string().min(1, "Vendedor obrigatório"),
   commission_percent: z.coerce.number().min(0).max(100),
   sale_date: z.string().min(1, "Data obrigatória"),
