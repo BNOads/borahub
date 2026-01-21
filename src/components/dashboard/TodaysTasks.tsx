@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useTasks, useToggleTaskComplete } from "@/hooks/useTasks";
+import { useUserTasks, useToggleTaskComplete } from "@/hooks/useTasks";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { TaskWithSubtasks, TaskStatus, RecurrenceType } from "@/types/tasks";
 import { RECURRENCE_LABELS } from "@/types/tasks";
@@ -26,7 +27,8 @@ const priorityLabels = {
 
 export function TodaysTasks() {
   const { toast } = useToast();
-  const { data: tasks = [], isLoading } = useTasks();
+  const { profile } = useAuth();
+  const { data: tasks = [], isLoading } = useUserTasks(profile?.full_name ?? null);
   const toggleComplete = useToggleTaskComplete();
 
   // State for collapsible sections - all collapsed by default
