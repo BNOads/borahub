@@ -190,10 +190,18 @@ export function TodaysTasks() {
             {completedCount} de {totalCount} tarefas concluídas
           </p>
         </div>
-        <Button variant="gold" size="sm" onClick={() => setShowQuickAdd(!showQuickAdd)}>
-          <Plus className="h-4 w-4 mr-1" />
-          Nova Tarefa
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="gold" size="sm" onClick={() => setShowQuickAdd(!showQuickAdd)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Nova Tarefa
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/tarefas">
+              <ClipboardList className="h-4 w-4 mr-1" />
+              Ver Todas
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Quick add task form */}
