@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar, ChevronDown, ChevronRight, ClipboardList, Sparkles } from "lucide-react";
+import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar, ChevronDown, ChevronRight, ClipboardList, Sparkles, PartyPopper } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { TaskWithSubtasks, TaskStatus, RecurrenceType } from "@/types/tasks";
 import { RECURRENCE_LABELS } from "@/types/tasks";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import confetti from "canvas-confetti";
 
 const priorityColors = {
   alta: "bg-destructive/10 text-destructive border-destructive/20",
@@ -32,6 +33,10 @@ export function TodaysTasks() {
   const { data: tasks = [], isLoading } = useUserTasks(profile?.full_name ?? null);
   const toggleComplete = useToggleTaskComplete();
   const createTask = useCreateTaskForUser();
+
+  // Track if confetti was already shown for current "all completed" state
+  const confettiShownRef = useRef(false);
+  const previousCompletedRef = useRef<number | null>(null);
 
   // State for collapsible sections - all collapsed by default
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -57,6 +62,67 @@ export function TodaysTasks() {
     if (task.due_date === today) return "today";
     return "upcoming";
   };
+
+  // Confetti animation when all tasks are completed
+  const completedCount = tasks.filter((t) => t.completed).length;
+  const totalCount = tasks.length;
+
+  useEffect(() => {
+    // Only trigger confetti if:
+    // 1. There are tasks
+    // 2. All tasks are completed
+    // 3. The completed count just increased (user completed the last task)
+    // 4. Confetti wasn't already shown for this state
+    if (
+      totalCount > 0 &&
+      completedCount === totalCount &&
+      previousCompletedRef.current !== null &&
+      previousCompletedRef.current < completedCount &&
+      !confettiShownRef.current
+    ) {
+      confettiShownRef.current = true;
+      
+      // Fire confetti from both sides
+      const duration = 3000;
+      const end = Date.now() + duration;
+
+      const frame = () => {
+        confetti({
+          particleCount: 3,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.7 },
+          colors: ["#D4AF37", "#FFD700", "#C0C0C0", "#B8860B"],
+        });
+        confetti({
+          particleCount: 3,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.7 },
+          colors: ["#D4AF37", "#FFD700", "#C0C0C0", "#B8860B"],
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      };
+
+      frame();
+
+      toast({
+        title: "🎉 Parabéns!",
+        description: "Você concluiu todas as suas tarefas!",
+      });
+    }
+
+    // Reset confetti shown flag when not all tasks are completed
+    if (completedCount < totalCount) {
+      confettiShownRef.current = false;
+    }
+
+    // Update previous completed count
+    previousCompletedRef.current = completedCount;
+  }, [completedCount, totalCount, toast]);
 
   const handleToggle = async (id: string, completed: boolean) => {
     try {
@@ -93,8 +159,6 @@ export function TodaysTasks() {
     }
   };
 
-  const completedCount = tasks.filter((t) => t.completed).length;
-  const totalCount = tasks.length;
   const progressPercentage =
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
