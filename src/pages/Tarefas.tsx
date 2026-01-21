@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import {
   useTasks,
+  useUserTasks,
   useCreateTask,
   useUpdateTask,
   useDeleteTask,
@@ -108,16 +109,39 @@ export default function Tarefas() {
   // Buscar perfil do usuário atual
   const { profile } = useAuth();
 
-  // Para não-admins, filtrar pelo full_name exato
-  const filters = {
+  // Filtros para admin (vê todas as tarefas)
+  const adminFilters = {
     search: searchQuery,
     priority: filterPriority as TaskPriority | "all",
     category: filterCategory,
-    // Admin vê todas, usuário comum vê só as suas (pelo full_name)
-    assignee: isAdmin ? "all" : (profile?.full_name || ""),
+    assignee: "all" as const,
   };
 
-  const { data: tasks = [], isLoading, error } = useTasks(filters);
+  // Hook para admin - busca todas as tarefas com filtros
+  const { data: adminTasks = [], isLoading: adminLoading, error: adminError } = useTasks(
+    isAdmin ? adminFilters : undefined
+  );
+
+  // Hook para usuário comum - busca apenas suas tarefas
+  const { data: userTasks = [], isLoading: userLoading, error: userError } = useUserTasks(
+    !isAdmin ? (profile?.full_name ?? null) : null
+  );
+
+  // Seleciona os dados corretos baseado no role
+  const allTasks = isAdmin ? adminTasks : userTasks;
+  const isLoading = isAdmin ? adminLoading : userLoading;
+  const error = isAdmin ? adminError : userError;
+
+  // Aplica filtros locais para usuário comum (já que useUserTasks não suporta filtros)
+  const tasks = !isAdmin 
+    ? allTasks.filter(task => {
+        if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+        if (filterPriority !== "all" && task.priority !== filterPriority) return false;
+        if (filterCategory !== "all" && task.category !== filterCategory) return false;
+        return true;
+      })
+    : allTasks;
+
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
@@ -320,7 +344,7 @@ export default function Tarefas() {
         <div>
           <h1 className="text-2xl font-bold">Tarefas</h1>
           <p className="text-muted-foreground">
-            Gerencie todas as tarefas da equipe
+            {isAdmin ? "Gerencie todas as tarefas da equipe" : "Suas tarefas atribuídas"}
           </p>
         </div>
 
