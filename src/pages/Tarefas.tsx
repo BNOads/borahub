@@ -88,7 +88,7 @@ const emptyFormData: TaskFormData = {
 };
 
 type ViewMode = "list" | "kanban";
-type TabView = "tasks" | "admin";
+type TabView = "tasks" | "team" | "admin";
 
 export default function Tarefas() {
   const { toast } = useToast();
@@ -109,38 +109,37 @@ export default function Tarefas() {
   // Buscar perfil do usuário atual
   const { profile } = useAuth();
 
-  // Filtros para admin (vê todas as tarefas)
-  const adminFilters = {
+  // Filtros para tarefas do time (admin vê todas)
+  const teamFilters = {
     search: searchQuery,
     priority: filterPriority as TaskPriority | "all",
     category: filterCategory,
     assignee: "all" as const,
   };
 
-  // Hook para admin - busca todas as tarefas com filtros
-  const { data: adminTasks = [], isLoading: adminLoading, error: adminError } = useTasks(
-    isAdmin ? adminFilters : undefined
+  // Hook para buscar tarefas do time (todas as tarefas) - para admins nas abas "team" e "admin"
+  const { data: teamTasks = [], isLoading: teamLoading, error: teamError } = useTasks(
+    isAdmin && (tabView === "team" || tabView === "admin") ? teamFilters : undefined
   );
 
-  // Hook para usuário comum - busca apenas suas tarefas
-  const { data: userTasks = [], isLoading: userLoading, error: userError } = useUserTasks(
-    !isAdmin ? (profile?.full_name ?? null) : null
+  // Hook para buscar tarefas do próprio usuário (para todos, incluindo admins)
+  const { data: myTasks = [], isLoading: myTasksLoading, error: myTasksError } = useUserTasks(
+    profile?.full_name ?? null
   );
 
-  // Seleciona os dados corretos baseado no role
-  const allTasks = isAdmin ? adminTasks : userTasks;
-  const isLoading = isAdmin ? adminLoading : userLoading;
-  const error = isAdmin ? adminError : userError;
+  // Seleciona os dados corretos baseado na aba ativa
+  const isLoading = tabView === "team" ? teamLoading : myTasksLoading;
+  const error = tabView === "team" ? teamError : myTasksError;
 
-  // Aplica filtros locais para usuário comum (já que useUserTasks não suporta filtros)
-  const tasks = !isAdmin 
-    ? allTasks.filter(task => {
+  // Aplica filtros locais
+  const tasks = tabView === "team" 
+    ? teamTasks
+    : myTasks.filter(task => {
         if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
         if (filterPriority !== "all" && task.priority !== filterPriority) return false;
         if (filterCategory !== "all" && task.category !== filterCategory) return false;
         return true;
-      })
-    : allTasks;
+      });
 
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
@@ -344,12 +343,12 @@ export default function Tarefas() {
         <div>
           <h1 className="text-2xl font-bold">Tarefas</h1>
           <p className="text-muted-foreground">
-            {isAdmin ? "Gerencie todas as tarefas da equipe" : "Suas tarefas atribuídas"}
+            {tabView === "team" ? "Todas as tarefas da equipe" : "Suas tarefas atribuídas"}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Admin Tab Toggle (only for admins) */}
+          {/* Tab Toggle (for admins: Minhas Tarefas / Tarefas do Time / Por Equipe) */}
           {isAdmin && (
             <div className="flex rounded-lg border border-border p-1">
               <Button
@@ -359,7 +358,16 @@ export default function Tarefas() {
                 className="h-8 px-3 gap-1.5"
               >
                 <ListTodo className="h-4 w-4" />
-                <span className="hidden sm:inline">Tarefas</span>
+                <span className="hidden sm:inline">Minhas</span>
+              </Button>
+              <Button
+                variant={tabView === "team" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setTabView("team")}
+                className="h-8 px-3 gap-1.5"
+              >
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">Time</span>
               </Button>
               <Button
                 variant={tabView === "admin" ? "secondary" : "ghost"}
@@ -367,14 +375,14 @@ export default function Tarefas() {
                 onClick={() => setTabView("admin")}
                 className="h-8 px-3 gap-1.5"
               >
-                <User className="h-4 w-4" />
-                <span className="hidden sm:inline">Por Equipe</span>
+                <LayoutGrid className="h-4 w-4" />
+                <span className="hidden sm:inline">Por Usuário</span>
               </Button>
             </div>
           )}
 
           {/* View Mode Toggle */}
-          {tabView === "tasks" && (
+          {(tabView === "tasks" || tabView === "team") && (
             <div className="flex rounded-lg border border-border p-1">
               <Button
                 variant={viewMode === "list" ? "secondary" : "ghost"}
@@ -581,7 +589,7 @@ export default function Tarefas() {
 
       {/* Admin Panel View */}
       {isAdmin && tabView === "admin" ? (
-        <AdminTasksPanel tasks={tasks} users={users} isLoading={isLoading} />
+        <AdminTasksPanel tasks={teamTasks} users={users} isLoading={teamLoading} />
       ) : (
         <>
           {/* Filters */}
