@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar, ChevronDown, ChevronRight, ClipboardList, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { useUserTasks, useToggleTaskComplete } from "@/hooks/useTasks";
+import { useUserTasks, useToggleTaskComplete, useCreateTaskForUser } from "@/hooks/useTasks";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import type { TaskWithSubtasks, TaskStatus, RecurrenceType } from "@/types/tasks";
@@ -30,6 +31,7 @@ export function TodaysTasks() {
   const { profile } = useAuth();
   const { data: tasks = [], isLoading } = useUserTasks(profile?.full_name ?? null);
   const toggleComplete = useToggleTaskComplete();
+  const createTask = useCreateTaskForUser();
 
   // State for collapsible sections - all collapsed by default
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -39,6 +41,10 @@ export function TodaysTasks() {
     "no-date": false,
     completed: false,
   });
+
+  // State for quick task creation
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [quickTaskTitle, setQuickTaskTitle] = useState("");
 
   const toggleSection = (section: string) => {
     setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -58,6 +64,30 @@ export function TodaysTasks() {
     } catch {
       toast({
         title: "Erro ao atualizar tarefa",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleQuickAdd = async () => {
+    if (!quickTaskTitle.trim() || !profile?.full_name) return;
+
+    try {
+      await createTask.mutateAsync({
+        title: quickTaskTitle.trim(),
+        assignee: profile.full_name,
+        priority: "media",
+        due_date: new Date().toISOString().split("T")[0],
+      });
+      setQuickTaskTitle("");
+      setShowQuickAdd(false);
+      toast({
+        title: "Tarefa criada!",
+        description: "Sua tarefa foi adicionada com sucesso.",
+      });
+    } catch {
+      toast({
+        title: "Erro ao criar tarefa",
         variant: "destructive",
       });
     }
@@ -96,36 +126,90 @@ export function TodaysTasks() {
             {completedCount} de {totalCount} tarefas concluídas
           </p>
         </div>
-        <Button variant="gold" size="sm" asChild>
-          <Link to="/tarefas">
-            <Plus className="h-4 w-4 mr-1" />
-            Nova Tarefa
-          </Link>
+        <Button variant="gold" size="sm" onClick={() => setShowQuickAdd(!showQuickAdd)}>
+          <Plus className="h-4 w-4 mr-1" />
+          Nova Tarefa
         </Button>
       </div>
 
+      {/* Quick add task form */}
+      {showQuickAdd && (
+        <div className="mb-6 p-4 rounded-lg border border-accent/30 bg-accent/5 animate-fade-in">
+          <div className="flex gap-2">
+            <Input
+              placeholder="O que você precisa fazer?"
+              value={quickTaskTitle}
+              onChange={(e) => setQuickTaskTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleQuickAdd()}
+              className="flex-1"
+              autoFocus
+            />
+            <Button 
+              variant="gold" 
+              size="sm" 
+              onClick={handleQuickAdd}
+              disabled={!quickTaskTitle.trim() || createTask.isPending}
+            >
+              {createTask.isPending ? "..." : "Adicionar"}
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                setShowQuickAdd(false);
+                setQuickTaskTitle("");
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            A tarefa será criada para hoje com prioridade média
+          </p>
+        </div>
+      )}
+
       {/* Progress bar */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium">Progresso geral</span>
-          <span className="text-sm text-accent font-semibold">
-            {progressPercentage}%
-          </span>
+      {totalCount > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Progresso geral</span>
+            <span className="text-sm text-accent font-semibold">
+              {progressPercentage}%
+            </span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-accent rounded-full transition-all duration-500"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
         </div>
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-accent rounded-full transition-all duration-500"
-            style={{ width: `${progressPercentage}%` }}
-          />
-        </div>
-      </div>
+      )}
 
       {totalCount === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">
-          <p className="text-sm">Nenhuma tarefa para hoje</p>
-          <Button variant="link" asChild className="mt-2">
-            <Link to="/tarefas">Criar tarefa</Link>
-          </Button>
+        <div className="text-center py-12">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/10 mb-4">
+            <ClipboardList className="h-8 w-8 text-accent" />
+          </div>
+          <h3 className="text-lg font-medium mb-2">Nenhuma tarefa atribuída</h3>
+          <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
+            Você não possui tarefas no momento. Que tal criar uma agora?
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+            <Button 
+              variant="gold" 
+              size="sm" 
+              onClick={() => setShowQuickAdd(true)}
+              className="gap-1"
+            >
+              <Sparkles className="h-4 w-4" />
+              Criar tarefa rápida
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/tarefas">Ver todas as tarefas</Link>
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
