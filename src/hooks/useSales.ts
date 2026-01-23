@@ -31,6 +31,7 @@ export interface Sale {
   status: 'active' | 'cancelled';
   proof_link: string | null;
   payment_type: string | null;
+  funnel_source: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -90,6 +91,7 @@ export interface CreateSaleInput {
   commission_percent: number;
   sale_date: string;
   proof_link?: string;
+  funnel_source?: string;
 }
 
 // Products hooks

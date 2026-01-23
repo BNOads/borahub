@@ -1376,6 +1376,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           external_id: string
+          funnel_source: string | null
           id: string
           installments_count: number
           payment_type: string | null
@@ -1397,6 +1398,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           external_id: string
+          funnel_source?: string | null
           id?: string
           installments_count?: number
           payment_type?: string | null
@@ -1418,6 +1420,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           external_id?: string
+          funnel_source?: string | null
           id?: string
           installments_count?: number
           payment_type?: string | null
