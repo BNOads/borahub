@@ -28,12 +28,24 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useCreateSale, useProducts } from "@/hooks/useSales";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Search, CheckCircle, AlertCircle, Link2 } from "lucide-react";
+import { Loader2, Search, CheckCircle, AlertCircle, Link2, Plus } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatCurrency } from "@/components/funnel-panel/types";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+// Default funnel sources
+const DEFAULT_FUNNEL_SOURCES = [
+  "Evento",
+  "Lançamento",
+  "Ascensão",
+  "Social selling",
+  "Tráfego",
+  "Sessão",
+  "Disparo",
+];
 
 const formSchema = z.object({
   external_id: z.string().min(1, "ID obrigatório"),
@@ -49,6 +61,7 @@ const formSchema = z.object({
   commission_percent: z.coerce.number().min(0).max(100),
   sale_date: z.string().min(1, "Data obrigatória"),
   proof_link: z.string().url("Link inválido").min(1, "Link de comprovação obrigatório"),
+  funnel_source: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -105,6 +118,11 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
   const [asaasStartDate, setAsaasStartDate] = useState("");
   const [asaasEndDate, setAsaasEndDate] = useState("");
   
+  // Funnel sources management
+  const [funnelSources, setFunnelSources] = useState<string[]>(DEFAULT_FUNNEL_SOURCES);
+  const [newFunnelName, setNewFunnelName] = useState("");
+  const [showAddFunnel, setShowAddFunnel] = useState(false);
+  
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -121,6 +139,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
       commission_percent: 10,
       sale_date: new Date().toISOString().split("T")[0],
       proof_link: "",
+      funnel_source: "",
     },
   });
   
@@ -455,6 +474,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
         commission_percent: values.commission_percent,
         sale_date: values.sale_date,
         proof_link: values.proof_link,
+        funnel_source: values.funnel_source === "__none__" ? undefined : values.funnel_source,
       });
       form.reset();
       setExistingSaleId(null);
@@ -803,6 +823,82 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                 )}
               />
             </div>
+
+            <FormField
+              control={form.control}
+              name="funnel_source"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Origem do Funil</FormLabel>
+                  <div className="flex gap-2">
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="Selecione o funil de origem" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none__">Não informado</SelectItem>
+                        {funnelSources.map((source) => (
+                          <SelectItem key={source} value={source}>
+                            {source}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Popover open={showAddFunnel} onOpenChange={setShowAddFunnel}>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="outline" size="icon">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-3" align="end">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Adicionar Novo Funil</p>
+                          <Input
+                            placeholder="Nome do funil"
+                            value={newFunnelName}
+                            onChange={(e) => setNewFunnelName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                if (newFunnelName.trim() && !funnelSources.includes(newFunnelName.trim())) {
+                                  setFunnelSources([...funnelSources, newFunnelName.trim()]);
+                                  field.onChange(newFunnelName.trim());
+                                  setNewFunnelName("");
+                                  setShowAddFunnel(false);
+                                  toast.success("Funil adicionado!");
+                                }
+                              }
+                            }}
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              if (newFunnelName.trim() && !funnelSources.includes(newFunnelName.trim())) {
+                                setFunnelSources([...funnelSources, newFunnelName.trim()]);
+                                field.onChange(newFunnelName.trim());
+                                setNewFunnelName("");
+                                setShowAddFunnel(false);
+                                toast.success("Funil adicionado!");
+                              } else if (funnelSources.includes(newFunnelName.trim())) {
+                                toast.error("Este funil já existe");
+                              }
+                            }}
+                            disabled={!newFunnelName.trim()}
+                          >
+                            Adicionar
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
