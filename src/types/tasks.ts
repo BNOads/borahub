@@ -48,6 +48,7 @@ export interface Subtask {
   completed_at: string | null;
   position: number;
   created_at: string;
+  parent_subtask_id?: string | null;
 }
 
 export interface TaskComment {
@@ -84,6 +85,10 @@ export type TaskInsert = {
 export type TaskUpdate = Partial<Omit<Task, "id" | "created_at" | "updated_at">>;
 
 export type SubtaskInsert = Omit<Subtask, "id" | "created_at" | "completed_at">;
+
+export interface SubtaskWithChildren extends Subtask {
+  children: SubtaskWithChildren[];
+}
 
 export type SubtaskUpdate = Partial<Omit<Subtask, "id" | "created_at" | "task_id">>;
 
