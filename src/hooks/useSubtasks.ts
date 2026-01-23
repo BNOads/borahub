@@ -10,7 +10,13 @@ export function useCreateSubtask() {
     mutationFn: async (subtask: SubtaskInsert) => {
       const { data, error } = await supabase
         .from("subtasks")
-        .insert(subtask)
+        .insert({
+          task_id: subtask.task_id,
+          title: subtask.title,
+          completed: subtask.completed,
+          position: subtask.position,
+          parent_subtask_id: subtask.parent_subtask_id ?? null,
+        })
         .select()
         .single();
 
