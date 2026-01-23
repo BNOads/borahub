@@ -30,12 +30,20 @@ import { EventModal } from "@/components/events/EventModal";
 
 type ViewMode = "list" | "calendar";
 
-const eventTypeColors: Record<string, string> = {
-  reuniao: "bg-blue-500/20 text-blue-400",
-  lancamento: "bg-purple-500/20 text-purple-400",
-  deadline: "bg-red-500/20 text-red-400",
-  evento: "bg-green-500/20 text-green-400",
-  outro: "bg-gray-500/20 text-gray-400",
+const eventTypeColors: Record<string, { bg: string; text: string; dot: string }> = {
+  reuniao: { bg: "bg-blue-500/10", text: "text-blue-500", dot: "bg-blue-500" },
+  lancamento: { bg: "bg-purple-500/10", text: "text-purple-500", dot: "bg-purple-500" },
+  deadline: { bg: "bg-red-500/10", text: "text-red-500", dot: "bg-red-500" },
+  evento: { bg: "bg-green-500/10", text: "text-green-500", dot: "bg-green-500" },
+  outro: { bg: "bg-gray-500/10", text: "text-gray-500", dot: "bg-gray-500" },
+};
+
+const eventTypeLabels: Record<string, string> = {
+  reuniao: "Reunião",
+  lancamento: "Lançamento",
+  deadline: "Deadline",
+  evento: "Evento",
+  outro: "Outro",
 };
 
 export function UpcomingEvents() {
@@ -190,47 +198,64 @@ export function UpcomingEvents() {
                   {formatEventDate(date)}
                 </p>
                 <div className="space-y-2">
-                  {groupedEvents[date].map((event) => (
-                    <div
-                      key={event.id}
-                      className="flex items-start gap-3 p-3 rounded-lg bg-accent/5 hover:bg-accent/10 transition-colors"
-                    >
+                  {groupedEvents[date].map((event) => {
+                    const colors = eventTypeColors[event.event_type || "outro"] || eventTypeColors.outro;
+                    
+                    return (
                       <div
+                        key={event.id}
                         className={cn(
-                          "w-2 h-2 rounded-full mt-2 flex-shrink-0",
-                          eventTypeColors[event.event_type || "outro"]?.replace(
-                            "/20",
-                            ""
-                          ) || "bg-gray-500"
+                          "flex items-start gap-3 p-3 rounded-lg transition-colors border-l-4",
+                          colors.bg,
+                          `border-l-${colors.dot.replace("bg-", "")}`
                         )}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{event.title}</p>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {event.event_time.slice(0, 5)}
-                          </span>
-                          {event.meeting_link ? (
-                            <a
-                              href={event.meeting_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-accent hover:underline"
+                        style={{ borderLeftColor: colors.dot.includes("blue") ? "#3b82f6" : 
+                                 colors.dot.includes("purple") ? "#a855f7" :
+                                 colors.dot.includes("red") ? "#ef4444" :
+                                 colors.dot.includes("green") ? "#22c55e" : "#6b7280" }}
+                      >
+                        <div
+                          className={cn(
+                            "w-2 h-2 rounded-full mt-2 flex-shrink-0",
+                            colors.dot
+                          )}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-medium truncate">{event.title}</p>
+                            <Badge 
+                              variant="secondary" 
+                              className={cn("text-[10px] px-1.5 py-0", colors.bg, colors.text)}
                             >
-                              <Video className="h-3 w-3" />
-                              Online
-                            </a>
-                          ) : event.location ? (
-                            <span className="flex items-center gap-1 truncate">
-                              <MapPin className="h-3 w-3" />
-                              {event.location}
+                              {eventTypeLabels[event.event_type || "outro"]}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {event.event_time.slice(0, 5)}
                             </span>
-                          ) : null}
+                            {event.meeting_link ? (
+                              <a
+                                href={event.meeting_link}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-accent hover:underline"
+                              >
+                                <Video className="h-3 w-3" />
+                                Online
+                              </a>
+                            ) : event.location ? (
+                              <span className="flex items-center gap-1 truncate">
+                                <MapPin className="h-3 w-3" />
+                                {event.location}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -270,18 +295,18 @@ export function UpcomingEvents() {
                 </span>
                 {dayEvents.length > 0 && (
                   <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
-                    {dayEvents.slice(0, 3).map((e, i) => (
-                      <div
-                        key={i}
-                        className={cn(
-                          "w-1.5 h-1.5 rounded-full",
-                          eventTypeColors[e.event_type || "outro"]?.replace(
-                            "/20",
-                            ""
-                          ) || "bg-gray-500"
-                        )}
-                      />
-                    ))}
+                    {dayEvents.slice(0, 3).map((e, i) => {
+                      const colors = eventTypeColors[e.event_type || "outro"] || eventTypeColors.outro;
+                      return (
+                        <div
+                          key={i}
+                          className={cn(
+                            "w-1.5 h-1.5 rounded-full",
+                            colors.dot
+                          )}
+                        />
+                      );
+                    })}
                   </div>
                 )}
               </div>
