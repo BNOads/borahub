@@ -1,19 +1,60 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from "recharts";
-import { Flag, Users, AlertTriangle, CheckCircle2, Clock, ListTodo } from "lucide-react";
-import type { TaskWithSubtasks } from "@/types/tasks";
+import { Flag, Users, AlertTriangle, CheckCircle2, Clock, ListTodo, Plus } from "lucide-react";
+import type { TaskWithSubtasks, TaskPriority, RecurrenceType, TaskFormData } from "@/types/tasks";
+import { RECURRENCE_LABELS } from "@/types/tasks";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
+import { useCreateTask, useToggleTaskComplete } from "@/hooks/useTasks";
+import { useToast } from "@/hooks/use-toast";
+
+const categories = [
+  "Lancamento",
+  "Marketing",
+  "Vendas",
+  "Suporte",
+  "Administrativo",
+];
+
+const emptyFormData: TaskFormData = {
+  title: "",
+  description: "",
+  priority: "media",
+  category: "",
+  assignee: "",
+  dueDate: "",
+  dueTime: "",
+  recurrence: "none",
+  recurrenceEndDate: "",
+};
 
 interface AdminTasksPanelProps {
   tasks: TaskWithSubtasks[];
@@ -33,9 +74,22 @@ const CHART_COLORS = [
 ];
 
 export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProps) {
+  const { toast } = useToast();
+  const createTask = useCreateTask();
+  const toggleComplete = useToggleTaskComplete();
+  
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedAssignee, setSelectedAssignee] = useState<string>("");
+  const [formData, setFormData] = useState<TaskFormData>(emptyFormData);
+
   // Group tasks by assignee
   const tasksByAssignee = useMemo(() => {
     const grouped: Record<string, TaskWithSubtasks[]> = {};
+    
+    // Add all active users to the grouped object with empty arrays
+    users.forEach((user) => {
+      grouped[user.full_name] = [];
+    });
     
     tasks.forEach((task) => {
       const assignee = task.assignee || "Sem responsável";
@@ -46,7 +100,66 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
     });
 
     return grouped;
-  }, [tasks]);
+  }, [tasks, users]);
+
+  const handleOpenCreateDialog = (assignee: string) => {
+    setSelectedAssignee(assignee);
+    setFormData({
+      ...emptyFormData,
+      assignee,
+      dueDate: new Date().toISOString().split("T")[0],
+    });
+    setIsDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setSelectedAssignee("");
+    setFormData(emptyFormData);
+  };
+
+  const handleSaveTask = async () => {
+    if (!formData.title.trim()) {
+      toast({
+        title: "Título obrigatório",
+        description: "Digite um título para a tarefa",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await createTask.mutateAsync({
+        title: formData.title,
+        description: formData.description || null,
+        priority: formData.priority,
+        category: formData.category || null,
+        assignee: formData.assignee,
+        due_date: formData.dueDate,
+        due_time: formData.dueTime || null,
+        completed: false,
+        position: 0,
+      });
+      toast({ title: "Tarefa criada com sucesso" });
+      handleCloseDialog();
+    } catch {
+      toast({
+        title: "Erro ao criar tarefa",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleComplete = async (id: string, currentCompleted: boolean) => {
+    try {
+      await toggleComplete.mutateAsync({ id, completed: !currentCompleted });
+    } catch {
+      toast({
+        title: "Erro ao atualizar tarefa",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Priority distribution data
   const priorityData = useMemo(() => {
@@ -317,9 +430,20 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
                           </p>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-2xl font-bold text-primary">{pendingTasks.length}</span>
-                        <p className="text-xs text-muted-foreground">tarefas</p>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenCreateDialog(assignee)}
+                          className="gap-1"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span className="hidden sm:inline">Nova Tarefa</span>
+                        </Button>
+                        <div className="text-right">
+                          <span className="text-2xl font-bold text-primary">{pendingTasks.length}</span>
+                          <p className="text-xs text-muted-foreground">tarefas</p>
+                        </div>
                       </div>
                     </div>
                   </CardHeader>
@@ -353,14 +477,23 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
                     {/* Task list */}
                     <div className="space-y-2 max-h-48 overflow-y-auto">
                       {pendingTasks.slice(0, 5).map((task) => (
-                        <Link
+                        <div
                           key={task.id}
-                          to={`/tarefas/${task.id}`}
                           className="flex items-center justify-between p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors group"
                         >
                           <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Checkbox
+                              checked={task.completed}
+                              onCheckedChange={() => handleToggleComplete(task.id, task.completed)}
+                              className="h-4 w-4"
+                            />
                             {getPriorityBadge(task.priority)}
-                            <span className="text-sm truncate">{task.title}</span>
+                            <Link
+                              to={`/tarefas/${task.id}`}
+                              className="text-sm truncate hover:underline"
+                            >
+                              {task.title}
+                            </Link>
                           </div>
                           <div className="flex items-center gap-2">
                             {task.due_date && (
@@ -377,7 +510,7 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
                               </span>
                             )}
                           </div>
-                        </Link>
+                        </div>
                       ))}
                       {pendingTasks.length > 5 && (
                         <p className="text-xs text-center text-muted-foreground py-1">
@@ -396,6 +529,137 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
             })}
         </div>
       </div>
+
+      {/* Create Task Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Nova Tarefa para {selectedAssignee}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Título *</Label>
+              <Input
+                id="title"
+                placeholder="Digite o título da tarefa"
+                value={formData.title}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, title: e.target.value }))
+                }
+                maxLength={100}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Descrição</Label>
+              <Textarea
+                id="description"
+                placeholder="Descreva a tarefa..."
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
+                maxLength={500}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Prioridade</Label>
+                <Select
+                  value={formData.priority}
+                  onValueChange={(value: TaskPriority) =>
+                    setFormData((prev) => ({ ...prev, priority: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="alta">Alta</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="baixa">Baixa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Categoria</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, category: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="dueDate">Data de entrega *</Label>
+                <Input
+                  id="dueDate"
+                  type="date"
+                  value={formData.dueDate}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      dueDate: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Recorrência</Label>
+                <Select
+                  value={formData.recurrence}
+                  onValueChange={(value: RecurrenceType) =>
+                    setFormData((prev) => ({ ...prev, recurrence: value }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(RECURRENCE_LABELS).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={handleCloseDialog}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSaveTask}
+                disabled={createTask.isPending}
+              >
+                Criar Tarefa
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
