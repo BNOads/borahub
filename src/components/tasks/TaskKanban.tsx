@@ -5,16 +5,34 @@ import { Progress } from "@/components/ui/progress";
 import {
   Calendar,
   User,
-  Flag,
   ListTodo,
   ExternalLink,
+  GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { TaskWithSubtasks, TaskPriority } from "@/types/tasks";
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useState } from "react";
 
 interface TaskKanbanProps {
   tasks: TaskWithSubtasks[];
   onToggleComplete: (id: string, completed: boolean) => void;
+  onChangePriority?: (id: string, newPriority: TaskPriority) => void;
   isLoading?: boolean;
 }
 
@@ -27,14 +45,26 @@ const priorityOrder: Record<TaskPriority, number> = {
 export function TaskKanban({
   tasks,
   onToggleComplete,
+  onChangePriority,
   isLoading,
 }: TaskKanbanProps) {
+  const [activeTask, setActiveTask] = useState<TaskWithSubtasks | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+
   const columns = [
     {
-      id: "alta",
+      id: "alta" as TaskPriority,
       title: "Alta Prioridade",
       color: "border-destructive",
       bgColor: "bg-destructive/5",
+      dropColor: "bg-destructive/20",
       tasks: tasks
         .filter((t) => !t.completed && t.priority === "alta")
         .sort((a, b) => {
@@ -45,10 +75,11 @@ export function TaskKanban({
         }),
     },
     {
-      id: "media",
-      title: "Media Prioridade",
+      id: "media" as TaskPriority,
+      title: "Média Prioridade",
       color: "border-warning",
       bgColor: "bg-warning/5",
+      dropColor: "bg-warning/20",
       tasks: tasks
         .filter((t) => !t.completed && t.priority === "media")
         .sort((a, b) => {
@@ -59,10 +90,11 @@ export function TaskKanban({
         }),
     },
     {
-      id: "baixa",
+      id: "baixa" as TaskPriority,
       title: "Baixa Prioridade",
       color: "border-muted-foreground",
       bgColor: "bg-muted/30",
+      dropColor: "bg-muted/50",
       tasks: tasks
         .filter((t) => !t.completed && t.priority === "baixa")
         .sort((a, b) => {
@@ -73,10 +105,11 @@ export function TaskKanban({
         }),
     },
     {
-      id: "completed",
-      title: "Concluidas",
+      id: "completed" as const,
+      title: "Concluídas",
       color: "border-success",
       bgColor: "bg-success/5",
+      dropColor: "bg-success/20",
       tasks: tasks.filter((t) => t.completed),
     },
   ];
@@ -96,6 +129,45 @@ export function TaskKanban({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return date < today;
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const task = tasks.find((t) => t.id === event.active.id);
+    setActiveTask(task || null);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveTask(null);
+
+    if (!over) return;
+
+    const taskId = active.id as string;
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+
+    // Check if dropped on a column
+    const targetColumnId = over.id as string;
+    const validPriorities: TaskPriority[] = ["alta", "media", "baixa"];
+    
+    if (targetColumnId === "completed") {
+      // Toggle to completed
+      if (!task.completed) {
+        onToggleComplete(taskId, false);
+      }
+    } else if (validPriorities.includes(targetColumnId as TaskPriority)) {
+      const newPriority = targetColumnId as TaskPriority;
+      
+      // If task was completed, uncomplete it
+      if (task.completed) {
+        onToggleComplete(taskId, true);
+      }
+      
+      // Change priority if different
+      if (task.priority !== newPriority && onChangePriority) {
+        onChangePriority(taskId, newPriority);
+      }
+    }
   };
 
   if (isLoading) {
@@ -118,40 +190,153 @@ export function TaskKanban({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      {columns.map((column) => (
-        <div
-          key={column.id}
-          className={cn(
-            "rounded-xl border-2 p-4 min-h-[400px]",
-            column.color,
-            column.bgColor
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {columns.map((column) => (
+          <KanbanColumn
+            key={column.id}
+            column={column}
+            onToggleComplete={onToggleComplete}
+            formatDate={formatDate}
+            isOverdue={isOverdue}
+            isActive={!!activeTask}
+          />
+        ))}
+      </div>
+
+      <DragOverlay>
+        {activeTask && (
+          <div className="opacity-90">
+            <KanbanCard
+              task={activeTask}
+              onToggle={onToggleComplete}
+              formatDate={formatDate}
+              isOverdue={isOverdue}
+              isDragging
+            />
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+interface KanbanColumnProps {
+  column: {
+    id: TaskPriority | "completed";
+    title: string;
+    color: string;
+    bgColor: string;
+    dropColor: string;
+    tasks: TaskWithSubtasks[];
+  };
+  onToggleComplete: (id: string, completed: boolean) => void;
+  formatDate: (date: string | null) => string;
+  isOverdue: (date: string | null, completed: boolean) => boolean;
+  isActive: boolean;
+}
+
+function KanbanColumn({
+  column,
+  onToggleComplete,
+  formatDate,
+  isOverdue,
+  isActive,
+}: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useSortable({
+    id: column.id,
+    data: { type: "column" },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "rounded-xl border-2 p-4 min-h-[400px] transition-colors",
+        column.color,
+        isOver ? column.dropColor : column.bgColor,
+        isActive && "ring-2 ring-primary/20"
+      )}
+    >
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold">{column.title}</h3>
+        <Badge variant="secondary">{column.tasks.length}</Badge>
+      </div>
+
+      <SortableContext
+        items={column.tasks.map((t) => t.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="space-y-3">
+          {column.tasks.map((task) => (
+            <DraggableKanbanCard
+              key={task.id}
+              task={task}
+              onToggle={onToggleComplete}
+              formatDate={formatDate}
+              isOverdue={isOverdue}
+            />
+          ))}
+
+          {column.tasks.length === 0 && (
+            <div className={cn(
+              "text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-lg transition-colors",
+              isOver && "border-primary bg-primary/5"
+            )}>
+              {isOver ? "Soltar aqui" : "Nenhuma tarefa"}
+            </div>
           )}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">{column.title}</h3>
-            <Badge variant="secondary">{column.tasks.length}</Badge>
-          </div>
-
-          <div className="space-y-3">
-            {column.tasks.map((task) => (
-              <KanbanCard
-                key={task.id}
-                task={task}
-                onToggle={onToggleComplete}
-                formatDate={formatDate}
-                isOverdue={isOverdue}
-              />
-            ))}
-
-            {column.tasks.length === 0 && (
-              <div className="text-center py-8 text-muted-foreground text-sm">
-                Nenhuma tarefa
-              </div>
-            )}
-          </div>
         </div>
-      ))}
+      </SortableContext>
+    </div>
+  );
+}
+
+interface DraggableKanbanCardProps {
+  task: TaskWithSubtasks;
+  onToggle: (id: string, completed: boolean) => void;
+  formatDate: (date: string | null) => string;
+  isOverdue: (date: string | null, completed: boolean) => boolean;
+}
+
+function DraggableKanbanCard({
+  task,
+  onToggle,
+  formatDate,
+  isOverdue,
+}: DraggableKanbanCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: task.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(isDragging && "opacity-50")}
+    >
+      <KanbanCard
+        task={task}
+        onToggle={onToggle}
+        formatDate={formatDate}
+        isOverdue={isOverdue}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
     </div>
   );
 }
@@ -161,6 +346,8 @@ interface KanbanCardProps {
   onToggle: (id: string, completed: boolean) => void;
   formatDate: (date: string | null) => string;
   isOverdue: (date: string | null, completed: boolean) => boolean;
+  isDragging?: boolean;
+  dragHandleProps?: Record<string, any>;
 }
 
 function KanbanCard({
@@ -168,6 +355,8 @@ function KanbanCard({
   onToggle,
   formatDate,
   isOverdue,
+  isDragging,
+  dragHandleProps,
 }: KanbanCardProps) {
   const subtaskCount = task.subtasks?.length || 0;
   const completedSubtasks =
@@ -179,10 +368,19 @@ function KanbanCard({
     <div
       className={cn(
         "rounded-lg border border-border bg-card p-3 shadow-sm transition-all hover:shadow-md",
-        task.completed && "opacity-60"
+        task.completed && "opacity-60",
+        isDragging && "shadow-lg ring-2 ring-primary"
       )}
     >
       <div className="flex items-start gap-2 mb-2">
+        {dragHandleProps && (
+          <button
+            {...dragHandleProps}
+            className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-0.5"
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
         <Checkbox
           checked={task.completed}
           onCheckedChange={() => onToggle(task.id, task.completed)}
@@ -201,14 +399,14 @@ function KanbanCard({
       </div>
 
       {task.description && (
-        <p className="text-xs text-muted-foreground line-clamp-2 mb-2 ml-6">
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-2 ml-10">
           {task.description}
         </p>
       )}
 
       {/* Subtasks Progress */}
       {subtaskCount > 0 && (
-        <div className="mb-2 ml-6">
+        <div className="mb-2 ml-10">
           <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
             <ListTodo className="h-3 w-3" />
             <span>
@@ -244,7 +442,7 @@ function KanbanCard({
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-1.5 ml-6">
+      <div className="flex flex-wrap items-center gap-1.5 ml-10">
         {task.category && (
           <Badge variant="secondary" className="text-xs px-1.5 py-0">
             {task.category}

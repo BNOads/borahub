@@ -97,6 +97,7 @@ export default function Tarefas() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -133,7 +134,10 @@ export default function Tarefas() {
 
   // Aplica filtros locais
   const tasks = tabView === "team" 
-    ? teamTasks
+    ? teamTasks.filter(task => {
+        if (filterAssignee !== "all" && task.assignee !== filterAssignee) return false;
+        return true;
+      })
     : myTasks.filter(task => {
         if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
         if (filterPriority !== "all" && task.priority !== filterPriority) return false;
@@ -172,6 +176,21 @@ export default function Tarefas() {
     } catch {
       toast({
         title: "Erro ao atualizar tarefa",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleChangePriority = async (id: string, newPriority: TaskPriority) => {
+    try {
+      await updateTask.mutateAsync({
+        id,
+        updates: { priority: newPriority },
+      });
+      toast({ title: "Prioridade atualizada" });
+    } catch {
+      toast({
+        title: "Erro ao atualizar prioridade",
         variant: "destructive",
       });
     }
@@ -631,6 +650,24 @@ export default function Tarefas() {
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Filtro por responsável - apenas na aba Time */}
+              {tabView === "team" && (
+                <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+                  <SelectTrigger className="w-[180px]">
+                    <User className="h-4 w-4 mr-2" />
+                    <SelectValue placeholder="Responsável" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.full_name}>
+                        {user.display_name || user.full_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
@@ -683,6 +720,7 @@ export default function Tarefas() {
             <TaskKanban
               tasks={tasks}
               onToggleComplete={handleToggleComplete}
+              onChangePriority={handleChangePriority}
               isLoading={isLoading}
             />
           ) : (
