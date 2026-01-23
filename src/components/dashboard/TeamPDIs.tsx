@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Users, ArrowRight, Clock, AlertTriangle, BookOpen } from "lucide-react";
+import { Users, ArrowRight, Clock, AlertTriangle, BookOpen, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -7,9 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTeamPDIs, calcularProgresso } from "@/hooks/usePDIs";
 import { differenceInDays } from "date-fns";
+import { CreatePDIModal } from "@/components/pdi/CreatePDIModal";
 
 export function TeamPDIs() {
   const { data: pdis = [], isLoading } = useTeamPDIs();
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Filtrar apenas PDIs ativos e atrasados (não finalizados)
   const pendingPDIs = pdis.filter(pdi => pdi.status !== "finalizado").slice(0, 4);
@@ -65,12 +68,23 @@ export function TeamPDIs() {
             {pendingPDIs.length}
           </Badge>
         </CardTitle>
-        <Button variant="ghost" size="sm" asChild className="text-accent hover:text-accent">
-          <Link to="/pdis" className="gap-1">
-            Ver todos
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowCreateModal(true)}
+            className="gap-1"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Novo</span>
+          </Button>
+          <Button variant="ghost" size="sm" asChild className="text-accent hover:text-accent">
+            <Link to="/pdis" className="gap-1">
+              Ver todos
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {pendingPDIs.map(pdi => {
@@ -131,6 +145,8 @@ export function TeamPDIs() {
           );
         })}
       </CardContent>
+
+      <CreatePDIModal open={showCreateModal} onOpenChange={setShowCreateModal} />
     </Card>
   );
 }
