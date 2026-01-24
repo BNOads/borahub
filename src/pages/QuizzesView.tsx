@@ -49,7 +49,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQuizzes, useCreateQuiz, useDeleteQuiz, useUpdateQuiz, useGenerateQuizFromAI, Quiz } from "@/hooks/useQuizzes";
+import { useQuizzes, useCreateQuiz, useDeleteQuiz, useUpdateQuiz, useGenerateQuizFromAI, useDuplicateQuiz, Quiz } from "@/hooks/useQuizzes";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -63,6 +63,7 @@ export default function QuizzesView() {
   const deleteQuiz = useDeleteQuiz();
   const updateQuiz = useUpdateQuiz();
   const generateQuizFromAI = useGenerateQuizFromAI();
+  const duplicateQuiz = useDuplicateQuiz();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createMode, setCreateMode] = useState<"manual" | "ai">("manual");
@@ -110,6 +111,11 @@ export default function QuizzesView() {
     const url = `${window.location.origin}/q/${quiz.slug}`;
     navigator.clipboard.writeText(url);
     toast({ title: "Link copiado!" });
+  };
+
+  const handleDuplicateQuiz = async (quiz: QuizWithProfile) => {
+    const newQuiz = await duplicateQuiz.mutateAsync(quiz.id);
+    navigate(`/quizzes/${newQuiz.id}/edit`);
   };
 
   const getStatusBadge = (status: string) => {
@@ -306,6 +312,10 @@ export default function QuizzesView() {
                         <DropdownMenuItem onClick={() => handleCopyLink(quiz)}>
                           <Copy className="h-4 w-4 mr-2" />
                           Copiar Link
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDuplicateQuiz(quiz)} disabled={duplicateQuiz.isPending}>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Duplicar Quiz
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => handleToggleStatus(quiz)}>
