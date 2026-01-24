@@ -739,7 +739,7 @@ Exemplo:
   );
 }
 
-// Question Editor Component
+// Question Editor Component with local state and debounce
 function QuestionEditor({
   question,
   index,
@@ -763,6 +763,37 @@ function QuestionEditor({
   onUpdateOption: (optionId: string, data: Partial<QuizOption>) => void;
   onDeleteOption: (optionId: string) => void;
 }) {
+  // Local state for question fields
+  const [localQuestion, setLocalQuestion] = useState({
+    question_text: question.question_text,
+    helper_text: question.helper_text || "",
+    scale_min_label: question.scale_min_label || "",
+    scale_max_label: question.scale_max_label || "",
+  });
+
+  // Debounce timer ref
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync local state when question changes from outside
+  useEffect(() => {
+    setLocalQuestion({
+      question_text: question.question_text,
+      helper_text: question.helper_text || "",
+      scale_min_label: question.scale_min_label || "",
+      scale_max_label: question.scale_max_label || "",
+    });
+  }, [question.id]);
+
+  const handleLocalChange = (field: keyof typeof localQuestion, value: string) => {
+    setLocalQuestion(prev => ({ ...prev, [field]: value }));
+    
+    // Debounce the update
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onUpdate({ [field]: value });
+    }, 800);
+  };
+
   return (
     <Card>
       <Collapsible open={isExpanded} onOpenChange={onToggle}>
@@ -773,7 +804,7 @@ function QuestionEditor({
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
                 <Badge variant="outline">{index + 1}</Badge>
                 <div>
-                  <CardTitle className="text-base">{question.question_text}</CardTitle>
+                  <CardTitle className="text-base">{localQuestion.question_text}</CardTitle>
                   <p className="text-sm text-muted-foreground">
                     {QUESTION_TYPES.find((t) => t.value === question.question_type)?.label}
                     {question.is_required && " • Obrigatória"}
@@ -795,8 +826,8 @@ function QuestionEditor({
               <div className="space-y-2">
                 <Label>Texto da pergunta</Label>
                 <Input
-                  value={question.question_text}
-                  onChange={(e) => onUpdate({ question_text: e.target.value })}
+                  value={localQuestion.question_text}
+                  onChange={(e) => handleLocalChange("question_text", e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -822,8 +853,8 @@ function QuestionEditor({
             <div className="space-y-2">
               <Label>Texto de apoio (opcional)</Label>
               <Input
-                value={question.helper_text || ""}
-                onChange={(e) => onUpdate({ helper_text: e.target.value })}
+                value={localQuestion.helper_text}
+                onChange={(e) => handleLocalChange("helper_text", e.target.value)}
                 placeholder="Explique a pergunta..."
               />
             </div>
@@ -843,28 +874,13 @@ function QuestionEditor({
               <div className="space-y-3">
                 <Label>Opções de resposta</Label>
                 {question.options?.map((option, optIndex) => (
-                  <div key={option.id} className="flex items-center gap-2">
-                    <Input
-                      value={option.option_text}
-                      onChange={(e) => onUpdateOption(option.id, { option_text: e.target.value })}
-                      placeholder={`Opção ${optIndex + 1}`}
-                      className="flex-1"
-                    />
-                    <Input
-                      type="number"
-                      value={option.points}
-                      onChange={(e) => onUpdateOption(option.id, { points: parseInt(e.target.value) || 0 })}
-                      className="w-20"
-                      placeholder="Pts"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDeleteOption(option.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <OptionEditor
+                    key={option.id}
+                    option={option}
+                    optIndex={optIndex}
+                    onUpdateOption={onUpdateOption}
+                    onDeleteOption={onDeleteOption}
+                  />
                 ))}
                 <Button variant="outline" size="sm" onClick={onAddOption}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -895,16 +911,16 @@ function QuestionEditor({
                 <div className="space-y-2">
                   <Label>Label mínimo</Label>
                   <Input
-                    value={question.scale_min_label || ""}
-                    onChange={(e) => onUpdate({ scale_min_label: e.target.value })}
+                    value={localQuestion.scale_min_label}
+                    onChange={(e) => handleLocalChange("scale_min_label", e.target.value)}
                     placeholder="Discordo"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Label máximo</Label>
                   <Input
-                    value={question.scale_max_label || ""}
-                    onChange={(e) => onUpdate({ scale_max_label: e.target.value })}
+                    value={localQuestion.scale_max_label}
+                    onChange={(e) => handleLocalChange("scale_max_label", e.target.value)}
                     placeholder="Concordo"
                   />
                 </div>
@@ -917,7 +933,60 @@ function QuestionEditor({
   );
 }
 
-// Diagnosis Editor Component
+// Option Editor with local state
+function OptionEditor({
+  option,
+  optIndex,
+  onUpdateOption,
+  onDeleteOption,
+}: {
+  option: QuizOption;
+  optIndex: number;
+  onUpdateOption: (optionId: string, data: Partial<QuizOption>) => void;
+  onDeleteOption: (optionId: string) => void;
+}) {
+  const [localText, setLocalText] = useState(option.option_text);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setLocalText(option.option_text);
+  }, [option.id]);
+
+  const handleTextChange = (value: string) => {
+    setLocalText(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onUpdateOption(option.id, { option_text: value });
+    }, 800);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        value={localText}
+        onChange={(e) => handleTextChange(e.target.value)}
+        placeholder={`Opção ${optIndex + 1}`}
+        className="flex-1"
+      />
+      <Input
+        type="number"
+        value={option.points}
+        onChange={(e) => onUpdateOption(option.id, { points: parseInt(e.target.value) || 0 })}
+        className="w-20"
+        placeholder="Pts"
+      />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => onDeleteOption(option.id)}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
+// Diagnosis Editor Component with local state
 function DiagnosisEditor({
   diagnosis,
   quizId,
@@ -931,6 +1000,33 @@ function DiagnosisEditor({
   onUpdate: (data: Partial<QuizDiagnosis>) => void;
   onDelete: () => void;
 }) {
+  const [localData, setLocalData] = useState({
+    title: diagnosis.title,
+    description: diagnosis.description || "",
+    action_plan: diagnosis.action_plan || "",
+    color: diagnosis.color,
+  });
+
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    setLocalData({
+      title: diagnosis.title,
+      description: diagnosis.description || "",
+      action_plan: diagnosis.action_plan || "",
+      color: diagnosis.color,
+    });
+  }, [diagnosis.id]);
+
+  const handleLocalChange = (field: keyof typeof localData, value: string) => {
+    setLocalData(prev => ({ ...prev, [field]: value }));
+    
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onUpdate({ [field]: value });
+    }, 800);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -938,11 +1034,11 @@ function DiagnosisEditor({
           <div className="flex items-center gap-3">
             <div
               className="h-8 w-8 rounded-lg"
-              style={{ backgroundColor: diagnosis.color }}
+              style={{ backgroundColor: localData.color }}
             />
             <Input
-              value={diagnosis.title}
-              onChange={(e) => onUpdate({ title: e.target.value })}
+              value={localData.title}
+              onChange={(e) => handleLocalChange("title", e.target.value)}
               className="text-lg font-semibold border-none p-0 h-auto focus-visible:ring-0"
             />
           </div>
@@ -976,8 +1072,8 @@ function DiagnosisEditor({
         <div className="space-y-2">
           <Label>Descrição</Label>
           <Textarea
-            value={diagnosis.description || ""}
-            onChange={(e) => onUpdate({ description: e.target.value })}
+            value={localData.description}
+            onChange={(e) => handleLocalChange("description", e.target.value)}
             placeholder="Descreva o diagnóstico..."
             rows={3}
           />
@@ -986,8 +1082,8 @@ function DiagnosisEditor({
         <div className="space-y-2">
           <Label>Plano de ação</Label>
           <Textarea
-            value={diagnosis.action_plan || ""}
-            onChange={(e) => onUpdate({ action_plan: e.target.value })}
+            value={localData.action_plan}
+            onChange={(e) => handleLocalChange("action_plan", e.target.value)}
             placeholder="Próximos passos recomendados..."
             rows={2}
           />
@@ -998,13 +1094,13 @@ function DiagnosisEditor({
           <div className="flex gap-2">
             <input
               type="color"
-              value={diagnosis.color}
-              onChange={(e) => onUpdate({ color: e.target.value })}
+              value={localData.color}
+              onChange={(e) => handleLocalChange("color", e.target.value)}
               className="h-10 w-16 rounded border cursor-pointer"
             />
             <Input
-              value={diagnosis.color}
-              onChange={(e) => onUpdate({ color: e.target.value })}
+              value={localData.color}
+              onChange={(e) => handleLocalChange("color", e.target.value)}
               className="w-32"
             />
           </div>
