@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { ArrowRight, Check, Loader2, ExternalLink, MessageCircle } from "lucide-react";
+import { ArrowRight, Check, Loader2, ExternalLink, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useQuizBySlug,
   useCreateSession,
@@ -34,11 +35,14 @@ export default function PublicQuiz() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [answersDetails, setAnswersDetails] = useState<{ question: string; answer: string }[]>([]);
   const [leadData, setLeadData] = useState<Record<string, string>>({});
   const [lgpdConsent, setLgpdConsent] = useState(false);
   const [totalScore, setTotalScore] = useState(0);
   const [collectedTags, setCollectedTags] = useState<string[]>([]);
   const [matchedDiagnosis, setMatchedDiagnosis] = useState<QuizDiagnosis | null>(null);
+  const [aiDiagnosis, setAiDiagnosis] = useState<string | null>(null);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
 
   const currentQuestion = quiz?.questions?.[currentQuestionIndex];
@@ -71,23 +75,31 @@ export default function PublicQuiz() {
     // Calculate points and tags for this answer
     let pointsEarned = 0;
     let tagsCollected: string[] = [];
+    let answerText = "";
 
     if (["single_choice", "yes_no"].includes(currentQuestion.question_type)) {
       const selectedOption = currentQuestion.options?.find((o) => o.id === answer);
       if (selectedOption) {
         pointsEarned = selectedOption.points || 0;
         tagsCollected = (selectedOption.tags as string[]) || [];
+        answerText = selectedOption.option_text;
       }
     } else if (currentQuestion.question_type === "multiple_choice") {
       const selectedIds = answer as string[];
+      const selectedTexts: string[] = [];
       currentQuestion.options?.forEach((opt) => {
         if (selectedIds.includes(opt.id)) {
           pointsEarned += opt.points || 0;
           tagsCollected.push(...((opt.tags as string[]) || []));
+          selectedTexts.push(opt.option_text);
         }
       });
+      answerText = selectedTexts.join(", ");
     } else if (currentQuestion.question_type === "scale") {
       pointsEarned = answer as number;
+      answerText = String(answer);
+    } else {
+      answerText = String(answer);
     }
 
     // Save response
@@ -107,6 +119,7 @@ export default function PublicQuiz() {
     setTotalScore((prev) => prev + pointsEarned);
     setCollectedTags((prev) => [...prev, ...tagsCollected]);
     setAnswers((prev) => ({ ...prev, [currentQuestion.id]: answer }));
+    setAnswersDetails((prev) => [...prev, { question: currentQuestion.question_text, answer: answerText }]);
 
     // Move to next or finish
     if (currentQuestionIndex < (quiz?.questions?.length || 0) - 1) {
@@ -143,6 +156,9 @@ export default function PublicQuiz() {
         }
       });
       diagnosis = bestMatch.diagnosis || quiz.diagnoses?.[0] || null;
+    } else if (quiz.diagnosis_type === "ai") {
+      // AI diagnosis will be generated after lead capture or immediately
+      diagnosis = null;
     } else {
       diagnosis = quiz.diagnoses?.[0] || null;
     }
@@ -163,7 +179,41 @@ export default function PublicQuiz() {
     if (quiz.lead_capture_enabled && quiz.lead_capture_position === "before_result") {
       setStep("lead");
     } else {
+      if (quiz.diagnosis_type === "ai") {
+        await generateAIDiagnosis();
+      }
       setStep("result");
+    }
+  };
+
+  // Generate AI Diagnosis
+  const generateAIDiagnosis = async () => {
+    if (!quiz || !sessionId) return;
+
+    setIsGeneratingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("quiz-ai-diagnosis", {
+        body: {
+          prompt_template: quiz.ai_prompt_template,
+          answers: answersDetails,
+          quiz_title: quiz.title,
+          lead_name: leadData.name || null,
+        },
+      });
+
+      if (error) throw error;
+      setAiDiagnosis(data.diagnosis);
+
+      // Save AI diagnosis to session
+      await supabase
+        .from("quiz_sessions")
+        .update({ ai_generated_diagnosis: data.diagnosis })
+        .eq("id", sessionId);
+    } catch (error) {
+      console.error("Error generating AI diagnosis:", error);
+      setAiDiagnosis("Ocorreu um erro ao gerar o diagnóstico. Por favor, tente novamente.");
+    } finally {
+      setIsGeneratingAI(false);
     }
   };
 
@@ -183,17 +233,46 @@ export default function PublicQuiz() {
       lgpd_consent: lgpdConsent,
     });
 
+    if (quiz.diagnosis_type === "ai") {
+      await generateAIDiagnosis();
+    }
     setStep("result");
   };
 
   // Handle CTA click
   const handleCTAClick = () => {
-    if (quiz?.final_cta_whatsapp) {
-      const message = encodeURIComponent(`Olá! Acabei de fazer o diagnóstico "${quiz.title}" e gostaria de saber mais.`);
-      window.open(`https://wa.me/${quiz.final_cta_whatsapp}?text=${message}`, "_blank");
-    } else if (quiz?.final_cta_url) {
+    if (quiz?.final_cta_url) {
       window.open(quiz.final_cta_url, "_blank");
     }
+  };
+
+  // Download diagnosis as text file
+  const handleDownloadDiagnosis = () => {
+    const content = aiDiagnosis || (matchedDiagnosis ? `
+${matchedDiagnosis.title}
+
+${matchedDiagnosis.description || ""}
+
+${matchedDiagnosis.insights && (matchedDiagnosis.insights as string[]).length > 0 ? `
+Principais Insights:
+${(matchedDiagnosis.insights as string[]).map((i, idx) => `${idx + 1}. ${i}`).join("\n")}
+` : ""}
+
+${matchedDiagnosis.action_plan ? `
+Próximos Passos:
+${matchedDiagnosis.action_plan}
+` : ""}
+    `.trim() : "");
+
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `diagnostico-${quiz?.title?.toLowerCase().replace(/\s+/g, "-") || "quiz"}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   if (isLoading) {
@@ -372,48 +451,99 @@ export default function PublicQuiz() {
           )}
 
           {/* Result */}
-          {step === "result" && matchedDiagnosis && (
+          {step === "result" && (
             <div className="space-y-6 animate-fade-in">
-              <div
-                className="text-center p-6 rounded-2xl"
-                style={{ backgroundColor: `${matchedDiagnosis.color}15` }}
-              >
-                <div
-                  className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
-                  style={{ backgroundColor: matchedDiagnosis.color }}
+              {/* AI Diagnosis Loading */}
+              {isGeneratingAI && (
+                <div className="text-center p-8">
+                  <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+                  <h2 className="text-xl font-semibold mb-2">Gerando seu diagnóstico...</h2>
+                  <p className="text-muted-foreground">Nossa IA está analisando suas respostas</p>
+                </div>
+              )}
+
+              {/* AI Generated Diagnosis */}
+              {!isGeneratingAI && aiDiagnosis && (
+                <>
+                  <div
+                    className="text-center p-6 rounded-2xl"
+                    style={{ backgroundColor: `${primaryColor}15` }}
+                  >
+                    <div
+                      className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      <Check className="h-8 w-8 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold" style={{ color: primaryColor }}>
+                      Seu Diagnóstico Personalizado
+                    </h2>
+                  </div>
+
+                  <div className="prose prose-sm max-w-none bg-muted/50 p-4 rounded-lg whitespace-pre-wrap">
+                    {aiDiagnosis}
+                  </div>
+                </>
+              )}
+
+              {/* Standard Diagnosis */}
+              {!isGeneratingAI && !aiDiagnosis && matchedDiagnosis && (
+                <>
+                  <div
+                    className="text-center p-6 rounded-2xl"
+                    style={{ backgroundColor: `${matchedDiagnosis.color}15` }}
+                  >
+                    <div
+                      className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
+                      style={{ backgroundColor: matchedDiagnosis.color }}
+                    >
+                      <Check className="h-8 w-8 text-white" />
+                    </div>
+                    <h2 className="text-2xl font-bold" style={{ color: matchedDiagnosis.color }}>
+                      {matchedDiagnosis.title}
+                    </h2>
+                  </div>
+
+                  {matchedDiagnosis.description && (
+                    <div className="prose prose-sm max-w-none">
+                      <p>{matchedDiagnosis.description}</p>
+                    </div>
+                  )}
+
+                  {matchedDiagnosis.insights && (matchedDiagnosis.insights as string[]).length > 0 && (
+                    <div className="space-y-2">
+                      <h3 className="font-semibold">Principais insights:</h3>
+                      <ul className="space-y-2">
+                        {(matchedDiagnosis.insights as string[]).map((insight, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <Check className="h-4 w-4 mt-1 flex-shrink-0" style={{ color: primaryColor }} />
+                            <span>{insight}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {matchedDiagnosis.action_plan && (
+                    <div className="p-4 bg-muted rounded-lg">
+                      <h3 className="font-semibold mb-2">Próximos passos:</h3>
+                      <p className="text-sm">{matchedDiagnosis.action_plan}</p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Download button */}
+              {!isGeneratingAI && (aiDiagnosis || matchedDiagnosis) && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full"
+                  onClick={handleDownloadDiagnosis}
                 >
-                  <Check className="h-8 w-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold" style={{ color: matchedDiagnosis.color }}>
-                  {matchedDiagnosis.title}
-                </h2>
-              </div>
-
-              {matchedDiagnosis.description && (
-                <div className="prose prose-sm max-w-none">
-                  <p>{matchedDiagnosis.description}</p>
-                </div>
-              )}
-
-              {matchedDiagnosis.insights && (matchedDiagnosis.insights as string[]).length > 0 && (
-                <div className="space-y-2">
-                  <h3 className="font-semibold">Principais insights:</h3>
-                  <ul className="space-y-2">
-                    {(matchedDiagnosis.insights as string[]).map((insight, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <Check className="h-4 w-4 mt-1 flex-shrink-0" style={{ color: primaryColor }} />
-                        <span>{insight}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {matchedDiagnosis.action_plan && (
-                <div className="p-4 bg-muted rounded-lg">
-                  <h3 className="font-semibold mb-2">Próximos passos:</h3>
-                  <p className="text-sm">{matchedDiagnosis.action_plan}</p>
-                </div>
+                  <Download className="h-5 w-5 mr-2" />
+                  Baixar diagnóstico
+                </Button>
               )}
 
               {/* Lead capture after result */}
@@ -423,25 +553,20 @@ export default function PublicQuiz() {
                     <p className="text-sm text-muted-foreground text-center">
                       Deixe seus dados para receber mais informações
                     </p>
-                    {/* Lead form fields would go here */}
                   </CardContent>
                 </Card>
               )}
 
               {/* CTA */}
-              {(quiz.final_cta_url || quiz.final_cta_whatsapp) && (
+              {quiz.final_cta_url && (
                 <Button
                   size="lg"
                   className="w-full"
                   style={{ backgroundColor: primaryColor }}
                   onClick={handleCTAClick}
                 >
-                  {quiz.final_cta_whatsapp ? (
-                    <MessageCircle className="h-5 w-5 mr-2" />
-                  ) : (
-                    <ExternalLink className="h-5 w-5 mr-2" />
-                  )}
-                  {quiz.final_cta_text || "Falar com especialista"}
+                  <ExternalLink className="h-5 w-5 mr-2" />
+                  {quiz.final_cta_text || "Saiba mais"}
                 </Button>
               )}
             </div>

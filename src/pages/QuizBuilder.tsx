@@ -116,9 +116,9 @@ export default function QuizBuilder() {
         primary_color: quiz.primary_color || "#6366f1",
         background_color: quiz.background_color || "#ffffff",
         diagnosis_type: quiz.diagnosis_type || "score",
+        ai_prompt_template: quiz.ai_prompt_template || "",
         final_cta_text: quiz.final_cta_text || "Falar com especialista",
         final_cta_url: quiz.final_cta_url || "",
-        final_cta_whatsapp: quiz.final_cta_whatsapp || "",
       });
     }
   }, [quiz]);
@@ -459,6 +459,27 @@ export default function QuizBuilder() {
                     <SelectItem value="ai">Gerado por IA</SelectItem>
                   </SelectContent>
                 </Select>
+                
+                {formData.diagnosis_type === "ai" && (
+                  <div className="mt-4 space-y-2">
+                    <Label>Prompt base para a IA</Label>
+                    <Textarea
+                      value={formData.ai_prompt_template || ""}
+                      onChange={(e) => setFormData({ ...formData, ai_prompt_template: e.target.value })}
+                      placeholder="Defina os critérios e instruções para a IA gerar o diagnóstico personalizado...
+
+Exemplo:
+- Avalie o nível de maturidade digital do respondente
+- Classifique em: Iniciante, Intermediário ou Avançado
+- Destaque 3 pontos fortes e 3 áreas de melhoria
+- Sugira 3 ações práticas para evolução imediata"
+                      rows={6}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Este prompt será usado como base para a IA gerar diagnósticos personalizados baseados nas respostas de cada usuário.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -535,23 +556,13 @@ export default function QuizBuilder() {
                     placeholder="Falar com especialista"
                   />
                 </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>URL de destino</Label>
-                    <Input
-                      value={formData.final_cta_url || ""}
-                      onChange={(e) => setFormData({ ...formData, final_cta_url: e.target.value })}
-                      placeholder="https://..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>WhatsApp</Label>
-                    <Input
-                      value={formData.final_cta_whatsapp || ""}
-                      onChange={(e) => setFormData({ ...formData, final_cta_whatsapp: e.target.value })}
-                      placeholder="5511999999999"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>URL de destino</Label>
+                  <Input
+                    value={formData.final_cta_url || ""}
+                    onChange={(e) => setFormData({ ...formData, final_cta_url: e.target.value })}
+                    placeholder="https://..."
+                  />
                 </div>
               </CardContent>
             </Card>
