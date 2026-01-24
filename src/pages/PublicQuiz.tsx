@@ -46,6 +46,8 @@ export default function PublicQuiz() {
   const [matchedDiagnosis, setMatchedDiagnosis] = useState<QuizDiagnosis | null>(null);
   const [aiDiagnosis, setAiDiagnosis] = useState<string | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStep, setGenerationStep] = useState("");
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
   const diagnosisRef = useRef<HTMLDivElement>(null);
@@ -196,17 +198,48 @@ export default function PublicQuiz() {
     if (!quiz || !sessionId) return;
 
     setIsGeneratingAI(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("quiz-ai-diagnosis", {
-        body: {
-          prompt_template: quiz.ai_prompt_template,
-          answers: answersDetails,
-          quiz_title: quiz.title,
-          lead_name: leadData.name || null,
-        },
-      });
+    setGenerationProgress(0);
+    setGenerationStep("Coletando suas respostas...");
 
+    // Simulated progress animation
+    const progressSteps = [
+      { progress: 15, step: "Coletando suas respostas...", delay: 300 },
+      { progress: 35, step: "Analisando seu perfil...", delay: 800 },
+      { progress: 55, step: "Processando com IA...", delay: 1200 },
+      { progress: 75, step: "Gerando diagnóstico personalizado...", delay: 800 },
+      { progress: 90, step: "Finalizando...", delay: 500 },
+    ];
+
+    // Run progress animation
+    const runProgressAnimation = async () => {
+      for (const stepData of progressSteps) {
+        await new Promise(resolve => setTimeout(resolve, stepData.delay));
+        setGenerationProgress(stepData.progress);
+        setGenerationStep(stepData.step);
+      }
+    };
+
+    try {
+      // Run animation and API call in parallel
+      const [_, result] = await Promise.all([
+        runProgressAnimation(),
+        supabase.functions.invoke("quiz-ai-diagnosis", {
+          body: {
+            prompt_template: quiz.ai_prompt_template,
+            answers: answersDetails,
+            quiz_title: quiz.title,
+            lead_name: leadData.name || null,
+          },
+        }),
+      ]);
+
+      const { data, error } = result;
       if (error) throw error;
+      
+      setGenerationProgress(100);
+      setGenerationStep("Pronto!");
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       setAiDiagnosis(data.diagnosis);
 
       // Save AI diagnosis to session
@@ -469,12 +502,23 @@ export default function PublicQuiz() {
           {/* Result */}
           {step === "result" && (
             <div className="space-y-6 animate-fade-in">
-              {/* AI Diagnosis Loading */}
+              {/* AI Diagnosis Loading with Progress Bar */}
               {isGeneratingAI && (
-                <div className="text-center p-8">
-                  <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-                  <h2 className="text-xl font-semibold mb-2">Gerando seu diagnóstico...</h2>
-                  <p className="text-muted-foreground">Nossa IA está analisando suas respostas</p>
+                <div className="text-center p-8 space-y-6">
+                  <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center" style={{ backgroundColor: `${primaryColor}15` }}>
+                    <Loader2 className="h-10 w-10 animate-spin" style={{ color: primaryColor }} />
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-xl font-semibold">Gerando seu diagnóstico...</h2>
+                    <p className="text-muted-foreground">{generationStep}</p>
+                  </div>
+                  <div className="max-w-xs mx-auto space-y-2">
+                    <Progress 
+                      value={generationProgress} 
+                      className="h-3 transition-all duration-500"
+                    />
+                    <p className="text-sm font-medium" style={{ color: primaryColor }}>{generationProgress}%</p>
+                  </div>
                 </div>
               )}
 
