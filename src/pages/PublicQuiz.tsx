@@ -199,10 +199,12 @@ export default function PublicQuiz() {
     if (quiz.lead_capture_enabled && quiz.lead_capture_position === "before_result") {
       setStep("lead");
     } else {
+      // Show result screen FIRST, then generate AI diagnosis
+      // This ensures the progress bar is visible while AI is generating
+      setStep("result");
       if (quiz.diagnosis_type === "ai") {
         await generateAIDiagnosis();
       }
-      setStep("result");
     }
   };
 
@@ -284,10 +286,13 @@ export default function PublicQuiz() {
       lgpd_consent: lgpdConsent,
     });
 
+    // IMPORTANT: Show result screen FIRST, then generate AI diagnosis
+    // This ensures the progress bar is visible while AI is generating
+    setStep("result");
+    
     if (quiz.diagnosis_type === "ai") {
       await generateAIDiagnosis();
     }
-    setStep("result");
   };
 
   // Handle CTA click
