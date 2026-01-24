@@ -2619,7 +2619,49 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      quiz_responses_with_questions: {
+        Row: {
+          answered_at: string | null
+          completed_at: string | null
+          id: string | null
+          number_response: number | null
+          points_earned: number | null
+          question_id: string | null
+          question_text: string | null
+          question_type: string | null
+          quiz_id: string | null
+          scale_response: number | null
+          selected_option_ids: Json | null
+          session_id: string | null
+          tags_collected: Json | null
+          text_response: string | null
+          time_spent_seconds: number | null
+          total_score: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_responses_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_sessions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       get_user_role: {

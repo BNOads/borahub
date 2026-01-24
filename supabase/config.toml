@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.quiz-ai-diagnosis]
 verify_jwt = false
+
+[functions.generate-quiz-from-ai]
+verify_jwt = false

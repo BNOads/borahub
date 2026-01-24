@@ -131,18 +131,21 @@ function generateSlug(title: string): string {
   return `${base}-${random}`;
 }
 
-// Fetch all quizzes
+// Fetch all quizzes with creator info
 export function useQuizzes() {
   return useQuery({
     queryKey: ["quizzes"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("quizzes")
-        .select("*")
+        .select(`
+          *,
+          profiles:created_by(full_name)
+        `)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as Quiz[];
+      return data as (Quiz & { profiles: { full_name: string } | null })[];
     },
   });
 }
@@ -661,7 +664,7 @@ export function useSubmitLead() {
   });
 }
 
-// Analytics
+// Analytics with real data
 export function useQuizAnalytics(quizId: string | undefined) {
   return useQuery({
     queryKey: ["quiz-analytics", quizId],
@@ -671,30 +674,78 @@ export function useQuizAnalytics(quizId: string | undefined) {
       const { data: sessions, error: sessionsError } = await supabase
         .from("quiz_sessions")
         .select("*")
-        .eq("quiz_id", quizId);
+        .eq("quiz_id", quizId)
+        .order("started_at", { ascending: false });
 
       if (sessionsError) throw sessionsError;
 
       const { data: leads, error: leadsError } = await supabase
         .from("quiz_leads")
         .select("*")
-        .eq("quiz_id", quizId);
+        .eq("quiz_id", quizId)
+        .order("created_at", { ascending: false });
 
       if (leadsError) throw leadsError;
 
+      // Fetch responses with question text for download
       const { data: responses, error: responsesError } = await supabase
         .from("quiz_responses")
-        .select("*, quiz_sessions!inner(quiz_id)")
+        .select(`
+          *,
+          quiz_sessions!inner(quiz_id, completed_at, total_score),
+          quiz_questions!inner(question_text, question_type)
+        `)
         .eq("quiz_sessions.quiz_id", quizId);
 
       if (responsesError) throw responsesError;
+
+      // Calculate real stats from data
+      const totalSessions = sessions.length;
+      const completedSessions = sessions.filter((s) => s.status === "completed").length;
+      const totalLeads = leads.length;
 
       return {
         sessions: sessions as QuizSession[],
         leads: leads as QuizLead[],
         responses,
+        stats: {
+          totalSessions,
+          completedSessions,
+          totalLeads,
+          completionRate: totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0,
+          optInRate: completedSessions > 0 ? (totalLeads / completedSessions) * 100 : 0,
+        },
       };
     },
     enabled: !!quizId,
+  });
+}
+
+// Generate quiz from AI prompt
+export function useGenerateQuizFromAI() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (prompt: string) => {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) throw new Error("Usuário não autenticado");
+
+      const { data, error } = await supabase.functions.invoke("generate-quiz-from-ai", {
+        body: { prompt, user_id: user.user.id },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      
+      return data.quiz;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quizzes"] });
+      toast({ title: "Quiz gerado com sucesso!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao gerar quiz", description: error.message, variant: "destructive" });
+    },
   });
 }
