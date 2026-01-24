@@ -19,7 +19,8 @@ import {
   Bot,
   Link2,
   CalendarDays,
-  Filter
+  Filter,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -100,6 +101,13 @@ const tools = [
     href: "/utm",
     icon: Link2,
     color: "bg-amber-500/10 text-amber-500",
+  },
+  {
+    name: "Criador de Quizzes",
+    description: "Crie quizzes interativos com diagnósticos personalizados",
+    href: "/quizzes",
+    icon: ClipboardList,
+    color: "bg-violet-500/10 text-violet-500",
   },
 ];
 
