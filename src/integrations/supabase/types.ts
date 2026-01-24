@@ -1367,6 +1367,485 @@ export type Database = {
           },
         ]
       }
+      quiz_diagnoses: {
+        Row: {
+          action_plan: string | null
+          color: string | null
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          insights: Json | null
+          max_score: number | null
+          min_score: number | null
+          priority: number | null
+          quiz_id: string
+          required_tags: Json | null
+          scoring_axis: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          action_plan?: string | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          insights?: Json | null
+          max_score?: number | null
+          min_score?: number | null
+          priority?: number | null
+          quiz_id: string
+          required_tags?: Json | null
+          scoring_axis?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          action_plan?: string | null
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          insights?: Json | null
+          max_score?: number | null
+          min_score?: number | null
+          priority?: number | null
+          quiz_id?: string
+          required_tags?: Json | null
+          scoring_axis?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_diagnoses_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_leads: {
+        Row: {
+          city: string | null
+          company: string | null
+          consent_timestamp: string | null
+          created_at: string | null
+          custom_fields: Json | null
+          email: string | null
+          id: string
+          lgpd_consent: boolean | null
+          name: string | null
+          quiz_id: string
+          session_id: string
+          state: string | null
+          whatsapp: string | null
+        }
+        Insert: {
+          city?: string | null
+          company?: string | null
+          consent_timestamp?: string | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          email?: string | null
+          id?: string
+          lgpd_consent?: boolean | null
+          name?: string | null
+          quiz_id: string
+          session_id: string
+          state?: string | null
+          whatsapp?: string | null
+        }
+        Update: {
+          city?: string | null
+          company?: string | null
+          consent_timestamp?: string | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          email?: string | null
+          id?: string
+          lgpd_consent?: boolean | null
+          name?: string | null
+          quiz_id?: string
+          session_id?: string
+          state?: string | null
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_leads_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_leads_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_options: {
+        Row: {
+          created_at: string | null
+          id: string
+          image_url: string | null
+          option_text: string
+          points: number | null
+          position: number
+          question_id: string
+          scoring_values: Json | null
+          tags: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          option_text: string
+          points?: number | null
+          position?: number
+          question_id: string
+          scoring_values?: Json | null
+          tags?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          option_text?: string
+          points?: number | null
+          position?: number
+          question_id?: string
+          scoring_values?: Json | null
+          tags?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
+          created_at: string | null
+          helper_text: string | null
+          id: string
+          image_url: string | null
+          is_required: boolean | null
+          position: number
+          question_text: string
+          question_type: string
+          quiz_id: string
+          scale_max: number | null
+          scale_max_label: string | null
+          scale_min: number | null
+          scale_min_label: string | null
+          scoring_axis: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          helper_text?: string | null
+          id?: string
+          image_url?: string | null
+          is_required?: boolean | null
+          position?: number
+          question_text: string
+          question_type?: string
+          quiz_id: string
+          scale_max?: number | null
+          scale_max_label?: string | null
+          scale_min?: number | null
+          scale_min_label?: string | null
+          scoring_axis?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          helper_text?: string | null
+          id?: string
+          image_url?: string | null
+          is_required?: boolean | null
+          position?: number
+          question_text?: string
+          question_type?: string
+          quiz_id?: string
+          scale_max?: number | null
+          scale_max_label?: string | null
+          scale_min?: number | null
+          scale_min_label?: string | null
+          scoring_axis?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_responses: {
+        Row: {
+          answered_at: string | null
+          id: string
+          number_response: number | null
+          points_earned: number | null
+          question_id: string
+          scale_response: number | null
+          selected_option_ids: Json | null
+          session_id: string
+          tags_collected: Json | null
+          text_response: string | null
+          time_spent_seconds: number | null
+        }
+        Insert: {
+          answered_at?: string | null
+          id?: string
+          number_response?: number | null
+          points_earned?: number | null
+          question_id: string
+          scale_response?: number | null
+          selected_option_ids?: Json | null
+          session_id: string
+          tags_collected?: Json | null
+          text_response?: string | null
+          time_spent_seconds?: number | null
+        }
+        Update: {
+          answered_at?: string | null
+          id?: string
+          number_response?: number | null
+          points_earned?: number | null
+          question_id?: string
+          scale_response?: number | null
+          selected_option_ids?: Json | null
+          session_id?: string
+          tags_collected?: Json | null
+          text_response?: string | null
+          time_spent_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_responses_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_sessions: {
+        Row: {
+          ai_generated_diagnosis: string | null
+          collected_tags: Json | null
+          completed_at: string | null
+          created_at: string | null
+          device_type: string | null
+          diagnosis_id: string | null
+          id: string
+          ip_address: string | null
+          quiz_id: string
+          referrer: string | null
+          scores_by_axis: Json | null
+          started_at: string | null
+          status: string
+          total_score: number | null
+          user_agent: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          ai_generated_diagnosis?: string | null
+          collected_tags?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          diagnosis_id?: string | null
+          id?: string
+          ip_address?: string | null
+          quiz_id: string
+          referrer?: string | null
+          scores_by_axis?: Json | null
+          started_at?: string | null
+          status?: string
+          total_score?: number | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          ai_generated_diagnosis?: string | null
+          collected_tags?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          diagnosis_id?: string | null
+          id?: string
+          ip_address?: string | null
+          quiz_id?: string
+          referrer?: string | null
+          scores_by_axis?: Json | null
+          started_at?: string | null
+          status?: string
+          total_score?: number | null
+          user_agent?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_sessions_diagnosis_id_fkey"
+            columns: ["diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_diagnoses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_sessions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quizzes: {
+        Row: {
+          ai_prompt_template: string | null
+          background_color: string | null
+          completions_count: number | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          diagnosis_type: string | null
+          final_cta_text: string | null
+          final_cta_url: string | null
+          final_cta_whatsapp: string | null
+          id: string
+          intro_cta_text: string | null
+          intro_image_url: string | null
+          intro_subtitle: string | null
+          intro_text: string | null
+          intro_title: string | null
+          intro_video_url: string | null
+          lead_capture_enabled: boolean | null
+          lead_capture_position: string | null
+          lead_fields: Json | null
+          lead_required_fields: Json | null
+          leads_count: number | null
+          lgpd_consent_text: string | null
+          primary_color: string | null
+          privacy_text: string | null
+          show_progress_bar: boolean | null
+          slug: string
+          starts_count: number | null
+          status: string
+          title: string
+          updated_at: string | null
+          views_count: number | null
+        }
+        Insert: {
+          ai_prompt_template?: string | null
+          background_color?: string | null
+          completions_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          diagnosis_type?: string | null
+          final_cta_text?: string | null
+          final_cta_url?: string | null
+          final_cta_whatsapp?: string | null
+          id?: string
+          intro_cta_text?: string | null
+          intro_image_url?: string | null
+          intro_subtitle?: string | null
+          intro_text?: string | null
+          intro_title?: string | null
+          intro_video_url?: string | null
+          lead_capture_enabled?: boolean | null
+          lead_capture_position?: string | null
+          lead_fields?: Json | null
+          lead_required_fields?: Json | null
+          leads_count?: number | null
+          lgpd_consent_text?: string | null
+          primary_color?: string | null
+          privacy_text?: string | null
+          show_progress_bar?: boolean | null
+          slug: string
+          starts_count?: number | null
+          status?: string
+          title: string
+          updated_at?: string | null
+          views_count?: number | null
+        }
+        Update: {
+          ai_prompt_template?: string | null
+          background_color?: string | null
+          completions_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          diagnosis_type?: string | null
+          final_cta_text?: string | null
+          final_cta_url?: string | null
+          final_cta_whatsapp?: string | null
+          id?: string
+          intro_cta_text?: string | null
+          intro_image_url?: string | null
+          intro_subtitle?: string | null
+          intro_text?: string | null
+          intro_title?: string | null
+          intro_video_url?: string | null
+          lead_capture_enabled?: boolean | null
+          lead_capture_position?: string | null
+          lead_fields?: Json | null
+          lead_required_fields?: Json | null
+          leads_count?: number | null
+          lgpd_consent_text?: string | null
+          primary_color?: string | null
+          privacy_text?: string | null
+          show_progress_bar?: boolean | null
+          slug?: string
+          starts_count?: number | null
+          status?: string
+          title?: string
+          updated_at?: string | null
+          views_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quizzes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           client_email: string | null
