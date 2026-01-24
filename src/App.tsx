@@ -37,6 +37,10 @@ import GestaoNotificacoes from "./pages/admin/GestaoNotificacoes";
 import PDIsView from "./pages/PDIsView";
 import PDIDetalhe from "./pages/PDIDetalhe";
 import VendasView from "./pages/VendasView";
+import QuizzesView from "./pages/QuizzesView";
+import QuizBuilder from "./pages/QuizBuilder";
+import QuizAnalytics from "./pages/QuizAnalytics";
+import PublicQuiz from "./pages/PublicQuiz";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +64,7 @@ const App = () => (
             {/* Rotas públicas */}
             <Route path="/login" element={<Login />} />
             <Route path="/conta-desativada" element={<ContaDesativada />} />
+            <Route path="/q/:slug" element={<PublicQuiz />} />
 
             {/* Rota de troca obrigatória de senha */}
             <Route path="/troca-senha" element={
@@ -101,6 +106,9 @@ const App = () => (
               <Route path="/desafio" element={<Placeholder />} />
               <Route path="/assistente" element={<Placeholder />} />
               <Route path="/vendas" element={<VendasView />} />
+              <Route path="/quizzes" element={<QuizzesView />} />
+              <Route path="/quizzes/:id/edit" element={<QuizBuilder />} />
+              <Route path="/quizzes/:id/analytics" element={<QuizAnalytics />} />
               <Route path="/perfil" element={<Perfil />} />
               
               {/* Rotas admin */}
