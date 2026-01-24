@@ -146,6 +146,12 @@ export default function QuizBuilder() {
         ai_prompt_template: quiz.ai_prompt_template || "",
         final_cta_text: quiz.final_cta_text || "Falar com especialista",
         final_cta_url: quiz.final_cta_url || "",
+        // Result page customization
+        result_title: (quiz as any).result_title || "Seu Diagnóstico Personalizado",
+        result_subtitle: (quiz as any).result_subtitle || "",
+        result_image_url: (quiz as any).result_image_url || "",
+        result_video_url: (quiz as any).result_video_url || "",
+        result_layout: (quiz as any).result_layout || "standard",
       });
       isInitialized.current = true;
     }
@@ -632,6 +638,72 @@ Exemplo:
                       />
                     </div>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Result Page Customization */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Página de Resultado</CardTitle>
+                <CardDescription>Personalize a página de diagnóstico exibida após o quiz</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Título do resultado</Label>
+                    <Input
+                      value={formData.result_title || ""}
+                      onChange={(e) => setFormData({ ...formData, result_title: e.target.value })}
+                      placeholder="Seu Diagnóstico Personalizado"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Subtítulo (opcional)</Label>
+                    <Input
+                      value={formData.result_subtitle || ""}
+                      onChange={(e) => setFormData({ ...formData, result_subtitle: e.target.value })}
+                      placeholder="Confira seu resultado abaixo"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>URL da imagem do resultado (opcional)</Label>
+                  <Input
+                    value={formData.result_image_url || ""}
+                    onChange={(e) => setFormData({ ...formData, result_image_url: e.target.value })}
+                    placeholder="https://..."
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Imagem exibida no topo da página de resultado
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>URL do vídeo do resultado (opcional)</Label>
+                  <Input
+                    value={formData.result_video_url || ""}
+                    onChange={(e) => setFormData({ ...formData, result_video_url: e.target.value })}
+                    placeholder="https://youtube.com/embed/..."
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Use URL de embed do YouTube ou Vimeo (exibido se não houver imagem)
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Layout da página</Label>
+                  <Select
+                    value={formData.result_layout || "standard"}
+                    onValueChange={(value) => setFormData({ ...formData, result_layout: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">Padrão</SelectItem>
+                      <SelectItem value="minimal">Minimalista</SelectItem>
+                      <SelectItem value="detailed">Detalhado</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>

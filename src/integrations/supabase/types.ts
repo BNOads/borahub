@@ -1760,6 +1760,11 @@ export type Database = {
           lgpd_consent_text: string | null
           primary_color: string | null
           privacy_text: string | null
+          result_image_url: string | null
+          result_layout: string | null
+          result_subtitle: string | null
+          result_title: string | null
+          result_video_url: string | null
           show_progress_bar: boolean | null
           slug: string
           starts_count: number | null
@@ -1794,6 +1799,11 @@ export type Database = {
           lgpd_consent_text?: string | null
           primary_color?: string | null
           privacy_text?: string | null
+          result_image_url?: string | null
+          result_layout?: string | null
+          result_subtitle?: string | null
+          result_title?: string | null
+          result_video_url?: string | null
           show_progress_bar?: boolean | null
           slug: string
           starts_count?: number | null
@@ -1828,6 +1838,11 @@ export type Database = {
           lgpd_consent_text?: string | null
           primary_color?: string | null
           privacy_text?: string | null
+          result_image_url?: string | null
+          result_layout?: string | null
+          result_subtitle?: string | null
+          result_title?: string | null
+          result_video_url?: string | null
           show_progress_bar?: boolean | null
           slug?: string
           starts_count?: number | null

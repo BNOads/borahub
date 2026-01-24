@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { ArrowRight, Check, Loader2, ExternalLink, Download } from "lucide-react";
+import { ArrowRight, Check, Loader2, ExternalLink, Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,9 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 import {
   useQuizBySlug,
   useCreateSession,
@@ -44,6 +47,8 @@ export default function PublicQuiz() {
   const [aiDiagnosis, setAiDiagnosis] = useState<string | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+  const diagnosisRef = useRef<HTMLDivElement>(null);
 
   const currentQuestion = quiz?.questions?.[currentQuestionIndex];
   const progress = quiz?.questions?.length
@@ -246,33 +251,44 @@ export default function PublicQuiz() {
     }
   };
 
-  // Download diagnosis as text file
-  const handleDownloadDiagnosis = () => {
-    const content = aiDiagnosis || (matchedDiagnosis ? `
-${matchedDiagnosis.title}
-
-${matchedDiagnosis.description || ""}
-
-${matchedDiagnosis.insights && (matchedDiagnosis.insights as string[]).length > 0 ? `
-Principais Insights:
-${(matchedDiagnosis.insights as string[]).map((i, idx) => `${idx + 1}. ${i}`).join("\n")}
-` : ""}
-
-${matchedDiagnosis.action_plan ? `
-Próximos Passos:
-${matchedDiagnosis.action_plan}
-` : ""}
-    `.trim() : "");
-
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `diagnostico-${quiz?.title?.toLowerCase().replace(/\s+/g, "-") || "quiz"}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  // Download diagnosis as PDF
+  const handleDownloadDiagnosis = async () => {
+    if (!diagnosisRef.current) return;
+    
+    setIsDownloadingPDF(true);
+    try {
+      // Wait for images to load
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const canvas = await html2canvas(diagnosisRef.current, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+      const imgX = (pdfWidth - imgWidth * ratio) / 2;
+      const imgY = 10;
+      
+      pdf.addImage(imgData, "PNG", imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      pdf.save(`diagnostico-${quiz?.title?.toLowerCase().replace(/\s+/g, "-") || "quiz"}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+    } finally {
+      setIsDownloadingPDF(false);
+    }
   };
 
   if (isLoading) {
@@ -462,75 +478,102 @@ ${matchedDiagnosis.action_plan}
                 </div>
               )}
 
-              {/* AI Generated Diagnosis */}
-              {!isGeneratingAI && aiDiagnosis && (
-                <>
-                  <div
-                    className="text-center p-6 rounded-2xl"
-                    style={{ backgroundColor: `${primaryColor}15` }}
-                  >
-                    <div
-                      className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
-                      style={{ backgroundColor: primaryColor }}
-                    >
-                      <Check className="h-8 w-8 text-white" />
-                    </div>
-                    <h2 className="text-2xl font-bold" style={{ color: primaryColor }}>
-                      Seu Diagnóstico Personalizado
-                    </h2>
-                  </div>
-
-                  <div className="prose prose-sm max-w-none bg-muted/50 p-4 rounded-lg whitespace-pre-wrap">
-                    {aiDiagnosis}
-                  </div>
-                </>
-              )}
-
-              {/* Standard Diagnosis */}
-              {!isGeneratingAI && !aiDiagnosis && matchedDiagnosis && (
-                <>
-                  <div
-                    className="text-center p-6 rounded-2xl"
-                    style={{ backgroundColor: `${matchedDiagnosis.color}15` }}
-                  >
-                    <div
-                      className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
-                      style={{ backgroundColor: matchedDiagnosis.color }}
-                    >
-                      <Check className="h-8 w-8 text-white" />
-                    </div>
-                    <h2 className="text-2xl font-bold" style={{ color: matchedDiagnosis.color }}>
-                      {matchedDiagnosis.title}
-                    </h2>
-                  </div>
-
-                  {matchedDiagnosis.description && (
-                    <div className="prose prose-sm max-w-none">
-                      <p>{matchedDiagnosis.description}</p>
+              {/* Diagnosis Content - Wrapped for PDF export */}
+              {!isGeneratingAI && (aiDiagnosis || matchedDiagnosis) && (
+                <div ref={diagnosisRef} className="bg-white p-6 rounded-xl space-y-6">
+                  {/* Result Header Image/Video */}
+                  {(quiz as any).result_image_url && (
+                    <img 
+                      src={(quiz as any).result_image_url} 
+                      alt="" 
+                      className="w-full max-h-48 object-cover rounded-lg"
+                    />
+                  )}
+                  {(quiz as any).result_video_url && !((quiz as any).result_image_url) && (
+                    <div className="aspect-video rounded-lg overflow-hidden">
+                      <iframe
+                        src={(quiz as any).result_video_url}
+                        className="w-full h-full"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
                     </div>
                   )}
 
-                  {matchedDiagnosis.insights && (matchedDiagnosis.insights as string[]).length > 0 && (
-                    <div className="space-y-2">
-                      <h3 className="font-semibold">Principais insights:</h3>
-                      <ul className="space-y-2">
-                        {(matchedDiagnosis.insights as string[]).map((insight, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <Check className="h-4 w-4 mt-1 flex-shrink-0" style={{ color: primaryColor }} />
-                            <span>{insight}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+                  {/* AI Generated Diagnosis */}
+                  {aiDiagnosis && (
+                    <>
+                      <div
+                        className="text-center p-6 rounded-2xl"
+                        style={{ backgroundColor: `${primaryColor}15` }}
+                      >
+                        <div
+                          className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
+                          style={{ backgroundColor: primaryColor }}
+                        >
+                          <Check className="h-8 w-8 text-white" />
+                        </div>
+                        <h2 className="text-2xl font-bold" style={{ color: primaryColor }}>
+                          {(quiz as any).result_title || "Seu Diagnóstico Personalizado"}
+                        </h2>
+                        {(quiz as any).result_subtitle && (
+                          <p className="text-muted-foreground mt-2">{(quiz as any).result_subtitle}</p>
+                        )}
+                      </div>
+
+                      <div className="bg-muted/50 p-4 rounded-lg">
+                        <MarkdownRenderer content={aiDiagnosis} />
+                      </div>
+                    </>
                   )}
 
-                  {matchedDiagnosis.action_plan && (
-                    <div className="p-4 bg-muted rounded-lg">
-                      <h3 className="font-semibold mb-2">Próximos passos:</h3>
-                      <p className="text-sm">{matchedDiagnosis.action_plan}</p>
-                    </div>
+                  {/* Standard Diagnosis */}
+                  {!aiDiagnosis && matchedDiagnosis && (
+                    <>
+                      <div
+                        className="text-center p-6 rounded-2xl"
+                        style={{ backgroundColor: `${matchedDiagnosis.color}15` }}
+                      >
+                        <div
+                          className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
+                          style={{ backgroundColor: matchedDiagnosis.color }}
+                        >
+                          <Check className="h-8 w-8 text-white" />
+                        </div>
+                        <h2 className="text-2xl font-bold" style={{ color: matchedDiagnosis.color }}>
+                          {matchedDiagnosis.title}
+                        </h2>
+                      </div>
+
+                      {matchedDiagnosis.description && (
+                        <div className="prose prose-sm max-w-none">
+                          <MarkdownRenderer content={matchedDiagnosis.description} />
+                        </div>
+                      )}
+
+                      {matchedDiagnosis.insights && (matchedDiagnosis.insights as string[]).length > 0 && (
+                        <div className="space-y-2">
+                          <h3 className="font-semibold">Principais insights:</h3>
+                          <ul className="space-y-2">
+                            {(matchedDiagnosis.insights as string[]).map((insight, i) => (
+                              <li key={i} className="flex items-start gap-2">
+                                <Check className="h-4 w-4 mt-1 flex-shrink-0" style={{ color: primaryColor }} />
+                                <span>{insight}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {matchedDiagnosis.action_plan && (
+                        <div className="p-4 bg-muted rounded-lg">
+                          <h3 className="font-semibold mb-2">Próximos passos:</h3>
+                          <MarkdownRenderer content={matchedDiagnosis.action_plan} className="text-sm" />
+                        </div>
+                      )}
+                    </>
                   )}
-                </>
+                </div>
               )}
 
               {/* Download button */}
@@ -540,9 +583,19 @@ ${matchedDiagnosis.action_plan}
                   size="lg"
                   className="w-full"
                   onClick={handleDownloadDiagnosis}
+                  disabled={isDownloadingPDF}
                 >
-                  <Download className="h-5 w-5 mr-2" />
-                  Baixar diagnóstico
+                  {isDownloadingPDF ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Gerando PDF...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-5 w-5 mr-2" />
+                      Baixar diagnóstico em PDF
+                    </>
+                  )}
                 </Button>
               )}
 
