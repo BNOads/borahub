@@ -77,6 +77,19 @@ export default function PublicQuiz() {
   const handleAnswer = async (answer: any) => {
     if (!sessionId || !currentQuestion) return;
 
+    const isContentBlock = ["content", "testimonial", "divider"].includes(currentQuestion.question_type);
+    
+    // For content blocks, just move to next without saving response
+    if (isContentBlock) {
+      if (currentQuestionIndex < (quiz?.questions?.length || 0) - 1) {
+        setCurrentQuestionIndex((prev) => prev + 1);
+        setQuestionStartTime(Date.now());
+      } else {
+        handleQuestionsComplete();
+      }
+      return;
+    }
+
     const timeSpent = Math.round((Date.now() - questionStartTime) / 1000);
 
     // Calculate points and tags for this answer
@@ -787,6 +800,97 @@ function QuestionRenderer({
     }
   };
 
+  // Check if this is a content block
+  const isContentBlock = ["content", "testimonial", "divider"].includes(question.question_type);
+
+  // Content block rendering
+  if (isContentBlock) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        {/* Content Block */}
+        {question.question_type === "content" && (
+          <div className="space-y-4">
+            {(question as any).content_title && (
+              <h2 className="text-2xl font-bold">{(question as any).content_title}</h2>
+            )}
+            {(question as any).video_url && (
+              <div className="aspect-video rounded-xl overflow-hidden">
+                <iframe
+                  src={(question as any).video_url}
+                  className="w-full h-full"
+                  allowFullScreen
+                />
+              </div>
+            )}
+            {(question as any).image_url && !(question as any).video_url && (
+              <img
+                src={(question as any).image_url}
+                alt=""
+                className="w-full rounded-xl"
+              />
+            )}
+            {(question as any).content_body && (
+              <p className="text-muted-foreground leading-relaxed">{(question as any).content_body}</p>
+            )}
+          </div>
+        )}
+
+        {/* Testimonial Block */}
+        {question.question_type === "testimonial" && (
+          <div className="space-y-4">
+            <blockquote className="text-lg italic text-center px-4">
+              "{(question as any).content_body}"
+            </blockquote>
+            <div className="flex items-center justify-center gap-3">
+              {(question as any).content_author_image && (
+                <img
+                  src={(question as any).content_author_image}
+                  alt=""
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+              )}
+              <div className="text-center">
+                {(question as any).content_author_name && (
+                  <p className="font-semibold">{(question as any).content_author_name}</p>
+                )}
+                {(question as any).content_author_role && (
+                  <p className="text-sm text-muted-foreground">{(question as any).content_author_role}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Divider Block */}
+        {question.question_type === "divider" && (
+          <div className="text-center space-y-4 py-8">
+            {(question as any).image_url && (
+              <img
+                src={(question as any).image_url}
+                alt=""
+                className="w-32 h-32 mx-auto rounded-xl object-cover"
+              />
+            )}
+            <h2 className="text-2xl font-bold">{(question as any).content_title || question.question_text}</h2>
+            {(question as any).content_body && (
+              <p className="text-muted-foreground">{(question as any).content_body}</p>
+            )}
+          </div>
+        )}
+
+        <Button
+          size="lg"
+          className="w-full"
+          style={{ backgroundColor: primaryColor }}
+          onClick={() => onAnswer("continue")}
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Continuar"}
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="space-y-2">
@@ -796,7 +900,19 @@ function QuestionRenderer({
         )}
       </div>
 
-      {question.image_url && (
+      {/* Video */}
+      {(question as any).video_url && (
+        <div className="aspect-video rounded-xl overflow-hidden">
+          <iframe
+            src={(question as any).video_url}
+            className="w-full h-full"
+            allowFullScreen
+          />
+        </div>
+      )}
+
+      {/* Image (only if no video) */}
+      {question.image_url && !(question as any).video_url && (
         <img
           src={question.image_url}
           alt=""

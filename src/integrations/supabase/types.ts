@@ -1538,6 +1538,11 @@ export type Database = {
       }
       quiz_questions: {
         Row: {
+          content_author_image: string | null
+          content_author_name: string | null
+          content_author_role: string | null
+          content_body: string | null
+          content_title: string | null
           created_at: string | null
           helper_text: string | null
           id: string
@@ -1553,8 +1558,14 @@ export type Database = {
           scale_min_label: string | null
           scoring_axis: string | null
           updated_at: string | null
+          video_url: string | null
         }
         Insert: {
+          content_author_image?: string | null
+          content_author_name?: string | null
+          content_author_role?: string | null
+          content_body?: string | null
+          content_title?: string | null
           created_at?: string | null
           helper_text?: string | null
           id?: string
@@ -1570,8 +1581,14 @@ export type Database = {
           scale_min_label?: string | null
           scoring_axis?: string | null
           updated_at?: string | null
+          video_url?: string | null
         }
         Update: {
+          content_author_image?: string | null
+          content_author_name?: string | null
+          content_author_role?: string | null
+          content_body?: string | null
+          content_title?: string | null
           created_at?: string | null
           helper_text?: string | null
           id?: string
@@ -1587,6 +1604,7 @@ export type Database = {
           scale_min_label?: string | null
           scoring_axis?: string | null
           updated_at?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {

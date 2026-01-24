@@ -66,12 +66,18 @@ import {
 import { cn } from "@/lib/utils";
 
 const QUESTION_TYPES = [
-  { value: "single_choice", label: "Escolha única" },
-  { value: "multiple_choice", label: "Múltipla escolha" },
-  { value: "scale", label: "Escala" },
-  { value: "text", label: "Texto" },
-  { value: "number", label: "Número" },
-  { value: "yes_no", label: "Sim / Não" },
+  { value: "single_choice", label: "Escolha única", isQuestion: true },
+  { value: "multiple_choice", label: "Múltipla escolha", isQuestion: true },
+  { value: "scale", label: "Escala", isQuestion: true },
+  { value: "text", label: "Texto", isQuestion: true },
+  { value: "number", label: "Número", isQuestion: true },
+  { value: "yes_no", label: "Sim / Não", isQuestion: true },
+];
+
+const CONTENT_BLOCK_TYPES = [
+  { value: "content", label: "Bloco de Conteúdo", icon: "📝" },
+  { value: "testimonial", label: "Depoimento", icon: "💬" },
+  { value: "divider", label: "Divisória / Transição", icon: "➡️" },
 ];
 
 const LEAD_FIELDS = [
@@ -199,6 +205,28 @@ export default function QuizBuilder() {
       question_type: "single_choice",
       position,
       is_required: true,
+    });
+    setExpandedQuestions([...expandedQuestions, question.id]);
+  };
+
+  const handleAddContentBlock = async (blockType: string) => {
+    if (!id) return;
+    const position = quiz?.questions?.length || 0;
+    const defaultTexts: Record<string, { text: string; title: string; body: string }> = {
+      content: { text: "Bloco de Conteúdo", title: "Título do bloco", body: "Texto explicativo aqui..." },
+      testimonial: { text: "Depoimento", title: "", body: "\"Seu depoimento aqui...\"" },
+      divider: { text: "Próxima etapa", title: "Vamos para a próxima etapa!", body: "" },
+    };
+    const defaults = defaultTexts[blockType] || defaultTexts.content;
+    
+    const question = await createQuestion.mutateAsync({
+      quiz_id: id,
+      question_text: defaults.text,
+      question_type: blockType as any,
+      position,
+      is_required: false,
+      content_title: defaults.title,
+      content_body: defaults.body,
     });
     setExpandedQuestions([...expandedQuestions, question.id]);
   };
@@ -457,10 +485,32 @@ export default function QuizBuilder() {
                 onDeleteOption={(optionId) => deleteOption.mutate({ id: optionId, quiz_id: id! })}
               />
             ))}
-            <Button onClick={handleAddQuestion} className="w-full" variant="outline">
-              <Plus className="h-4 w-4 mr-2" />
-              Adicionar Pergunta
-            </Button>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <Button onClick={handleAddQuestion} className="w-full" variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar Pergunta
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="w-full">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Adicionar Bloco
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  {CONTENT_BLOCK_TYPES.map((block) => (
+                    <DropdownMenuItem 
+                      key={block.value}
+                      onClick={() => handleAddContentBlock(block.value)}
+                    >
+                      <span className="mr-2">{block.icon}</span>
+                      {block.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </TabsContent>
 
           {/* Lead Capture Tab */}
@@ -763,12 +813,21 @@ function QuestionEditor({
   onUpdateOption: (optionId: string, data: Partial<QuizOption>) => void;
   onDeleteOption: (optionId: string) => void;
 }) {
+  const isContentBlock = ["content", "testimonial", "divider"].includes(question.question_type);
+  
   // Local state for question fields
   const [localQuestion, setLocalQuestion] = useState({
     question_text: question.question_text,
     helper_text: question.helper_text || "",
     scale_min_label: question.scale_min_label || "",
     scale_max_label: question.scale_max_label || "",
+    image_url: (question as any).image_url || "",
+    video_url: (question as any).video_url || "",
+    content_title: (question as any).content_title || "",
+    content_body: (question as any).content_body || "",
+    content_author_name: (question as any).content_author_name || "",
+    content_author_role: (question as any).content_author_role || "",
+    content_author_image: (question as any).content_author_image || "",
   });
 
   // Debounce timer ref
@@ -781,6 +840,13 @@ function QuestionEditor({
       helper_text: question.helper_text || "",
       scale_min_label: question.scale_min_label || "",
       scale_max_label: question.scale_max_label || "",
+      image_url: (question as any).image_url || "",
+      video_url: (question as any).video_url || "",
+      content_title: (question as any).content_title || "",
+      content_body: (question as any).content_body || "",
+      content_author_name: (question as any).content_author_name || "",
+      content_author_role: (question as any).content_author_role || "",
+      content_author_image: (question as any).content_author_image || "",
     });
   }, [question.id]);
 
@@ -794,20 +860,30 @@ function QuestionEditor({
     }, 800);
   };
 
+  const getTypeLabel = () => {
+    const questionType = QUESTION_TYPES.find((t) => t.value === question.question_type);
+    if (questionType) return questionType.label;
+    const contentType = CONTENT_BLOCK_TYPES.find((t) => t.value === question.question_type);
+    if (contentType) return `${contentType.icon} ${contentType.label}`;
+    return question.question_type;
+  };
+
   return (
-    <Card>
+    <Card className={isContentBlock ? "border-dashed border-primary/30" : ""}>
       <Collapsible open={isExpanded} onOpenChange={onToggle}>
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <GripVertical className="h-5 w-5 text-muted-foreground" />
-                <Badge variant="outline">{index + 1}</Badge>
+                <Badge variant={isContentBlock ? "secondary" : "outline"}>{index + 1}</Badge>
                 <div>
-                  <CardTitle className="text-base">{localQuestion.question_text}</CardTitle>
+                  <CardTitle className="text-base">
+                    {isContentBlock ? (localQuestion.content_title || localQuestion.question_text) : localQuestion.question_text}
+                  </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    {QUESTION_TYPES.find((t) => t.value === question.question_type)?.label}
-                    {question.is_required && " • Obrigatória"}
+                    {getTypeLabel()}
+                    {!isContentBlock && question.is_required && " • Obrigatória"}
                   </p>
                 </div>
               </div>
@@ -822,109 +898,221 @@ function QuestionEditor({
         </CollapsibleTrigger>
         <CollapsibleContent>
           <CardContent className="space-y-4 border-t pt-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Texto da pergunta</Label>
-                <Input
-                  value={localQuestion.question_text}
-                  onChange={(e) => handleLocalChange("question_text", e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Tipo de resposta</Label>
-                <Select
-                  value={question.question_type}
-                  onValueChange={(value) => onUpdate({ question_type: value as any })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {QUESTION_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Texto de apoio (opcional)</Label>
-              <Input
-                value={localQuestion.helper_text}
-                onChange={(e) => handleLocalChange("helper_text", e.target.value)}
-                placeholder="Explique a pergunta..."
-              />
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={question.is_required}
-                  onCheckedChange={(checked) => onUpdate({ is_required: checked })}
-                />
-                <Label>Obrigatória</Label>
-              </div>
-            </div>
-
-            {/* Options for choice-based questions */}
-            {["single_choice", "multiple_choice", "yes_no"].includes(question.question_type) && (
-              <div className="space-y-3">
-                <Label>Opções de resposta</Label>
-                {question.options?.map((option, optIndex) => (
-                  <OptionEditor
-                    key={option.id}
-                    option={option}
-                    optIndex={optIndex}
-                    onUpdateOption={onUpdateOption}
-                    onDeleteOption={onDeleteOption}
-                  />
-                ))}
-                <Button variant="outline" size="sm" onClick={onAddOption}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Adicionar Opção
-                </Button>
-              </div>
+            {/* Content Block Fields */}
+            {isContentBlock && (
+              <>
+                {question.question_type === "testimonial" ? (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Texto do depoimento</Label>
+                      <Textarea
+                        value={localQuestion.content_body}
+                        onChange={(e) => handleLocalChange("content_body", e.target.value)}
+                        placeholder="O depoimento do cliente vai aqui..."
+                        rows={3}
+                      />
+                    </div>
+                    <div className="grid md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Nome do autor</Label>
+                        <Input
+                          value={localQuestion.content_author_name}
+                          onChange={(e) => handleLocalChange("content_author_name", e.target.value)}
+                          placeholder="João Silva"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Cargo / Descrição</Label>
+                        <Input
+                          value={localQuestion.content_author_role}
+                          onChange={(e) => handleLocalChange("content_author_role", e.target.value)}
+                          placeholder="CEO da Empresa"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Foto do autor (URL)</Label>
+                        <Input
+                          value={localQuestion.content_author_image}
+                          onChange={(e) => handleLocalChange("content_author_image", e.target.value)}
+                          placeholder="https://..."
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Título do bloco</Label>
+                      <Input
+                        value={localQuestion.content_title}
+                        onChange={(e) => handleLocalChange("content_title", e.target.value)}
+                        placeholder="Título"
+                      />
+                    </div>
+                    {question.question_type !== "divider" && (
+                      <div className="space-y-2">
+                        <Label>Conteúdo</Label>
+                        <Textarea
+                          value={localQuestion.content_body}
+                          onChange={(e) => handleLocalChange("content_body", e.target.value)}
+                          placeholder="Texto explicativo, informações importantes..."
+                          rows={4}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {/* Media for content blocks */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Imagem (URL)</Label>
+                    <Input
+                      value={localQuestion.image_url}
+                      onChange={(e) => handleLocalChange("image_url", e.target.value)}
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Vídeo (URL embed)</Label>
+                    <Input
+                      value={localQuestion.video_url}
+                      onChange={(e) => handleLocalChange("video_url", e.target.value)}
+                      placeholder="https://youtube.com/embed/..."
+                    />
+                  </div>
+                </div>
+              </>
             )}
 
-            {/* Scale settings */}
-            {question.question_type === "scale" && (
-              <div className="grid md:grid-cols-4 gap-4">
+            {/* Question Fields */}
+            {!isContentBlock && (
+              <>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Texto da pergunta</Label>
+                    <Input
+                      value={localQuestion.question_text}
+                      onChange={(e) => handleLocalChange("question_text", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo de resposta</Label>
+                    <Select
+                      value={question.question_type}
+                      onValueChange={(value) => onUpdate({ question_type: value as any })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {QUESTION_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Label>Mínimo</Label>
+                  <Label>Texto de apoio (opcional)</Label>
                   <Input
-                    type="number"
-                    value={question.scale_min}
-                    onChange={(e) => onUpdate({ scale_min: parseInt(e.target.value) })}
+                    value={localQuestion.helper_text}
+                    onChange={(e) => handleLocalChange("helper_text", e.target.value)}
+                    placeholder="Explique a pergunta..."
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Máximo</Label>
-                  <Input
-                    type="number"
-                    value={question.scale_max}
-                    onChange={(e) => onUpdate({ scale_max: parseInt(e.target.value) })}
-                  />
+
+                {/* Media fields for questions */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Imagem da pergunta (URL)</Label>
+                    <Input
+                      value={localQuestion.image_url}
+                      onChange={(e) => handleLocalChange("image_url", e.target.value)}
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Vídeo da pergunta (URL embed)</Label>
+                    <Input
+                      value={localQuestion.video_url}
+                      onChange={(e) => handleLocalChange("video_url", e.target.value)}
+                      placeholder="https://youtube.com/embed/..."
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Label mínimo</Label>
-                  <Input
-                    value={localQuestion.scale_min_label}
-                    onChange={(e) => handleLocalChange("scale_min_label", e.target.value)}
-                    placeholder="Discordo"
-                  />
+
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={question.is_required}
+                      onCheckedChange={(checked) => onUpdate({ is_required: checked })}
+                    />
+                    <Label>Obrigatória</Label>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Label máximo</Label>
-                  <Input
-                    value={localQuestion.scale_max_label}
-                    onChange={(e) => handleLocalChange("scale_max_label", e.target.value)}
-                    placeholder="Concordo"
-                  />
-                </div>
-              </div>
+
+                {/* Options for choice-based questions */}
+                {["single_choice", "multiple_choice", "yes_no"].includes(question.question_type) && (
+                  <div className="space-y-3">
+                    <Label>Opções de resposta</Label>
+                    {question.options?.map((option, optIndex) => (
+                      <OptionEditor
+                        key={option.id}
+                        option={option}
+                        optIndex={optIndex}
+                        onUpdateOption={onUpdateOption}
+                        onDeleteOption={onDeleteOption}
+                      />
+                    ))}
+                    <Button variant="outline" size="sm" onClick={onAddOption}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Opção
+                    </Button>
+                  </div>
+                )}
+
+                {/* Scale settings */}
+                {question.question_type === "scale" && (
+                  <div className="grid md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label>Mínimo</Label>
+                      <Input
+                        type="number"
+                        value={question.scale_min}
+                        onChange={(e) => onUpdate({ scale_min: parseInt(e.target.value) })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Máximo</Label>
+                      <Input
+                        type="number"
+                        value={question.scale_max}
+                        onChange={(e) => onUpdate({ scale_max: parseInt(e.target.value) })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Label mínimo</Label>
+                      <Input
+                        value={localQuestion.scale_min_label}
+                        onChange={(e) => handleLocalChange("scale_min_label", e.target.value)}
+                        placeholder="Discordo"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Label máximo</Label>
+                      <Input
+                        value={localQuestion.scale_max_label}
+                        onChange={(e) => handleLocalChange("scale_max_label", e.target.value)}
+                        placeholder="Concordo"
+                      />
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </CollapsibleContent>

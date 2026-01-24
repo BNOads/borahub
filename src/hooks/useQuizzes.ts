@@ -41,9 +41,10 @@ export interface QuizQuestion {
   id: string;
   quiz_id: string;
   question_text: string;
-  question_type: "single_choice" | "multiple_choice" | "scale" | "text" | "number" | "url" | "yes_no";
+  question_type: "single_choice" | "multiple_choice" | "scale" | "text" | "number" | "url" | "yes_no" | "content" | "testimonial" | "divider";
   helper_text: string | null;
   image_url: string | null;
+  video_url: string | null;
   is_required: boolean;
   position: number;
   scale_min: number;
@@ -51,6 +52,12 @@ export interface QuizQuestion {
   scale_min_label: string | null;
   scale_max_label: string | null;
   scoring_axis: string;
+  // Content block fields
+  content_title: string | null;
+  content_body: string | null;
+  content_author_name: string | null;
+  content_author_role: string | null;
+  content_author_image: string | null;
   created_at: string;
   updated_at: string;
   options?: QuizOption[];
@@ -476,7 +483,20 @@ export function useCreateQuestion() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { quiz_id: string; question_text: string; question_type?: string; position?: number; is_required?: boolean }) => {
+    mutationFn: async (data: { 
+      quiz_id: string; 
+      question_text: string; 
+      question_type?: string; 
+      position?: number; 
+      is_required?: boolean;
+      image_url?: string;
+      video_url?: string;
+      content_title?: string;
+      content_body?: string;
+      content_author_name?: string;
+      content_author_role?: string;
+      content_author_image?: string;
+    }) => {
       const { data: question, error } = await supabase
         .from("quiz_questions")
         .insert({
@@ -485,6 +505,13 @@ export function useCreateQuestion() {
           question_type: data.question_type || "single_choice",
           position: data.position || 0,
           is_required: data.is_required ?? true,
+          image_url: data.image_url,
+          video_url: data.video_url,
+          content_title: data.content_title,
+          content_body: data.content_body,
+          content_author_name: data.content_author_name,
+          content_author_role: data.content_author_role,
+          content_author_image: data.content_author_image,
         })
         .select()
         .single();
