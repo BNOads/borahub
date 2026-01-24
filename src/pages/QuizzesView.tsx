@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { 
   Plus, 
   MoreVertical, 
@@ -12,11 +12,17 @@ import {
   Trash2,
   Copy,
   Pause,
-  FileText
+  FileText,
+  Sparkles,
+  User,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,13 +48,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useQuizzes, useCreateQuiz, useDeleteQuiz, useUpdateQuiz, Quiz } from "@/hooks/useQuizzes";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuizzes, useCreateQuiz, useDeleteQuiz, useUpdateQuiz, useGenerateQuizFromAI, Quiz } from "@/hooks/useQuizzes";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+
+type QuizWithProfile = Quiz & { profiles: { full_name: string } | null };
 
 export default function QuizzesView() {
   const navigate = useNavigate();
@@ -57,11 +62,14 @@ export default function QuizzesView() {
   const createQuiz = useCreateQuiz();
   const deleteQuiz = useDeleteQuiz();
   const updateQuiz = useUpdateQuiz();
+  const generateQuizFromAI = useGenerateQuizFromAI();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [quizToDelete, setQuizToDelete] = useState<Quiz | null>(null);
+  const [createMode, setCreateMode] = useState<"manual" | "ai">("manual");
+  const [quizToDelete, setQuizToDelete] = useState<QuizWithProfile | null>(null);
   const [newQuizTitle, setNewQuizTitle] = useState("");
   const [newQuizDescription, setNewQuizDescription] = useState("");
+  const [aiPrompt, setAiPrompt] = useState("");
 
   const handleCreateQuiz = async () => {
     if (!newQuizTitle.trim()) {
@@ -80,12 +88,25 @@ export default function QuizzesView() {
     navigate(`/quizzes/${quiz.id}/edit`);
   };
 
-  const handleToggleStatus = async (quiz: Quiz) => {
+  const handleGenerateWithAI = async () => {
+    if (!aiPrompt.trim()) {
+      toast({ title: "Descreva o quiz que você quer criar", variant: "destructive" });
+      return;
+    }
+
+    const quiz = await generateQuizFromAI.mutateAsync(aiPrompt);
+    
+    setShowCreateModal(false);
+    setAiPrompt("");
+    navigate(`/quizzes/${quiz.id}/edit`);
+  };
+
+  const handleToggleStatus = async (quiz: QuizWithProfile) => {
     const newStatus = quiz.status === "published" ? "paused" : "published";
     await updateQuiz.mutateAsync({ id: quiz.id, status: newStatus });
   };
 
-  const handleCopyLink = (quiz: Quiz) => {
+  const handleCopyLink = (quiz: QuizWithProfile) => {
     const url = `${window.location.origin}/q/${quiz.slug}`;
     navigator.clipboard.writeText(url);
     toast({ title: "Link copiado!" });
@@ -102,14 +123,9 @@ export default function QuizzesView() {
     }
   };
 
-  const getConversionRate = (quiz: Quiz) => {
+  const getConversionRate = (quiz: QuizWithProfile) => {
     if (!quiz.starts_count) return 0;
     return Math.round((quiz.completions_count / quiz.starts_count) * 100);
-  };
-
-  const getOptInRate = (quiz: Quiz) => {
-    if (!quiz.completions_count) return 0;
-    return Math.round((quiz.leads_count / quiz.completions_count) * 100);
   };
 
   return (
@@ -229,9 +245,18 @@ export default function QuizzesView() {
                         <h3 className="font-semibold">{quiz.title}</h3>
                         {getStatusBadge(quiz.status)}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {quiz.description || "Sem descrição"}
-                      </p>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>{quiz.description || "Sem descrição"}</span>
+                        {quiz.profiles?.full_name && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {quiz.profiles.full_name}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -332,41 +357,89 @@ export default function QuizzesView() {
 
       {/* Create Modal */}
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Criar Novo Quiz</DialogTitle>
             <DialogDescription>
-              Dê um nome para seu quiz interativo
+              Escolha como você quer criar seu quiz
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="title">Título do Quiz</Label>
-              <Input
-                id="title"
-                placeholder="Ex: Diagnóstico de Maturidade Digital"
-                value={newQuizTitle}
-                onChange={(e) => setNewQuizTitle(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">Descrição (opcional)</Label>
-              <Textarea
-                id="description"
-                placeholder="Descreva o objetivo do quiz..."
-                value={newQuizDescription}
-                onChange={(e) => setNewQuizDescription(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateModal(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleCreateQuiz} disabled={createQuiz.isPending}>
-              {createQuiz.isPending ? "Criando..." : "Criar Quiz"}
-            </Button>
-          </DialogFooter>
+          
+          <Tabs value={createMode} onValueChange={(v) => setCreateMode(v as "manual" | "ai")}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="manual" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Manual
+              </TabsTrigger>
+              <TabsTrigger value="ai" className="gap-2">
+                <Sparkles className="h-4 w-4" />
+                Com IA
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="manual" className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Título do Quiz</Label>
+                <Input
+                  id="title"
+                  placeholder="Ex: Diagnóstico de Maturidade Digital"
+                  value={newQuizTitle}
+                  onChange={(e) => setNewQuizTitle(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Descrição (opcional)</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Descreva o objetivo do quiz..."
+                  value={newQuizDescription}
+                  onChange={(e) => setNewQuizDescription(e.target.value)}
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateModal(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleCreateQuiz} disabled={createQuiz.isPending}>
+                  {createQuiz.isPending ? "Criando..." : "Criar Quiz"}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+
+            <TabsContent value="ai" className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="ai-prompt">Descreva seu quiz</Label>
+                <Textarea
+                  id="ai-prompt"
+                  placeholder="Ex: Quero um quiz de diagnóstico de maturidade digital para empresas B2B, com foco em avaliar o nível de automação, uso de dados e presença online. O quiz deve ter entre 8-10 perguntas e gerar 3 níveis de diagnóstico: Iniciante, Intermediário e Avançado."
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  rows={5}
+                />
+                <p className="text-sm text-muted-foreground">
+                  A IA vai criar perguntas, opções de resposta e diagnósticos automaticamente com base na sua descrição.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowCreateModal(false)}>
+                  Cancelar
+                </Button>
+                <Button onClick={handleGenerateWithAI} disabled={generateQuizFromAI.isPending}>
+                  {generateQuizFromAI.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Gerar com IA
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 

@@ -9,7 +9,6 @@ import {
   MessageSquare,
   Award,
   Users,
-  Palette,
   Plus,
   GripVertical,
   Trash2,
@@ -17,6 +16,8 @@ import {
   ChevronDown,
   ChevronUp,
   Play,
+  Share2,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +39,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -95,6 +102,7 @@ export default function QuizBuilder() {
   const [activeTab, setActiveTab] = useState("intro");
   const [expandedQuestions, setExpandedQuestions] = useState<string[]>([]);
   const [formData, setFormData] = useState<any>({});
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     if (quiz) {
@@ -209,6 +217,34 @@ export default function QuizBuilder() {
     );
   }
 
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/q/${quiz.slug}`;
+    navigator.clipboard.writeText(url);
+    setLinkCopied(true);
+    toast({ title: "Link copiado!" });
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const handleShare = async () => {
+    const url = `${window.location.origin}/q/${quiz.slug}`;
+    const shareData = {
+      title: quiz.title,
+      text: quiz.description || `Faça o quiz: ${quiz.title}`,
+      url,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        // User cancelled or error
+        handleCopyLink();
+      }
+    } else {
+      handleCopyLink();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -231,6 +267,33 @@ export default function QuizBuilder() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Compartilhar
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleCopyLink}>
+                  {linkCopied ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2 text-green-500" />
+                      Link copiado!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copiar link
+                    </>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleShare}>
+                  <Share2 className="h-4 w-4 mr-2" />
+                  Compartilhar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="outline" onClick={() => window.open(`/q/${quiz.slug}`, "_blank")}>
               <Eye className="h-4 w-4 mr-2" />
               Pré-visualizar

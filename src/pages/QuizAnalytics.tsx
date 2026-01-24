@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -8,16 +8,18 @@ import {
   Play,
   CheckCircle2,
   Users,
-  Clock,
   TrendingUp,
   Download,
   ExternalLink,
   BarChart3,
   PieChart,
+  Search,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -51,7 +53,42 @@ export default function QuizAnalytics() {
   const { data: quiz, isLoading: quizLoading } = useQuiz(id);
   const { data: analytics, isLoading: analyticsLoading } = useQuizAnalytics(id);
 
+  const [leadSearch, setLeadSearch] = useState("");
+
   const isLoading = quizLoading || analyticsLoading;
+
+  // Calculate stats from real data
+  const stats = useMemo(() => {
+    if (!analytics) return null;
+    
+    const sessions = analytics.sessions || [];
+    const leads = analytics.leads || [];
+    const completedSessions = sessions.filter((s) => s.status === "completed");
+    
+    return {
+      views: quiz?.views_count || 0,
+      starts: sessions.length,
+      completions: completedSessions.length,
+      leads: leads.length,
+      startRate: quiz?.views_count ? (sessions.length / quiz.views_count) * 100 : 0,
+      completionRate: sessions.length > 0 ? (completedSessions.length / sessions.length) * 100 : 0,
+      optInRate: completedSessions.length > 0 ? (leads.length / completedSessions.length) * 100 : 0,
+    };
+  }, [analytics, quiz]);
+
+  // Filter leads by search
+  const filteredLeads = useMemo(() => {
+    if (!analytics?.leads) return [];
+    if (!leadSearch.trim()) return analytics.leads;
+    
+    const search = leadSearch.toLowerCase();
+    return analytics.leads.filter((lead) =>
+      (lead.name?.toLowerCase().includes(search)) ||
+      (lead.email?.toLowerCase().includes(search)) ||
+      (lead.whatsapp?.includes(search)) ||
+      (lead.company?.toLowerCase().includes(search))
+    );
+  }, [analytics?.leads, leadSearch]);
 
   if (isLoading) {
     return (
@@ -80,11 +117,9 @@ export default function QuizAnalytics() {
 
   const sessions = analytics?.sessions || [];
   const leads = analytics?.leads || [];
+  const responses = analytics?.responses || [];
 
   const completedSessions = sessions.filter((s) => s.status === "completed");
-  const startRate = quiz.views_count > 0 ? (quiz.starts_count / quiz.views_count) * 100 : 0;
-  const completionRate = quiz.starts_count > 0 ? (quiz.completions_count / quiz.starts_count) * 100 : 0;
-  const optInRate = quiz.completions_count > 0 ? (quiz.leads_count / quiz.completions_count) * 100 : 0;
 
   // Group sessions by day for chart
   const sessionsByDay = sessions.reduce((acc: Record<string, number>, session) => {
@@ -111,7 +146,7 @@ export default function QuizAnalytics() {
   // Export leads to CSV
   const exportLeads = () => {
     const headers = ["Nome", "Email", "WhatsApp", "Empresa", "Data"];
-    const rows = leads.map((lead) => [
+    const rows = filteredLeads.map((lead) => [
       lead.name || "",
       lead.email || "",
       lead.whatsapp || "",
@@ -125,6 +160,62 @@ export default function QuizAnalytics() {
     const a = document.createElement("a");
     a.href = url;
     a.download = `leads-${quiz.slug}.csv`;
+    a.click();
+  };
+
+  // Export all responses to CSV
+  const exportResponses = () => {
+    if (!responses.length) return;
+
+    // Group responses by session
+    const sessionResponses: Record<string, any[]> = {};
+    responses.forEach((r: any) => {
+      if (!sessionResponses[r.session_id]) {
+        sessionResponses[r.session_id] = [];
+      }
+      sessionResponses[r.session_id].push(r);
+    });
+
+    // Build headers dynamically from questions
+    const questionTexts = [...new Set(responses.map((r: any) => r.quiz_questions?.question_text || ""))];
+    const headers = ["Session ID", "Data", "Score Total", ...questionTexts];
+
+    const rows = Object.entries(sessionResponses).map(([sessionId, resps]) => {
+      const firstResp = resps[0];
+      const session = firstResp?.quiz_sessions;
+      
+      const row = [
+        sessionId.substring(0, 8),
+        session?.completed_at ? format(new Date(session.completed_at), "dd/MM/yyyy HH:mm") : "",
+        session?.total_score || 0,
+      ];
+
+      // Add answers for each question
+      questionTexts.forEach((qText) => {
+        const resp = resps.find((r: any) => r.quiz_questions?.question_text === qText);
+        if (resp) {
+          const answer = resp.text_response || 
+                        resp.number_response?.toString() || 
+                        resp.scale_response?.toString() || 
+                        (resp.selected_option_ids?.length > 0 ? resp.selected_option_ids.join(", ") : "");
+          row.push(answer);
+        } else {
+          row.push("");
+        }
+      });
+
+      return row;
+    });
+
+    const csv = [headers, ...rows].map((row) => 
+      row.map((cell: any) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+    ).join("\n");
+    
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `respostas-${quiz.slug}.csv`;
     a.click();
   };
 
@@ -146,14 +237,18 @@ export default function QuizAnalytics() {
             <ExternalLink className="h-4 w-4 mr-2" />
             Ver Quiz
           </Button>
-          <Button variant="outline" onClick={exportLeads}>
+          <Button variant="outline" onClick={exportResponses} disabled={!responses.length}>
+            <FileText className="h-4 w-4 mr-2" />
+            Exportar Respostas
+          </Button>
+          <Button variant="outline" onClick={exportLeads} disabled={!filteredLeads.length}>
             <Download className="h-4 w-4 mr-2" />
             Exportar Leads
           </Button>
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards - Real Data */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
@@ -162,7 +257,7 @@ export default function QuizAnalytics() {
                 <Eye className="h-5 w-5 text-blue-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{quiz.views_count.toLocaleString()}</p>
+                <p className="text-2xl font-bold">{stats?.views.toLocaleString() || 0}</p>
                 <p className="text-sm text-muted-foreground">Visualizações</p>
               </div>
             </div>
@@ -175,8 +270,8 @@ export default function QuizAnalytics() {
                 <Play className="h-5 w-5 text-purple-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{quiz.starts_count.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">Iniciados ({startRate.toFixed(1)}%)</p>
+                <p className="text-2xl font-bold">{stats?.starts.toLocaleString() || 0}</p>
+                <p className="text-sm text-muted-foreground">Iniciados ({stats?.startRate.toFixed(1) || 0}%)</p>
               </div>
             </div>
           </CardContent>
@@ -188,8 +283,8 @@ export default function QuizAnalytics() {
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{quiz.completions_count.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">Concluídos ({completionRate.toFixed(1)}%)</p>
+                <p className="text-2xl font-bold">{stats?.completions.toLocaleString() || 0}</p>
+                <p className="text-sm text-muted-foreground">Concluídos ({stats?.completionRate.toFixed(1) || 0}%)</p>
               </div>
             </div>
           </CardContent>
@@ -201,8 +296,8 @@ export default function QuizAnalytics() {
                 <Users className="h-5 w-5 text-amber-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{quiz.leads_count.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">Leads ({optInRate.toFixed(1)}%)</p>
+                <p className="text-2xl font-bold">{stats?.leads.toLocaleString() || 0}</p>
+                <p className="text-sm text-muted-foreground">Leads ({stats?.optInRate.toFixed(1) || 0}%)</p>
               </div>
             </div>
           </CardContent>
@@ -222,23 +317,23 @@ export default function QuizAnalytics() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Visualizações → Inícios</span>
-                <span className="font-medium">{startRate.toFixed(1)}%</span>
+                <span className="font-medium">{stats?.startRate.toFixed(1) || 0}%</span>
               </div>
-              <Progress value={startRate} className="h-3" />
+              <Progress value={stats?.startRate || 0} className="h-3" />
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Inícios → Conclusões</span>
-                <span className="font-medium">{completionRate.toFixed(1)}%</span>
+                <span className="font-medium">{stats?.completionRate.toFixed(1) || 0}%</span>
               </div>
-              <Progress value={completionRate} className="h-3" />
+              <Progress value={stats?.completionRate || 0} className="h-3" />
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Conclusões → Leads</span>
-                <span className="font-medium">{optInRate.toFixed(1)}%</span>
+                <span className="font-medium">{stats?.optInRate.toFixed(1) || 0}%</span>
               </div>
-              <Progress value={optInRate} className="h-3" />
+              <Progress value={stats?.optInRate || 0} className="h-3" />
             </div>
           </div>
         </CardContent>
@@ -253,6 +348,10 @@ export default function QuizAnalytics() {
           <TabsTrigger value="leads" className="gap-2">
             <Users className="h-4 w-4" />
             Leads ({leads.length})
+          </TabsTrigger>
+          <TabsTrigger value="responses" className="gap-2">
+            <FileText className="h-4 w-4" />
+            Respostas ({responses.length})
           </TabsTrigger>
           <TabsTrigger value="diagnoses" className="gap-2">
             <PieChart className="h-4 w-4" />
@@ -321,13 +420,26 @@ export default function QuizAnalytics() {
         <TabsContent value="leads">
           <Card>
             <CardHeader>
-              <CardTitle>Leads Capturados</CardTitle>
-              <CardDescription>
-                Lista de todos os leads que preencheram o formulário
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Leads Capturados</CardTitle>
+                  <CardDescription>
+                    Lista de todos os leads que preencheram o formulário
+                  </CardDescription>
+                </div>
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar leads..."
+                    value={leadSearch}
+                    onChange={(e) => setLeadSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              {leads.length > 0 ? (
+              {filteredLeads.length > 0 ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -339,7 +451,7 @@ export default function QuizAnalytics() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {leads.map((lead) => (
+                    {filteredLeads.map((lead) => (
                       <TableRow key={lead.id}>
                         <TableCell className="font-medium">{lead.name || "-"}</TableCell>
                         <TableCell>{lead.email || "-"}</TableCell>
@@ -354,8 +466,73 @@ export default function QuizAnalytics() {
                 </Table>
               ) : (
                 <div className="py-12 text-center text-muted-foreground">
-                  Nenhum lead capturado ainda
+                  {leadSearch ? "Nenhum lead encontrado com essa busca" : "Nenhum lead capturado ainda"}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="responses">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Respostas do Quiz</CardTitle>
+                  <CardDescription>
+                    Todas as respostas individuais coletadas
+                  </CardDescription>
+                </div>
+                <Button variant="outline" onClick={exportResponses} disabled={!responses.length}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar CSV
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {responses.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pergunta</TableHead>
+                      <TableHead>Resposta</TableHead>
+                      <TableHead>Pontos</TableHead>
+                      <TableHead>Tempo</TableHead>
+                      <TableHead>Data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {responses.slice(0, 50).map((resp: any, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-medium max-w-xs truncate">
+                          {resp.quiz_questions?.question_text || "-"}
+                        </TableCell>
+                        <TableCell>
+                          {resp.text_response || 
+                           resp.number_response?.toString() || 
+                           resp.scale_response?.toString() || 
+                           (resp.selected_option_ids?.length > 0 ? `${resp.selected_option_ids.length} opção(ões)` : "-")}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{resp.points_earned || 0}</Badge>
+                        </TableCell>
+                        <TableCell>{resp.time_spent_seconds ? `${resp.time_spent_seconds}s` : "-"}</TableCell>
+                        <TableCell>
+                          {resp.answered_at ? format(new Date(resp.answered_at), "dd/MM HH:mm") : "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="py-12 text-center text-muted-foreground">
+                  Nenhuma resposta registrada ainda
+                </div>
+              )}
+              {responses.length > 50 && (
+                <p className="text-sm text-muted-foreground mt-4 text-center">
+                  Mostrando 50 de {responses.length} respostas. Exporte o CSV para ver todas.
+                </p>
               )}
             </CardContent>
           </Card>
