@@ -284,7 +284,7 @@ export default function PublicQuiz() {
     }
   };
 
-  // Download diagnosis as PDF
+  // Download diagnosis as PDF with multiple pages
   const handleDownloadDiagnosis = async () => {
     if (!diagnosisRef.current) return;
     
@@ -298,6 +298,7 @@ export default function PublicQuiz() {
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
+        windowWidth: 800,
       });
       
       const imgData = canvas.toDataURL("image/png");
@@ -309,13 +310,58 @@ export default function PublicQuiz() {
       
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const usableWidth = pdfWidth - margin * 2;
+      const usableHeight = pdfHeight - margin * 2;
+      
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
-      const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-      const imgX = (pdfWidth - imgWidth * ratio) / 2;
-      const imgY = 10;
       
-      pdf.addImage(imgData, "PNG", imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+      // Calculate scaled dimensions to fit width
+      const scaledWidth = usableWidth;
+      const scaledHeight = (imgHeight * usableWidth) / imgWidth;
+      
+      // If content fits in one page, use single page
+      if (scaledHeight <= usableHeight) {
+        const yOffset = margin;
+        pdf.addImage(imgData, "PNG", margin, yOffset, scaledWidth, scaledHeight);
+      } else {
+        // Content needs multiple pages - split the canvas
+        const pageHeightInCanvasPixels = (usableHeight * imgWidth) / usableWidth;
+        const totalPages = Math.ceil(imgHeight / pageHeightInCanvasPixels);
+        
+        for (let pageNum = 0; pageNum < totalPages; pageNum++) {
+          if (pageNum > 0) {
+            pdf.addPage();
+          }
+          
+          // Create a temporary canvas for this page slice
+          const pageCanvas = document.createElement("canvas");
+          pageCanvas.width = imgWidth;
+          pageCanvas.height = Math.min(pageHeightInCanvasPixels, imgHeight - pageNum * pageHeightInCanvasPixels);
+          
+          const ctx = pageCanvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(
+              canvas,
+              0,
+              pageNum * pageHeightInCanvasPixels,
+              imgWidth,
+              pageCanvas.height,
+              0,
+              0,
+              imgWidth,
+              pageCanvas.height
+            );
+            
+            const pageImgData = pageCanvas.toDataURL("image/png");
+            const pageScaledHeight = (pageCanvas.height * usableWidth) / imgWidth;
+            pdf.addImage(pageImgData, "PNG", margin, margin, scaledWidth, pageScaledHeight);
+          }
+        }
+      }
+      
+      pdf.save(`diagnostico-${quiz?.title?.toLowerCase().replace(/\s+/g, "-") || "quiz"}.pdf`);
       pdf.save(`diagnostico-${quiz?.title?.toLowerCase().replace(/\s+/g, "-") || "quiz"}.pdf`);
     } catch (error) {
       console.error("Error generating PDF:", error);
