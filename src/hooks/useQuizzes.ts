@@ -283,7 +283,7 @@ export function useCreateQuiz() {
 }
 
 // Update quiz
-export function useUpdateQuiz() {
+export function useUpdateQuiz(showToast = true) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -299,10 +299,154 @@ export function useUpdateQuiz() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["quizzes"] });
       queryClient.invalidateQueries({ queryKey: ["quiz", variables.id] });
-      toast({ title: "Quiz atualizado!" });
+      if (showToast) {
+        toast({ title: "Quiz atualizado!" });
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Erro ao atualizar quiz", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+// Duplicate quiz with all questions, options, and diagnoses
+export function useDuplicateQuiz() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (quizId: string) => {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) throw new Error("Usuário não autenticado");
+
+      // Get original quiz
+      const { data: originalQuiz, error: quizError } = await supabase
+        .from("quizzes")
+        .select("*")
+        .eq("id", quizId)
+        .single();
+
+      if (quizError) throw quizError;
+
+      // Get questions with options
+      const { data: questions, error: questionsError } = await supabase
+        .from("quiz_questions")
+        .select("*, quiz_options(*)")
+        .eq("quiz_id", quizId)
+        .order("position");
+
+      if (questionsError) throw questionsError;
+
+      // Get diagnoses
+      const { data: diagnoses, error: diagnosesError } = await supabase
+        .from("quiz_diagnoses")
+        .select("*")
+        .eq("quiz_id", quizId);
+
+      if (diagnosesError) throw diagnosesError;
+
+      // Create new quiz
+      const newSlug = generateSlug(`${originalQuiz.title} (cópia)`);
+      const { data: newQuiz, error: newQuizError } = await supabase
+        .from("quizzes")
+        .insert({
+          title: `${originalQuiz.title} (cópia)`,
+          description: originalQuiz.description,
+          slug: newSlug,
+          created_by: user.user.id,
+          status: "draft",
+          intro_title: originalQuiz.intro_title,
+          intro_subtitle: originalQuiz.intro_subtitle,
+          intro_text: originalQuiz.intro_text,
+          intro_image_url: originalQuiz.intro_image_url,
+          intro_video_url: originalQuiz.intro_video_url,
+          intro_cta_text: originalQuiz.intro_cta_text,
+          show_progress_bar: originalQuiz.show_progress_bar,
+          privacy_text: originalQuiz.privacy_text,
+          lead_capture_enabled: originalQuiz.lead_capture_enabled,
+          lead_capture_position: originalQuiz.lead_capture_position,
+          lead_fields: originalQuiz.lead_fields,
+          lead_required_fields: originalQuiz.lead_required_fields,
+          lgpd_consent_text: originalQuiz.lgpd_consent_text,
+          primary_color: originalQuiz.primary_color,
+          background_color: originalQuiz.background_color,
+          diagnosis_type: originalQuiz.diagnosis_type,
+          ai_prompt_template: originalQuiz.ai_prompt_template,
+          final_cta_text: originalQuiz.final_cta_text,
+          final_cta_url: originalQuiz.final_cta_url,
+        })
+        .select()
+        .single();
+
+      if (newQuizError) throw newQuizError;
+
+      // Duplicate questions and options
+      for (const question of questions || []) {
+        const { quiz_options, id: oldQuestionId, quiz_id: _, created_at: __, updated_at: ___, ...questionData } = question;
+
+        const { data: newQuestion, error: newQuestionError } = await supabase
+          .from("quiz_questions")
+          .insert({
+            ...questionData,
+            quiz_id: newQuiz.id,
+          })
+          .select()
+          .single();
+
+        if (newQuestionError) throw newQuestionError;
+
+        // Duplicate options
+        if (quiz_options && quiz_options.length > 0) {
+          const optionsToInsert = quiz_options.map((opt: any) => ({
+            question_id: newQuestion.id,
+            option_text: opt.option_text,
+            image_url: opt.image_url,
+            position: opt.position,
+            points: opt.points,
+            tags: opt.tags,
+            scoring_values: opt.scoring_values,
+          }));
+
+          const { error: optionsError } = await supabase
+            .from("quiz_options")
+            .insert(optionsToInsert);
+
+          if (optionsError) throw optionsError;
+        }
+      }
+
+      // Duplicate diagnoses
+      if (diagnoses && diagnoses.length > 0) {
+        const diagnosesToInsert = diagnoses.map((d: any) => ({
+          quiz_id: newQuiz.id,
+          min_score: d.min_score,
+          max_score: d.max_score,
+          required_tags: d.required_tags,
+          scoring_axis: d.scoring_axis,
+          title: d.title,
+          description: d.description,
+          insights: d.insights,
+          action_plan: d.action_plan,
+          icon: d.icon,
+          color: d.color,
+          priority: d.priority,
+        }));
+
+        const { error: diagnosesInsertError } = await supabase
+          .from("quiz_diagnoses")
+          .insert(diagnosesToInsert);
+
+        if (diagnosesInsertError) throw diagnosesInsertError;
+      }
+
+      return newQuiz;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["quizzes"] });
+      toast({ title: "Quiz duplicado com sucesso!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao duplicar quiz", description: error.message, variant: "destructive" });
     },
   });
 }

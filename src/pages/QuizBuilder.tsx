@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -83,12 +83,29 @@ const LEAD_FIELDS = [
   { value: "state", label: "Estado" },
 ];
 
+// Debounce hook for auto-save
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export default function QuizBuilder() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { data: quiz, isLoading } = useQuiz(id);
-  const updateQuiz = useUpdateQuiz();
+  const updateQuiz = useUpdateQuiz(false); // Don't show toast for auto-save
   const createQuestion = useCreateQuestion();
   const updateQuestion = useUpdateQuestion();
   const deleteQuestion = useDeleteQuestion();
@@ -103,9 +120,11 @@ export default function QuizBuilder() {
   const [expandedQuestions, setExpandedQuestions] = useState<string[]>([]);
   const [formData, setFormData] = useState<any>({});
   const [linkCopied, setLinkCopied] = useState(false);
+  const isInitialized = useRef(false);
 
+  // Initialize form data from quiz
   useEffect(() => {
-    if (quiz) {
+    if (quiz && !isInitialized.current) {
       setFormData({
         title: quiz.title,
         description: quiz.description || "",
@@ -128,12 +147,24 @@ export default function QuizBuilder() {
         final_cta_text: quiz.final_cta_text || "Falar com especialista",
         final_cta_url: quiz.final_cta_url || "",
       });
+      isInitialized.current = true;
     }
   }, [quiz]);
+
+  // Debounced form data for auto-save
+  const debouncedFormData = useDebounce(formData, 1000);
+
+  // Auto-save when debounced form data changes
+  useEffect(() => {
+    if (id && isInitialized.current && Object.keys(debouncedFormData).length > 0) {
+      updateQuiz.mutate({ id, ...debouncedFormData });
+    }
+  }, [debouncedFormData, id]);
 
   const handleSaveQuiz = async () => {
     if (!id) return;
     await updateQuiz.mutateAsync({ id, ...formData });
+    toast({ title: "Quiz salvo!" });
   };
 
   const handlePublish = async () => {

@@ -143,24 +143,31 @@ export default function QuizAnalytics() {
     };
   }) || [];
 
-  // Export leads to CSV
+  // Export leads to CSV with UTF-8 BOM for Excel
   const exportLeads = () => {
-    const headers = ["Nome", "Email", "WhatsApp", "Empresa", "Data"];
+    if (!filteredLeads.length) return;
+    
+    const headers = ["Nome", "Email", "WhatsApp", "Empresa", "Cidade", "Estado", "Data"];
     const rows = filteredLeads.map((lead) => [
-      lead.name || "",
-      lead.email || "",
-      lead.whatsapp || "",
-      lead.company || "",
+      `"${(lead.name || "").replace(/"/g, '""')}"`,
+      `"${(lead.email || "").replace(/"/g, '""')}"`,
+      `"${(lead.whatsapp || "").replace(/"/g, '""')}"`,
+      `"${(lead.company || "").replace(/"/g, '""')}"`,
+      `"${(lead.city || "").replace(/"/g, '""')}"`,
+      `"${(lead.state || "").replace(/"/g, '""')}"`,
       format(new Date(lead.created_at), "dd/MM/yyyy HH:mm"),
     ]);
 
-    const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
+    const csv = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+    // Add UTF-8 BOM for Excel compatibility
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csv], { type: "text/csv;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `leads-${quiz.slug}.csv`;
+    a.download = `leads-${quiz.slug}-${format(new Date(), "yyyy-MM-dd")}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   // Export all responses to CSV
