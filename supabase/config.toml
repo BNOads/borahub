@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.asaas-sync]
 verify_jwt = false
+
+[functions.quiz-ai-diagnosis]
+verify_jwt = false
