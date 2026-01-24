@@ -8,6 +8,7 @@ interface MarkdownRendererProps {
 
 /**
  * Simple markdown renderer that handles:
+ * - # ## ### headings
  * - **bold** text
  * - *italic* text
  * - > blockquotes
@@ -119,6 +120,43 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const trimmedLine = line.trim();
+
+      // Headings (### ## #)
+      const h3Match = trimmedLine.match(/^###\s+(.*)$/);
+      if (h3Match) {
+        flushList();
+        flushBlockquote();
+        elements.push(
+          <h3 key={elements.length} className="text-lg font-semibold mt-4 mb-2">
+            {processInlineMarkdown(h3Match[1])}
+          </h3>
+        );
+        continue;
+      }
+
+      const h2Match = trimmedLine.match(/^##\s+(.*)$/);
+      if (h2Match) {
+        flushList();
+        flushBlockquote();
+        elements.push(
+          <h2 key={elements.length} className="text-xl font-bold mt-5 mb-2">
+            {processInlineMarkdown(h2Match[1])}
+          </h2>
+        );
+        continue;
+      }
+
+      const h1Match = trimmedLine.match(/^#\s+(.*)$/);
+      if (h1Match) {
+        flushList();
+        flushBlockquote();
+        elements.push(
+          <h1 key={elements.length} className="text-2xl font-bold mt-6 mb-3">
+            {processInlineMarkdown(h1Match[1])}
+          </h1>
+        );
+        continue;
+      }
 
       // Horizontal rule
       if (trimmedLine === "---" || trimmedLine === "***" || trimmedLine === "___") {
