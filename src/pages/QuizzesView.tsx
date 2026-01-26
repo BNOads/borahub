@@ -68,6 +68,8 @@ export default function QuizzesView() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createMode, setCreateMode] = useState<"manual" | "ai">("manual");
   const [quizToDelete, setQuizToDelete] = useState<QuizWithProfile | null>(null);
+  const [quizToRename, setQuizToRename] = useState<QuizWithProfile | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
   const [newQuizTitle, setNewQuizTitle] = useState("");
   const [newQuizDescription, setNewQuizDescription] = useState("");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -116,6 +118,19 @@ export default function QuizzesView() {
   const handleDuplicateQuiz = async (quiz: QuizWithProfile) => {
     const newQuiz = await duplicateQuiz.mutateAsync(quiz.id);
     navigate(`/quizzes/${newQuiz.id}/edit`);
+  };
+
+  const handleRenameQuiz = async () => {
+    if (!quizToRename || !renameTitle.trim()) return;
+    await updateQuiz.mutateAsync({ id: quizToRename.id, title: renameTitle.trim() });
+    toast({ title: "Quiz renomeado com sucesso!" });
+    setQuizToRename(null);
+    setRenameTitle("");
+  };
+
+  const openRenameModal = (quiz: QuizWithProfile) => {
+    setQuizToRename(quiz);
+    setRenameTitle(quiz.title);
   };
 
   const getStatusBadge = (status: string) => {
@@ -299,6 +314,10 @@ export default function QuizzesView() {
                           <Pencil className="h-4 w-4 mr-2" />
                           Editar
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openRenameModal(quiz)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Renomear
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => navigate(`/quizzes/${quiz.id}/analytics`)}>
                           <Eye className="h-4 w-4 mr-2" />
                           Analytics
@@ -479,6 +498,38 @@ export default function QuizzesView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rename Modal */}
+      <Dialog open={!!quizToRename} onOpenChange={(open) => !open && setQuizToRename(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Renomear Quiz</DialogTitle>
+            <DialogDescription>
+              Digite o novo nome para o quiz
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rename-title">Título</Label>
+              <Input
+                id="rename-title"
+                value={renameTitle}
+                onChange={(e) => setRenameTitle(e.target.value)}
+                placeholder="Título do quiz"
+                onKeyDown={(e) => e.key === "Enter" && handleRenameQuiz()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuizToRename(null)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleRenameQuiz} disabled={!renameTitle.trim() || updateQuiz.isPending}>
+              {updateQuiz.isPending ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
