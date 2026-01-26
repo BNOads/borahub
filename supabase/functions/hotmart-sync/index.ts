@@ -69,6 +69,11 @@ interface HotmartSale {
     };
     recurrency_number?: number;
     is_subscription?: boolean;
+    tracking?: {
+      source_sck?: string;
+      source?: string;
+      external_code?: string;
+    };
   };
   producer?: {
     name: string;
@@ -659,6 +664,10 @@ serve(async (req) => {
               status: mapHotmartStatus(sale.purchase.status) === "paid" ? "active" : "cancelled",
               seller_id: null, // NEVER auto-assign - must be manual
               payment_type: sale.purchase.payment.type || null,
+              // Tracking fields for UTM and source info
+              tracking_source: sale.purchase.tracking?.source || null,
+              tracking_source_sck: sale.purchase.tracking?.source_sck || null,
+              tracking_external_code: sale.purchase.tracking?.external_code || null,
             };
             
             // Check if sale already exists
