@@ -323,6 +323,19 @@ export default function Tarefas() {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "";
     const date = new Date(dateString + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.getTime() === today.getTime()) return "Hoje";
+    if (date.getTime() === tomorrow.getTime()) return "Amanhã";
+    if (date.getTime() === yesterday.getTime()) return "Ontem";
+    
     return date.toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "short",

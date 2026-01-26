@@ -374,7 +374,21 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
 
   const formatDate = (date: string | null) => {
     if (!date) return null;
-    return new Date(date + "T00:00:00").toLocaleDateString("pt-BR", {
+    const dateObj = new Date(date + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (dateObj.getTime() === today.getTime()) return "Hoje";
+    if (dateObj.getTime() === tomorrow.getTime()) return "Amanhã";
+    if (dateObj.getTime() === yesterday.getTime()) return "Ontem";
+    
+    return dateObj.toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "short",
     });
