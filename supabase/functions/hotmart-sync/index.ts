@@ -1076,6 +1076,85 @@ serve(async (req) => {
         }
       }
       
+      case "update_tracking": {
+        // Update tracking info for existing sales that are missing it
+        console.log("Updating tracking info for existing Hotmart sales");
+        
+        // Get all Hotmart sales that might be missing tracking info
+        const { data: hotmartSales, error: salesError } = await supabase
+          .from("sales")
+          .select("id, external_id, tracking_source, tracking_source_sck, tracking_external_code")
+          .eq("platform", "hotmart");
+        
+        if (salesError) throw salesError;
+        
+        let updated = 0;
+        let failed = 0;
+        const errors: string[] = [];
+        
+        for (const sale of hotmartSales || []) {
+          try {
+            // Get sale details from Hotmart API
+            const details = await fetchSaleDetails(accessToken, sale.external_id);
+            
+            if (!details?.items?.[0]) {
+              console.log(`No details found for transaction: ${sale.external_id}`);
+              continue;
+            }
+            
+            const saleInfo = details.items[0];
+            const tracking = saleInfo.purchase?.tracking;
+            
+            // Check if there's tracking data to update
+            if (tracking && (tracking.source || tracking.source_sck || tracking.external_code)) {
+              const trackingData = {
+                tracking_source: tracking.source || null,
+                tracking_source_sck: tracking.source_sck || null,
+                tracking_external_code: tracking.external_code || null,
+              };
+              
+              // Check if any tracking field is different
+              const needsUpdate = 
+                trackingData.tracking_source !== sale.tracking_source ||
+                trackingData.tracking_source_sck !== sale.tracking_source_sck ||
+                trackingData.tracking_external_code !== sale.tracking_external_code;
+              
+              if (needsUpdate) {
+                console.log(`Updating tracking for ${sale.external_id}: source=${tracking.source}, sck=${tracking.source_sck}, code=${tracking.external_code}`);
+                
+                const { error: updateError } = await supabase
+                  .from("sales")
+                  .update(trackingData)
+                  .eq("id", sale.id);
+                
+                if (updateError) throw updateError;
+                updated++;
+              }
+            }
+            
+            // Rate limiting
+            await new Promise(r => setTimeout(r, 100));
+          } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            console.error(`Error updating tracking for sale ${sale.external_id}:`, err);
+            failed++;
+            errors.push(`${sale.external_id}: ${errorMessage}`);
+          }
+        }
+        
+        console.log(`Tracking update completed: ${updated} updated, ${failed} failed`);
+        
+        return new Response(JSON.stringify({ 
+          success: true, 
+          total: hotmartSales?.length || 0,
+          updated,
+          failed,
+          errors: errors.slice(0, 10),
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      
       default:
         throw new Error(`Unknown action: ${action}`);
     }
