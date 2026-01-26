@@ -45,6 +45,22 @@ export function useFunnelProducts(funnelId: string) {
   });
 }
 
+export function useFunnelSalesProducts(funnelId: string) {
+  return useQuery({
+    queryKey: ["funnel-sales-products", funnelId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("funnel_sales_products")
+        .select("id, funnel_id, product_name, created_at")
+        .eq("funnel_id", funnelId);
+
+      if (error) throw error;
+      return (data || []).map(d => d.product_name);
+    },
+    enabled: !!funnelId,
+  });
+}
+
 export function useAllProducts() {
   return useQuery({
     queryKey: ["all-products"],
@@ -57,6 +73,30 @@ export function useAllProducts() {
 
       if (error) throw error;
       return data || [];
+    },
+  });
+}
+
+export function useSalesProducts() {
+  return useQuery({
+    queryKey: ["sales-products-unique"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("sales")
+        .select("product_name")
+        .not("product_name", "is", null)
+        .is("product_id", null);
+
+      if (error) throw error;
+
+      // Get unique product names
+      const uniqueNames = [...new Set(
+        (data || [])
+          .map(s => s.product_name?.trim())
+          .filter(Boolean)
+      )].sort() as string[];
+
+      return uniqueNames;
     },
   });
 }
@@ -91,6 +131,75 @@ export function useAddFunnelProduct() {
     onError: (error: Error) => {
       console.error("Erro ao vincular produto:", error);
       toast.error("Erro ao vincular produto");
+    },
+  });
+}
+
+export function useAddFunnelSalesProduct() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      funnelId,
+      productName,
+    }: {
+      funnelId: string;
+      productName: string;
+    }) => {
+      const { error } = await supabase.from("funnel_sales_products").insert({
+        funnel_id: funnelId,
+        product_name: productName,
+      });
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["funnel-sales-products", variables.funnelId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["funnel-revenue", variables.funnelId],
+      });
+      toast.success("Produto de vendas vinculado ao funil");
+    },
+    onError: (error: Error) => {
+      console.error("Erro ao vincular produto de vendas:", error);
+      toast.error("Erro ao vincular produto de vendas");
+    },
+  });
+}
+
+export function useRemoveFunnelSalesProduct() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      funnelId,
+      productName,
+    }: {
+      funnelId: string;
+      productName: string;
+    }) => {
+      const { error } = await supabase
+        .from("funnel_sales_products")
+        .delete()
+        .eq("funnel_id", funnelId)
+        .eq("product_name", productName);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["funnel-sales-products", variables.funnelId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["funnel-revenue", variables.funnelId],
+      });
+      toast.success("Produto de vendas removido do funil");
+    },
+    onError: (error: Error) => {
+      console.error("Erro ao remover produto de vendas:", error);
+      toast.error("Erro ao remover produto de vendas");
     },
   });
 }
@@ -149,16 +258,26 @@ export function useFunnelRevenue(
 
       if (fpError) throw fpError;
 
-      if (!funnelProducts?.length) {
+      // 2. Buscar produtos de vendas vinculados (Asaas)
+      const { data: salesProducts, error: spError } = await supabase
+        .from("funnel_sales_products")
+        .select("product_name")
+        .eq("funnel_id", funnelId);
+
+      if (spError) throw spError;
+
+      const productIds = funnelProducts?.map((fp) => fp.product_id) || [];
+      const productNames = [
+        ...(funnelProducts?.map((fp) => (fp.product as { name: string } | null)?.name).filter(Boolean) as string[] || []),
+        ...(salesProducts?.map((sp) => sp.product_name).filter(Boolean) || [])
+      ];
+
+      // Se não há produtos vinculados
+      if (productIds.length === 0 && productNames.length === 0) {
         return { total: 0, count: 0, previousTotal: 0, previousCount: 0, growthPercent: 0 };
       }
 
-      const productIds = funnelProducts.map((fp) => fp.product_id);
-      const productNames = funnelProducts
-        .map((fp) => (fp.product as { name: string } | null)?.name)
-        .filter(Boolean) as string[];
-
-      // 2. Buscar vendas do período atual (por product_id OU product_name)
+      // 3. Buscar vendas do período atual (por product_id OU product_name)
       let currentQuery = supabase
         .from("sales")
         .select("id, total_value, sale_date, product_id, product_name")
@@ -176,10 +295,10 @@ export function useFunnelRevenue(
         if (sale.product_id && productIds.includes(sale.product_id)) {
           return true;
         }
-        // Match por product_name (para vendas sem product_id)
-        if (!sale.product_id && sale.product_name) {
+        // Match por product_name (case-insensitive)
+        if (sale.product_name) {
           return productNames.some(
-            (pn) => sale.product_name?.toLowerCase() === pn.toLowerCase()
+            (pn) => sale.product_name?.toLowerCase().trim() === pn.toLowerCase().trim()
           );
         }
         return false;
@@ -188,7 +307,7 @@ export function useFunnelRevenue(
       const total = currentSales.reduce((sum, s) => sum + (s.total_value || 0), 0);
       const count = currentSales.length;
 
-      // 3. Calcular período anterior para comparação
+      // 4. Calcular período anterior para comparação
       let previousTotal = 0;
       let previousCount = 0;
 
@@ -213,9 +332,9 @@ export function useFunnelRevenue(
           if (sale.product_id && productIds.includes(sale.product_id)) {
             return true;
           }
-          if (!sale.product_id && sale.product_name) {
+          if (sale.product_name) {
             return productNames.some(
-              (pn) => sale.product_name?.toLowerCase() === pn.toLowerCase()
+              (pn) => sale.product_name?.toLowerCase().trim() === pn.toLowerCase().trim()
             );
           }
           return false;
