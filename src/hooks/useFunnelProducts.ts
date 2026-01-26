@@ -291,13 +291,16 @@ export function useFunnelRevenue(
 
       // Lógica de match parcial: verifica se TODAS as palavras-chave do produto
       // estão presentes no nome da venda (case-insensitive)
+      // Normaliza quebras de linha, hífens e outros separadores
       const matchesProductName = (saleName: string, productName: string) => {
-        const saleNameLower = saleName.toLowerCase();
+        // Normaliza removendo quebras de linha e caracteres especiais
+        const normalizedSale = saleName.toLowerCase().replace(/[\n\r\-–—]/g, ' ').replace(/\s+/g, ' ');
         const keywords = productName.toLowerCase()
-          .split(' ')
+          .replace(/[\n\r\-–—]/g, ' ')
+          .split(/\s+/)
           .filter(word => word.length > 2); // Ignorar palavras muito curtas
         
-        return keywords.every(keyword => saleNameLower.includes(keyword));
+        return keywords.every(keyword => normalizedSale.includes(keyword));
       };
 
       // Filtrar vendas que correspondem aos produtos vinculados
