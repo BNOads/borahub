@@ -20,7 +20,8 @@ import {
   Link2,
   CalendarDays,
   Filter,
-  ClipboardList
+  ClipboardList,
+  CheckSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,13 @@ const tools = [
     href: "/treinamentos",
     icon: BookOpen,
     color: "bg-blue-500/10 text-blue-500",
+  },
+  {
+    name: "Tarefas",
+    description: "Gerencie suas tarefas, acompanhe prazos e produtividade",
+    href: "/tarefas",
+    icon: CheckSquare,
+    color: "bg-sky-500/10 text-sky-500",
   },
   {
     name: "Equipe",
