@@ -53,6 +53,9 @@ interface DbSale {
   status: string;
   platform: string;
   seller_id: string | null;
+  tracking_source: string | null;
+  tracking_source_sck: string | null;
+  tracking_external_code: string | null;
   seller?: {
     full_name: string;
     display_name: string | null;
@@ -77,6 +80,9 @@ function useAllSales() {
           status,
           platform,
           seller_id,
+          tracking_source,
+          tracking_source_sck,
+          tracking_external_code,
           seller:profiles!sales_seller_id_fkey(full_name, display_name)
         `)
         .in("platform", ["hotmart", "asaas"])
@@ -519,6 +525,7 @@ export function AllSalesManagement() {
                     >
                       Vendedor
                     </TableHead>
+                    <TableHead>Origem</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -585,6 +592,38 @@ export function AllSalesManagement() {
                             <AlertCircle className="h-3 w-3 mr-1" />
                             Pendente
                           </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {sale.tracking_source || sale.tracking_source_sck || sale.tracking_external_code ? (
+                          <div className="text-xs space-y-0.5">
+                            {sale.tracking_source && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground">src:</span>
+                                <span className="font-medium truncate max-w-[80px]" title={sale.tracking_source}>
+                                  {sale.tracking_source}
+                                </span>
+                              </div>
+                            )}
+                            {sale.tracking_source_sck && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground">sck:</span>
+                                <span className="font-medium truncate max-w-[80px]" title={sale.tracking_source_sck}>
+                                  {sale.tracking_source_sck}
+                                </span>
+                              </div>
+                            )}
+                            {sale.tracking_external_code && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground">utm:</span>
+                                <span className="font-medium truncate max-w-[80px]" title={sale.tracking_external_code}>
+                                  {sale.tracking_external_code}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </TableCell>
                     </TableRow>
