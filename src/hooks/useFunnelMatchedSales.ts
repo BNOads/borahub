@@ -10,13 +10,19 @@ export interface MatchedSale {
   matched_by: string; // nome do produto que fez o match
 }
 
+// Palavras a ignorar no matching (anos, conectores, etc.)
+const IGNORED_WORDS = ['2023', '2024', '2025', '2026', '2027', '2028', 'mba', 'ciclo'];
+
 // Função de match parcial - mesma lógica usada em useFunnelProducts
 const matchesProductName = (saleName: string, productName: string): boolean => {
   const normalizedSale = saleName.toLowerCase().replace(/[\n\r\-–—]/g, ' ').replace(/\s+/g, ' ');
   const keywords = productName.toLowerCase()
     .replace(/[\n\r\-–—]/g, ' ')
     .split(/\s+/)
-    .filter(word => word.length > 2);
+    .filter(word => word.length > 2 && !IGNORED_WORDS.includes(word));
+  
+  // Se não sobrou nenhuma keyword relevante, não faz match
+  if (keywords.length === 0) return false;
   
   return keywords.every(keyword => normalizedSale.includes(keyword));
 };
