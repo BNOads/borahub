@@ -9,3 +9,5 @@ export { FunnelOperationalDates } from "./FunnelOperationalDates";
 export { FunnelLinksList } from "./FunnelLinksList";
 export { FunnelDiary } from "./FunnelDiary";
 export { FunnelChecklist } from "./FunnelChecklist";
+export { FunnelProducts } from "./FunnelProducts";
+export { FunnelRevenue } from "./FunnelRevenue";
