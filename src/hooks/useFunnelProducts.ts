@@ -289,6 +289,9 @@ export function useFunnelRevenue(
       const { data: allSales, error: currentError } = await currentQuery;
       if (currentError) throw currentError;
 
+      // Palavras a ignorar no matching (anos, conectores, etc.)
+      const IGNORED_WORDS = ['2023', '2024', '2025', '2026', '2027', '2028', 'mba', 'ciclo'];
+
       // Lógica de match parcial: verifica se TODAS as palavras-chave do produto
       // estão presentes no nome da venda (case-insensitive)
       // Normaliza quebras de linha, hífens e outros separadores
@@ -298,7 +301,10 @@ export function useFunnelRevenue(
         const keywords = productName.toLowerCase()
           .replace(/[\n\r\-–—]/g, ' ')
           .split(/\s+/)
-          .filter(word => word.length > 2); // Ignorar palavras muito curtas
+          .filter(word => word.length > 2 && !IGNORED_WORDS.includes(word));
+        
+        // Se não sobrou nenhuma keyword relevante, não faz match
+        if (keywords.length === 0) return false;
         
         return keywords.every(keyword => normalizedSale.includes(keyword));
       };
