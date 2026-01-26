@@ -1,4 +1,5 @@
-import { ArrowLeft, Copy, Globe, Lock, Share2 } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Copy, Globe, Lock, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -11,6 +12,7 @@ import { toast } from "sonner";
 import { FunnelData, formatCurrency } from "./types";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { EditFunnelModal } from "@/components/funnels/EditFunnelModal";
 
 interface FunnelPanelHeaderProps {
   funnel: FunnelData;
@@ -31,24 +33,12 @@ const statusLabels: Record<string, string> = {
 
 export function FunnelPanelHeader({ funnel, onUpdate }: FunnelPanelHeaderProps) {
   const navigate = useNavigate();
+  const [editModalOpen, setEditModalOpen] = useState(false);
 
   const copyLink = () => {
     const url = `${window.location.origin}/funis/${funnel.id}`;
     navigator.clipboard.writeText(url);
     toast.success("Link copiado!");
-  };
-
-  const shareLink = async () => {
-    const url = `${window.location.origin}/funis/${funnel.id}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: funnel.name, url });
-      } catch {
-        // cancelled
-      }
-    } else {
-      copyLink();
-    }
   };
 
   const toggleVisibility = async () => {
@@ -68,79 +58,97 @@ export function FunnelPanelHeader({ funnel, onUpdate }: FunnelPanelHeaderProps) 
   };
 
   return (
-    <div className="bg-card rounded-2xl border p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => navigate(-1)} 
-            className="gap-2 shrink-0"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Voltar
-          </Button>
-          
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-bold">
-              {funnel.name}
-              {funnel.code && <span className="text-muted-foreground"> | {funnel.code}</span>}
-            </h1>
+    <>
+      <div className="bg-card rounded-2xl border p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate(-1)} 
+              className="gap-2 shrink-0"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </Button>
             
-            <div className="flex items-center gap-2">
-              <Badge className={statusColors[funnel.status || "active"]}>
-                {statusLabels[funnel.status || "active"]}
-              </Badge>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold">
+                {funnel.name}
+                {funnel.code && <span className="text-muted-foreground"> | {funnel.code}</span>}
+              </h1>
               
-              <Badge variant="outline" className="uppercase text-xs">
-                {funnel.visibility === "public" ? "Público" : "Interno"}
-              </Badge>
-              
-              {funnel.predicted_investment && funnel.predicted_investment > 0 && (
-                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                  {formatCurrency(funnel.predicted_investment)}
+              <div className="flex items-center gap-2">
+                <Badge className={statusColors[funnel.status || "active"]}>
+                  {statusLabels[funnel.status || "active"]}
                 </Badge>
-              )}
+                
+                <Badge variant="outline" className="uppercase text-xs">
+                  {funnel.visibility === "public" ? "Público" : "Interno"}
+                </Badge>
+                
+                {funnel.predicted_investment && funnel.predicted_investment > 0 && (
+                  <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    {formatCurrency(funnel.predicted_investment)}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={copyLink} className="gap-2">
-            <Copy className="h-4 w-4" />
-            <span className="hidden sm:inline">Copiar Link</span>
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                {funnel.visibility === "public" ? (
-                  <Globe className="h-4 w-4" />
-                ) : (
-                  <Lock className="h-4 w-4" />
-                )}
-                <span className="hidden sm:inline">
-                  {funnel.visibility === "public" ? "Público" : "Privado"}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={toggleVisibility}>
-                {funnel.visibility === "public" ? (
-                  <>
-                    <Lock className="h-4 w-4 mr-2" />
-                    Tornar Privado
-                  </>
-                ) : (
-                  <>
-                    <Globe className="h-4 w-4 mr-2" />
-                    Tornar Público
-                  </>
-                )}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setEditModalOpen(true)} 
+              className="gap-2"
+            >
+              <Pencil className="h-4 w-4" />
+              <span className="hidden sm:inline">Editar</span>
+            </Button>
+            <Button variant="outline" size="sm" onClick={copyLink} className="gap-2">
+              <Copy className="h-4 w-4" />
+              <span className="hidden sm:inline">Copiar Link</span>
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  {funnel.visibility === "public" ? (
+                    <Globe className="h-4 w-4" />
+                  ) : (
+                    <Lock className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {funnel.visibility === "public" ? "Público" : "Privado"}
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={toggleVisibility}>
+                  {funnel.visibility === "public" ? (
+                    <>
+                      <Lock className="h-4 w-4 mr-2" />
+                      Tornar Privado
+                    </>
+                  ) : (
+                    <>
+                      <Globe className="h-4 w-4 mr-2" />
+                      Tornar Público
+                    </>
+                  )}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
-    </div>
+
+      <EditFunnelModal
+        funnel={funnel}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        onFunnelUpdated={onUpdate}
+      />
+    </>
   );
 }
