@@ -478,7 +478,7 @@ serve(async (req) => {
               .from("products")
               .insert({
                 ...productData,
-                default_commission_percent: 10, // Default commission
+                default_commission_percent: 5, // Default commission
               });
             created++;
           }

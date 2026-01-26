@@ -73,7 +73,7 @@ export function EditSaleModal({ sale, open, onOpenChange }: EditSaleModalProps) 
       installments_count: 1,
       platform: "hotmart",
       seller_id: "",
-      commission_percent: 10,
+      commission_percent: 5,
       sale_date: new Date().toISOString().split("T")[0],
       proof_link: "",
       status: "active",
@@ -104,28 +104,14 @@ export function EditSaleModal({ sale, open, onOpenChange }: EditSaleModalProps) 
   
   useEffect(() => {
     async function fetchSellers() {
-      const { data: salesDept } = await supabase
-        .from('departments')
-        .select('id')
-        .eq('name', 'Vendas')
-        .single();
+      // Buscar todos os usuários ativos do sistema
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('is_active', true)
+        .order('full_name');
       
-      if (salesDept) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .eq('department_id', salesDept.id)
-          .eq('is_active', true);
-        
-        setSellers(data || []);
-      } else {
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, full_name')
-          .eq('is_active', true);
-        
-        setSellers(data || []);
-      }
+      setSellers(data || []);
     }
     
     if (open) {
