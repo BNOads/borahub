@@ -188,25 +188,44 @@ export function HotmartSalesManagement() {
     }
   };
 
-  // Update tracking info for existing sales
+  // Update tracking info for existing sales (processes in batches)
   const handleUpdateTracking = async () => {
     setUpdatingTracking(true);
+    let totalUpdated = 0;
+    let batchCount = 0;
+    
     try {
-      const { data, error } = await supabase.functions.invoke("hotmart-sync", {
-        body: { 
-          action: "update_tracking",
-        },
-      });
-      
-      if (error) throw error;
-      
-      if (data.success) {
-        toast.success(`Tracking atualizado: ${data.updated} vendas atualizadas`);
-        refetch();
-        queryClient.invalidateQueries({ queryKey: ["sales"] });
-      } else {
-        throw new Error(data.error || "Erro ao atualizar tracking");
+      while (true) {
+        batchCount++;
+        toast.info(`Processando lote ${batchCount}...`);
+        
+        const { data, error } = await supabase.functions.invoke("hotmart-sync", {
+          body: { 
+            action: "update_tracking",
+          },
+        });
+        
+        if (error) throw error;
+        
+        if (data.success) {
+          totalUpdated += data.updated;
+          console.log(`Batch ${batchCount}: ${data.updated} updated, ${data.remaining} remaining`);
+          
+          // If no more remaining, we're done
+          if (data.remaining <= 0 || data.batch_size === 0) {
+            toast.success(`Tracking atualizado: ${totalUpdated} vendas atualizadas no total`);
+            break;
+          }
+          
+          // Small delay between batches
+          await new Promise(r => setTimeout(r, 500));
+        } else {
+          throw new Error(data.error || "Erro ao atualizar tracking");
+        }
       }
+      
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ["sales"] });
     } catch (err: any) {
       console.error("Update tracking error:", err);
       toast.error("Erro ao atualizar tracking: " + (err.message || "Erro desconhecido"));

@@ -1080,13 +1080,25 @@ serve(async (req) => {
         // Update tracking info for existing sales that are missing it
         console.log("Updating tracking info for existing Hotmart sales");
         
-        // Get all Hotmart sales that might be missing tracking info
+        // Get Hotmart sales that are missing tracking info (only where sck is null)
         const { data: hotmartSales, error: salesError } = await supabase
           .from("sales")
           .select("id, external_id, tracking_source, tracking_source_sck, tracking_external_code")
-          .eq("platform", "hotmart");
+          .eq("platform", "hotmart")
+          .is("tracking_source_sck", null)
+          .order("sale_date", { ascending: false })
+          .limit(100); // Process in batches of 100
         
         if (salesError) throw salesError;
+        
+        // Get total count for progress
+        const { count: totalMissing } = await supabase
+          .from("sales")
+          .select("id", { count: "exact", head: true })
+          .eq("platform", "hotmart")
+          .is("tracking_source_sck", null);
+        
+        console.log(`Processing batch of ${hotmartSales?.length || 0} sales (${totalMissing} total remaining)`);
         
         let updated = 0;
         let failed = 0;
@@ -1099,41 +1111,36 @@ serve(async (req) => {
             
             if (!details?.items?.[0]) {
               console.log(`No details found for transaction: ${sale.external_id}`);
+              // Mark as checked even if no details (set empty string to avoid re-querying)
+              await supabase
+                .from("sales")
+                .update({ tracking_source_sck: "" })
+                .eq("id", sale.id);
               continue;
             }
             
             const saleInfo = details.items[0];
             const tracking = saleInfo.purchase?.tracking;
             
-            // Check if there's tracking data to update
-            if (tracking && (tracking.source || tracking.source_sck || tracking.external_code)) {
-              const trackingData = {
-                tracking_source: tracking.source || null,
-                tracking_source_sck: tracking.source_sck || null,
-                tracking_external_code: tracking.external_code || null,
-              };
-              
-              // Check if any tracking field is different
-              const needsUpdate = 
-                trackingData.tracking_source !== sale.tracking_source ||
-                trackingData.tracking_source_sck !== sale.tracking_source_sck ||
-                trackingData.tracking_external_code !== sale.tracking_external_code;
-              
-              if (needsUpdate) {
-                console.log(`Updating tracking for ${sale.external_id}: source=${tracking.source}, sck=${tracking.source_sck}, code=${tracking.external_code}`);
-                
-                const { error: updateError } = await supabase
-                  .from("sales")
-                  .update(trackingData)
-                  .eq("id", sale.id);
-                
-                if (updateError) throw updateError;
-                updated++;
-              }
-            }
+            // Update tracking data (even if empty, to mark as checked)
+            const trackingData = {
+              tracking_source: tracking?.source || null,
+              tracking_source_sck: tracking?.source_sck || "",
+              tracking_external_code: tracking?.external_code || null,
+            };
+            
+            console.log(`Updating tracking for ${sale.external_id}: source=${tracking?.source}, sck=${tracking?.source_sck}, code=${tracking?.external_code}`);
+            
+            const { error: updateError } = await supabase
+              .from("sales")
+              .update(trackingData)
+              .eq("id", sale.id);
+            
+            if (updateError) throw updateError;
+            updated++;
             
             // Rate limiting
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise(r => setTimeout(r, 50));
           } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
             console.error(`Error updating tracking for sale ${sale.external_id}:`, err);
@@ -1142,13 +1149,15 @@ serve(async (req) => {
           }
         }
         
-        console.log(`Tracking update completed: ${updated} updated, ${failed} failed`);
+        const remainingAfter = (totalMissing || 0) - updated;
+        console.log(`Tracking update batch completed: ${updated} updated, ${failed} failed, ${remainingAfter} remaining`);
         
         return new Response(JSON.stringify({ 
           success: true, 
-          total: hotmartSales?.length || 0,
+          batch_size: hotmartSales?.length || 0,
           updated,
           failed,
+          remaining: remainingAfter,
           errors: errors.slice(0, 10),
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
