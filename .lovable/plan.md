@@ -1,192 +1,116 @@
 
-# Plano: Associar Produtos a Funis e Exibir Faturamento
+# Plano: Auto-Atribuição de Vendas Asaas com Nomes Semelhantes aos Produtos Hotmart
 
-## Objetivo
-Permitir vincular um ou mais produtos da tabela `products` a cada funil, e exibir automaticamente o faturamento gerado por esses produtos no painel do funil, com filtro por data.
+## Problema Identificado
+Atualmente, na aba "Vendas (Asaas)", os nomes dos produtos são muito variados e detalhados (ex: "Parcela 3 de 11. CERTIFICAÇÃO MÉTODO BORAnaOBRA"), enquanto os produtos cadastrados (Hotmart) têm nomes simplificados (ex: "Certificação Método BORAnaOBRA").
 
-## Estrutura Atual Identificada
-
-**Tabela funnels**: Contém funis com `product_name` (texto livre), datas de captação/fechamento
-**Tabela products**: Produtos cadastrados (vindos do Hotmart/Asaas ou manuais)
-**Tabela sales**: Vendas com `product_name` e `product_id`, valores e datas
-
-**Problema**: Atualmente o campo `product_name` do funil é apenas texto descritivo, sem vínculo direto com a tabela de produtos e vendas.
-
----
+O usuário precisa selecionar manualmente cada variação de nome, o que é trabalhoso.
 
 ## Solução Proposta
+Quando um produto Hotmart for vinculado ao funil (aba "Cadastrados"), automaticamente buscar e vincular todas as vendas Asaas que contenham o nome do produto em seu `product_name`.
 
-### 1. Nova Tabela: `funnel_products`
-Tabela de relacionamento N:N entre funis e produtos.
-
+### Lógica de Match
 ```text
-funnel_products
-├── id (uuid, PK)
-├── funnel_id (uuid, FK → funnels)
-├── product_id (uuid, FK → products)
-├── created_at (timestamp)
+Produto Hotmart: "Certificação Método BORAnaOBRA"
+                           ↓
+Vendas Asaas que serão capturadas automaticamente:
+- "Parcela 3 de 11. CERTIFICAÇÃO MÉTODO BORAnaOBRA"
+- "ENTRADA CERTIFICAÇÃO MÉTODO BORAnaOBRA"
+- "Parcela 1 de 9. Certificação Método BORAnaOBRA"
 ```
 
-### 2. Componente de Seleção de Produtos no Funil
-Adicionar na aba de **Configuração** do painel do funil:
-- Lista de produtos vinculados
-- Botão para adicionar/remover produtos (multi-select)
-- Busca de produtos disponíveis
+### Alterações Necessárias
 
-### 3. Card de Faturamento no Painel do Funil
-Novo card na aba **Visão Geral** exibindo:
-- Faturamento total dos produtos vinculados
-- Quantidade de vendas
-- Filtro por período (últimos 7/30/90 dias, personalizado)
-- Gráfico de evolução (opcional)
+#### 1. Atualizar `useFunnelRevenue` no hook
+Modificar a lógica de match para usar **busca parcial** (contains) em vez de igualdade exata:
 
-**Cálculo do faturamento**:
-```
-Soma de sales.total_value
-WHERE product_id IN (produtos vinculados ao funil)
-  AND sales.status = 'active'
-  AND sales.sale_date BETWEEN [data_inicio] AND [data_fim]
+```typescript
+// Antes (match exato)
+sale.product_name?.toLowerCase().trim() === pn.toLowerCase().trim()
+
+// Depois (match parcial - contains)
+pn.toLowerCase().split(' ').every(word => 
+  sale.product_name?.toLowerCase().includes(word)
+)
 ```
 
-### 4. Match Automático por Nome (Opcional)
-Para facilitar, sugerir produtos que contenham palavras-chave do `product_name` do funil:
-- Funil "CMB14" com produto "Certificação Método BORAnaOBRA" → Sugerir match
+#### 2. Remover necessidade de vincular Asaas manualmente
+Com o match automático, a aba "Vendas (Asaas)" pode:
+- **Opção A**: Ser mantida apenas para visualização/auditoria
+- **Opção B**: Ser removida, já que o match é automático
+
+**Recomendação**: Manter a aba para casos especiais onde o usuário queira vincular vendas que não contêm o nome exato.
+
+#### 3. Mostrar indicador de vendas incluídas
+Na lista de produtos vinculados, exibir quantas vendas Asaas foram capturadas automaticamente por cada produto.
 
 ---
 
-## Arquivos a Modificar/Criar
+## Detalhes da Implementação
+
+### Arquivo: `src/hooks/useFunnelProducts.ts`
+
+Atualizar a função de filtro em `useFunnelRevenue`:
+
+```typescript
+// Nova lógica de match: verificar se TODAS as palavras-chave do produto
+// estão presentes no nome da venda (case-insensitive)
+const matchesProductName = (saleName: string, productName: string) => {
+  const saleNameLower = saleName.toLowerCase();
+  const keywords = productName.toLowerCase()
+    .split(' ')
+    .filter(word => word.length > 2); // Ignorar palavras muito curtas
+  
+  return keywords.every(keyword => saleNameLower.includes(keyword));
+};
+
+// Aplicar no filtro
+const currentSales = allSales?.filter((sale) => {
+  // Match por product_id (exato)
+  if (sale.product_id && productIds.includes(sale.product_id)) {
+    return true;
+  }
+  // Match por product_name (parcial - contains)
+  if (sale.product_name) {
+    return productNames.some(pn => 
+      matchesProductName(sale.product_name!, pn)
+    );
+  }
+  return false;
+});
+```
+
+### Também atualizar:
+- `src/pages/FunisView.tsx` - Usar mesma lógica no cálculo do total
+- `src/components/dashboard/ActiveLaunches.tsx` - Usar mesma lógica no resumo
+
+---
+
+## Fluxo Atualizado
+
+1. Admin acessa o funil → Aba Configuração
+2. Vincula "Certificação Método BORAnaOBRA" (produto Hotmart)
+3. **Automaticamente**, todas as vendas Asaas que contêm essas palavras são incluídas no faturamento:
+   - "Parcela 3 de 11. CERTIFICAÇÃO MÉTODO BORAnaOBRA"
+   - "ENTRADA CERTIFICAÇÃO MÉTODO BORAnaOBRA"
+   - etc.
+4. A aba "Vendas (Asaas)" permanece disponível para casos especiais
+
+---
+
+## Arquivos a Modificar
 
 | Arquivo | Alteração |
 |---------|-----------|
-| **Migração SQL** | Criar tabela `funnel_products` com RLS |
-| `src/components/funnel-panel/types.ts` | Adicionar tipos para FunnelProduct |
-| `src/hooks/useFunnelProducts.ts` | Novo hook para CRUD de produtos do funil |
-| `src/components/funnel-panel/FunnelProducts.tsx` | Novo componente de gestão de produtos |
-| `src/components/funnel-panel/FunnelRevenue.tsx` | Novo card de faturamento |
-| `src/pages/FunnelPanel.tsx` | Integrar novos componentes |
-| `src/components/funnel-panel/index.ts` | Exportar novos componentes |
+| `src/hooks/useFunnelProducts.ts` | Implementar match parcial em `useFunnelRevenue` |
+| `src/pages/FunisView.tsx` | Usar match parcial no cálculo do total |
+| `src/components/dashboard/ActiveLaunches.tsx` | Usar match parcial no resumo do dashboard |
 
 ---
 
-## Detalhes da Interface
+## Benefícios
 
-### Seção de Produtos Vinculados (Configuração)
-```
-┌─────────────────────────────────────────────────┐
-│ 📦 Produtos Vinculados                    [+]   │
-├─────────────────────────────────────────────────┤
-│ • Certificação Método BORAnaOBRA          [x]   │
-│ • BNO Experience 2026                     [x]   │
-│ • + 1 ano de acesso a Certificação        [x]   │
-└─────────────────────────────────────────────────┘
-```
-
-### Card de Faturamento (Visão Geral)
-```
-┌─────────────────────────────────────────────────┐
-│ 💰 Faturamento dos Produtos                     │
-│ ┌────────────────┐                              │
-│ │ Este mês  ▼    │                              │
-│ └────────────────┘                              │
-├─────────────────────────────────────────────────┤
-│ R$ 125.430,00           47 vendas               │
-│                                                 │
-│ 📈 +23% vs período anterior                     │
-└─────────────────────────────────────────────────┘
-```
-
----
-
-## Detalhes Técnicos
-
-### Migração SQL
-```sql
-CREATE TABLE funnel_products (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  funnel_id uuid NOT NULL REFERENCES funnels(id) ON DELETE CASCADE,
-  product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(funnel_id, product_id)
-);
-
--- RLS para acesso autenticado
-ALTER TABLE funnel_products ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Authenticated users can view funnel_products"
-  ON funnel_products FOR SELECT TO authenticated USING (true);
-
-CREATE POLICY "Authenticated users can manage funnel_products"
-  ON funnel_products FOR ALL TO authenticated USING (true) WITH CHECK (true);
-```
-
-### Hook useFunnelProducts
-```typescript
-// Buscar produtos vinculados a um funil
-export function useFunnelProducts(funnelId: string) {
-  return useQuery({
-    queryKey: ['funnel-products', funnelId],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('funnel_products')
-        .select('*, product:products(*)')
-        .eq('funnel_id', funnelId);
-      return data;
-    },
-  });
-}
-
-// Buscar faturamento dos produtos do funil
-export function useFunnelRevenue(funnelId: string, startDate?: string, endDate?: string) {
-  return useQuery({
-    queryKey: ['funnel-revenue', funnelId, startDate, endDate],
-    queryFn: async () => {
-      // 1. Buscar product_ids vinculados ao funil
-      const { data: funnelProducts } = await supabase
-        .from('funnel_products')
-        .select('product_id')
-        .eq('funnel_id', funnelId);
-      
-      const productIds = funnelProducts?.map(fp => fp.product_id) || [];
-      if (!productIds.length) return { total: 0, count: 0, sales: [] };
-      
-      // 2. Buscar vendas desses produtos
-      let query = supabase
-        .from('sales')
-        .select('id, total_value, sale_date, product_name')
-        .in('product_id', productIds)
-        .eq('status', 'active');
-      
-      if (startDate) query = query.gte('sale_date', startDate);
-      if (endDate) query = query.lte('sale_date', endDate);
-      
-      const { data: sales } = await query;
-      
-      return {
-        total: sales?.reduce((sum, s) => sum + s.total_value, 0) || 0,
-        count: sales?.length || 0,
-        sales: sales || [],
-      };
-    },
-  });
-}
-```
-
----
-
-## Fluxo de Uso
-
-1. **Admin acessa** Funis → Seleciona funil ativo
-2. **Na aba Configuração**: Clica em "Vincular Produtos"
-3. **Modal abre** com lista de produtos disponíveis (checkbox)
-4. **Seleciona produtos** relacionados ao funil (ex: CMB14)
-5. **Volta para Visão Geral**: Card de faturamento mostra vendas em tempo real
-6. **Pode filtrar por período**: Este mês, últimos 30 dias, período do funil
-
----
-
-## Considerações
-
-- Match por `product_id` é mais preciso que por texto
-- Vendas via Hotmart precisam ter `product_id` preenchido (pode adicionar sync)
-- O período pode usar datas do funil (captação até fechamento) como default
-- Futuros: Adicionar gráfico de evolução diária/semanal
+- Elimina trabalho manual de vincular cada variação de nome
+- Captura automaticamente todas as parcelas e variações
+- Mantém flexibilidade para casos especiais via aba Asaas
+- Match inteligente que funciona com diferentes formatações
