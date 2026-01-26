@@ -8,12 +8,15 @@ import { ActiveFunnelsTable } from "@/components/funnels/ActiveFunnelsTable";
 import { FinishedFunnelsTable } from "@/components/funnels/FinishedFunnelsTable";
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Funnel = Database["public"]["Tables"]["funnels"]["Row"];
 
 export default function FunisView() {
+    const { isAdmin } = useAuth();
     const [activeFunnels, setActiveFunnels] = useState<Funnel[]>([]);
     const [finishedFunnels, setFinishedFunnels] = useState<Funnel[]>([]);
+    const [totalRevenue, setTotalRevenue] = useState(0);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -29,8 +32,14 @@ export default function FunisView() {
             if (error) throw error;
 
             if (data) {
-                setActiveFunnels(data.filter(f => f.status === 'active'));
+                const active = data.filter(f => f.status === 'active');
+                setActiveFunnels(active);
                 setFinishedFunnels(data.filter(f => f.status === 'finished'));
+                
+                // Fetch revenue for active funnels if admin
+                if (isAdmin && active.length > 0) {
+                    await fetchTotalRevenue(active.map(f => f.id));
+                }
             }
         } catch (error) {
             console.error("Error fetching funnels:", error);
@@ -39,9 +48,59 @@ export default function FunisView() {
         }
     };
 
+    const fetchTotalRevenue = async (funnelIds: string[]) => {
+        try {
+            // Get all funnel products
+            const { data: funnelProducts } = await supabase
+                .from("funnel_products")
+                .select(`
+                    funnel_id,
+                    product_id,
+                    product:products(id, name)
+                `)
+                .in("funnel_id", funnelIds);
+
+            if (!funnelProducts?.length) {
+                setTotalRevenue(0);
+                return;
+            }
+
+            // Get all active sales
+            const { data: allSales } = await supabase
+                .from("sales")
+                .select("id, total_value, product_id, product_name")
+                .eq("status", "active");
+
+            if (!allSales?.length) {
+                setTotalRevenue(0);
+                return;
+            }
+
+            const productIds = funnelProducts.map(p => p.product_id);
+            const productNames = funnelProducts
+                .map(p => (p.product as { name: string } | null)?.name)
+                .filter(Boolean) as string[];
+
+            // Calculate total revenue
+            const matchedSales = allSales.filter(sale => {
+                if (sale.product_id && productIds.includes(sale.product_id)) return true;
+                if (!sale.product_id && sale.product_name) {
+                    return productNames.some(pn => sale.product_name?.toLowerCase() === pn.toLowerCase());
+                }
+                return false;
+            });
+
+            const revenue = matchedSales.reduce((sum, s) => sum + (s.total_value || 0), 0);
+            setTotalRevenue(revenue);
+        } catch (error) {
+            console.error("Error fetching revenue:", error);
+            setTotalRevenue(0);
+        }
+    };
+
     useEffect(() => {
         fetchFunnels();
-    }, []);
+    }, [isAdmin]);
 
     const totalInvestment = activeFunnels.reduce((acc, curr) => acc + (curr.predicted_investment || 0), 0);
 
@@ -68,6 +127,7 @@ export default function FunisView() {
             <FunnelSummaryCards
                 activeCount={activeFunnels.length}
                 totalInvestment={totalInvestment}
+                totalRevenue={totalRevenue}
                 finishedCount={finishedFunnels.length}
                 onFunnelCreated={fetchFunnels}
             />
