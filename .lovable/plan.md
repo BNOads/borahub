@@ -1,74 +1,192 @@
 
-## Plano: Botão de Voltar com Navegação por Histórico
+# Plano: Associar Produtos a Funis e Exibir Faturamento
 
-### Problema Atual
+## Objetivo
+Permitir vincular um ou mais produtos da tabela `products` a cada funil, e exibir automaticamente o faturamento gerado por esses produtos no painel do funil, com filtro por data.
 
-Os botões de "Voltar" estão configurados com rotas fixas (ex: `/tarefas`, `/funis`, `/treinamentos`), em vez de usar o histórico do navegador. Isso significa que se um usuário vier de uma tela diferente, ao clicar em "Voltar" ele vai para a rota fixa e não para onde estava antes.
+## Estrutura Atual Identificada
 
-### Solução
+**Tabela funnels**: Contém funis com `product_name` (texto livre), datas de captação/fechamento
+**Tabela products**: Produtos cadastrados (vindos do Hotmart/Asaas ou manuais)
+**Tabela sales**: Vendas com `product_name` e `product_id`, valores e datas
 
-Substituir as navegações fixas por `navigate(-1)`, que utiliza o histórico do navegador para voltar à última tela visitada.
-
----
-
-### Arquivos a Modificar
-
-| Arquivo | Navegação Atual | Linha(s) |
-|---------|-----------------|----------|
-| `src/pages/TarefaDetalhe.tsx` | `Link to="/tarefas"` | ~226, ~244 |
-| `src/pages/PDIDetalhe.tsx` | `navigate("/pdis")` | ~97, ~268 |
-| `src/pages/CursoDetalhes.tsx` | `Link to="/treinamentos"` | ~117-121 |
-| `src/pages/AulaView.tsx` | `Link to={/treinamentos/${courseId}}` | ~120-124 |
-| `src/pages/BoraNewsDetail.tsx` | `Link to="/bora-news"` | ~47, ~60 |
-| `src/pages/QuizBuilder.tsx` | `navigate("/quizzes")` | ~278, ~319 |
-| `src/pages/QuizAnalytics.tsx` | `navigate("/quizzes")` | ~111, ~234 |
-| `src/pages/FunnelDetails.tsx` | `navigate("/funis")` | ~121 |
-| `src/pages/Perfil.tsx` | `navigate('/')` | ~216 |
-| `src/components/funnel-panel/FunnelPanelHeader.tsx` | `navigate("/funis")` | ~77 |
+**Problema**: Atualmente o campo `product_name` do funil é apenas texto descritivo, sem vínculo direto com a tabela de produtos e vendas.
 
 ---
 
-### Detalhes Técnicos
+## Solução Proposta
 
-**Padrão da Correção para Botões com `onClick`:**
+### 1. Nova Tabela: `funnel_products`
+Tabela de relacionamento N:N entre funis e produtos.
 
+```text
+funnel_products
+├── id (uuid, PK)
+├── funnel_id (uuid, FK → funnels)
+├── product_id (uuid, FK → products)
+├── created_at (timestamp)
+```
+
+### 2. Componente de Seleção de Produtos no Funil
+Adicionar na aba de **Configuração** do painel do funil:
+- Lista de produtos vinculados
+- Botão para adicionar/remover produtos (multi-select)
+- Busca de produtos disponíveis
+
+### 3. Card de Faturamento no Painel do Funil
+Novo card na aba **Visão Geral** exibindo:
+- Faturamento total dos produtos vinculados
+- Quantidade de vendas
+- Filtro por período (últimos 7/30/90 dias, personalizado)
+- Gráfico de evolução (opcional)
+
+**Cálculo do faturamento**:
+```
+Soma de sales.total_value
+WHERE product_id IN (produtos vinculados ao funil)
+  AND sales.status = 'active'
+  AND sales.sale_date BETWEEN [data_inicio] AND [data_fim]
+```
+
+### 4. Match Automático por Nome (Opcional)
+Para facilitar, sugerir produtos que contenham palavras-chave do `product_name` do funil:
+- Funil "CMB14" com produto "Certificação Método BORAnaOBRA" → Sugerir match
+
+---
+
+## Arquivos a Modificar/Criar
+
+| Arquivo | Alteração |
+|---------|-----------|
+| **Migração SQL** | Criar tabela `funnel_products` com RLS |
+| `src/components/funnel-panel/types.ts` | Adicionar tipos para FunnelProduct |
+| `src/hooks/useFunnelProducts.ts` | Novo hook para CRUD de produtos do funil |
+| `src/components/funnel-panel/FunnelProducts.tsx` | Novo componente de gestão de produtos |
+| `src/components/funnel-panel/FunnelRevenue.tsx` | Novo card de faturamento |
+| `src/pages/FunnelPanel.tsx` | Integrar novos componentes |
+| `src/components/funnel-panel/index.ts` | Exportar novos componentes |
+
+---
+
+## Detalhes da Interface
+
+### Seção de Produtos Vinculados (Configuração)
+```
+┌─────────────────────────────────────────────────┐
+│ 📦 Produtos Vinculados                    [+]   │
+├─────────────────────────────────────────────────┤
+│ • Certificação Método BORAnaOBRA          [x]   │
+│ • BNO Experience 2026                     [x]   │
+│ • + 1 ano de acesso a Certificação        [x]   │
+└─────────────────────────────────────────────────┘
+```
+
+### Card de Faturamento (Visão Geral)
+```
+┌─────────────────────────────────────────────────┐
+│ 💰 Faturamento dos Produtos                     │
+│ ┌────────────────┐                              │
+│ │ Este mês  ▼    │                              │
+│ └────────────────┘                              │
+├─────────────────────────────────────────────────┤
+│ R$ 125.430,00           47 vendas               │
+│                                                 │
+│ 📈 +23% vs período anterior                     │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## Detalhes Técnicos
+
+### Migração SQL
+```sql
+CREATE TABLE funnel_products (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  funnel_id uuid NOT NULL REFERENCES funnels(id) ON DELETE CASCADE,
+  product_id uuid NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(funnel_id, product_id)
+);
+
+-- RLS para acesso autenticado
+ALTER TABLE funnel_products ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated users can view funnel_products"
+  ON funnel_products FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Authenticated users can manage funnel_products"
+  ON funnel_products FOR ALL TO authenticated USING (true) WITH CHECK (true);
+```
+
+### Hook useFunnelProducts
 ```typescript
-// ANTES (rota fixa)
-<Button variant="ghost" size="icon" onClick={() => navigate("/pdis")}>
-  <ArrowLeft className="h-5 w-5" />
-</Button>
+// Buscar produtos vinculados a um funil
+export function useFunnelProducts(funnelId: string) {
+  return useQuery({
+    queryKey: ['funnel-products', funnelId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('funnel_products')
+        .select('*, product:products(*)')
+        .eq('funnel_id', funnelId);
+      return data;
+    },
+  });
+}
 
-// DEPOIS (histórico do navegador)
-<Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-  <ArrowLeft className="h-5 w-5" />
-</Button>
+// Buscar faturamento dos produtos do funil
+export function useFunnelRevenue(funnelId: string, startDate?: string, endDate?: string) {
+  return useQuery({
+    queryKey: ['funnel-revenue', funnelId, startDate, endDate],
+    queryFn: async () => {
+      // 1. Buscar product_ids vinculados ao funil
+      const { data: funnelProducts } = await supabase
+        .from('funnel_products')
+        .select('product_id')
+        .eq('funnel_id', funnelId);
+      
+      const productIds = funnelProducts?.map(fp => fp.product_id) || [];
+      if (!productIds.length) return { total: 0, count: 0, sales: [] };
+      
+      // 2. Buscar vendas desses produtos
+      let query = supabase
+        .from('sales')
+        .select('id, total_value, sale_date, product_name')
+        .in('product_id', productIds)
+        .eq('status', 'active');
+      
+      if (startDate) query = query.gte('sale_date', startDate);
+      if (endDate) query = query.lte('sale_date', endDate);
+      
+      const { data: sales } = await query;
+      
+      return {
+        total: sales?.reduce((sum, s) => sum + s.total_value, 0) || 0,
+        count: sales?.length || 0,
+        sales: sales || [],
+      };
+    },
+  });
+}
 ```
-
-**Padrão da Correção para Links:**
-
-```tsx
-// ANTES (Link com rota fixa)
-<Button variant="ghost" asChild>
-  <Link to="/tarefas">
-    <ArrowLeft className="h-5 w-5" />
-  </Link>
-</Button>
-
-// DEPOIS (Button com navigate(-1))
-<Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-  <ArrowLeft className="h-5 w-5" />
-</Button>
-```
-
-**Observação sobre textos de "Voltar para X":**
-- Textos como "Voltar para tarefas" ou "Voltar para PDIs" serão simplificados para apenas "Voltar" quando apropriado, já que o destino agora é dinâmico.
 
 ---
 
-### Resultado Esperado
+## Fluxo de Uso
 
-Após as correções:
-- Clicar no botão "Voltar" sempre retorna para a tela anterior do histórico
-- Se o usuário acessar uma tarefa a partir do Dashboard, voltará para o Dashboard
-- Se o usuário acessar a mesma tarefa a partir da lista de Tarefas, voltará para a lista de Tarefas
-- Comportamento mais intuitivo e consistente com apps modernos
+1. **Admin acessa** Funis → Seleciona funil ativo
+2. **Na aba Configuração**: Clica em "Vincular Produtos"
+3. **Modal abre** com lista de produtos disponíveis (checkbox)
+4. **Seleciona produtos** relacionados ao funil (ex: CMB14)
+5. **Volta para Visão Geral**: Card de faturamento mostra vendas em tempo real
+6. **Pode filtrar por período**: Este mês, últimos 30 dias, período do funil
+
+---
+
+## Considerações
+
+- Match por `product_id` é mais preciso que por texto
+- Vendas via Hotmart precisam ter `product_id` preenchido (pode adicionar sync)
+- O período pode usar datas do funil (captação até fechamento) como default
+- Futuros: Adicionar gráfico de evolução diária/semanal
