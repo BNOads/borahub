@@ -30,7 +30,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Users,
-  Download
+  Download,
+  Copy
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -527,7 +528,23 @@ export function AllSalesManagement() {
                         {getPlatformBadge(sale.platform)}
                       </TableCell>
                       <TableCell className="font-mono text-xs">
-                        {sale.external_id.substring(0, 12)}...
+                        <div className="flex items-center gap-1">
+                          <span className="max-w-[120px] truncate" title={sale.external_id}>
+                            {sale.external_id}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(sale.external_id);
+                              toast.success("ID copiado!");
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">
                         {sale.product_name}
