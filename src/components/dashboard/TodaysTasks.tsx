@@ -404,6 +404,12 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
           {task.title}
         </p>
         <div className="flex flex-wrap items-center gap-2 mt-1">
+          {task.due_date && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Calendar className="h-3 w-3" />
+              {formatDate(task.due_date)}
+            </span>
+          )}
           {task.due_time && (
             <span className="text-xs text-muted-foreground">
               {formatTime(task.due_time)}
