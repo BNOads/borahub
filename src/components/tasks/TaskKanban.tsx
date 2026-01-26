@@ -116,7 +116,7 @@ export function TaskKanban({
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "";
-    const date = new Date(dateString);
+    const date = new Date(dateString + "T00:00:00");
     return date.toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "short",
@@ -125,7 +125,7 @@ export function TaskKanban({
 
   const isOverdue = (dateString: string | null, completed: boolean) => {
     if (!dateString || completed) return false;
-    const date = new Date(dateString);
+    const date = new Date(dateString + "T00:00:00");
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return date < today;

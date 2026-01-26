@@ -180,7 +180,7 @@ export default function TarefaDetalhe() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
-    const date = new Date(dateString);
+    const date = new Date(dateString + "T00:00:00");
     return date.toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "long",
@@ -190,7 +190,7 @@ export default function TarefaDetalhe() {
 
   const isOverdue = (dateString: string | null, completed: boolean) => {
     if (!dateString || completed) return false;
-    const date = new Date(dateString);
+    const date = new Date(dateString + "T00:00:00");
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return date < today;
