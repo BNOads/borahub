@@ -1,4 +1,5 @@
 export * from "./types";
+export * from "./FunnelMatchedSales";
 export { FunnelPanelHeader } from "./FunnelPanelHeader";
 export { FunnelBudgetOverview } from "./FunnelBudgetOverview";
 export { FunnelNextMilestone } from "./FunnelNextMilestone";

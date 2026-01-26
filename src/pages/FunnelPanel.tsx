@@ -16,6 +16,7 @@ import {
   FunnelChecklist,
   FunnelProducts,
   FunnelRevenue,
+  FunnelMatchedSales,
 } from "@/components/funnel-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LayoutDashboard, Settings, Link2, BookOpen } from "lucide-react";
@@ -122,6 +123,9 @@ export default function FunnelPanel() {
 
           {/* Produtos Vinculados */}
           <FunnelProducts funnelId={funnel.id} />
+
+          {/* Vendas Associadas Automaticamente */}
+          <FunnelMatchedSales funnelId={funnel.id} />
 
           {/* Metas */}
           <FunnelGoals funnel={funnel} onUpdate={fetchFunnel} />
