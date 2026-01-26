@@ -266,6 +266,7 @@ export function useToggleTaskComplete() {
 
       const previousTasks = queryClient.getQueryData(taskKeys.lists());
 
+      // Atualização otimística para todas as queries de tarefas
       queryClient.setQueriesData(
         { queryKey: taskKeys.lists() },
         (old: TaskWithSubtasks[] | undefined) =>
@@ -276,6 +277,15 @@ export function useToggleTaskComplete() {
 
       queryClient.setQueriesData(
         { queryKey: taskKeys.today() },
+        (old: TaskWithSubtasks[] | undefined) =>
+          old?.map((task) =>
+            task.id === id ? { ...task, completed } : task
+          )
+      );
+
+      // Atualização otimística para queries de usuários específicos (dashboard)
+      queryClient.setQueriesData(
+        { queryKey: ["tasks", "user"], exact: false },
         (old: TaskWithSubtasks[] | undefined) =>
           old?.map((task) =>
             task.id === id ? { ...task, completed } : task
@@ -295,6 +305,8 @@ export function useToggleTaskComplete() {
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: taskKeys.today() });
+      // Invalida também as queries por usuário (dashboard)
+      queryClient.invalidateQueries({ queryKey: ["tasks", "user"] });
     },
   });
 }
