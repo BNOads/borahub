@@ -31,7 +31,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Users,
-  Download
+  Download,
+  Copy
 } from "lucide-react";
 import { format, subDays, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -146,6 +147,8 @@ export function HotmartSalesManagement() {
     }
   };
 
+  const [updatingTracking, setUpdatingTracking] = useState(false);
+
   // Sync handler - fetches from Hotmart starting from latest sale date and saves to DB
   const handleSync = async () => {
     setSyncing(true);
@@ -182,6 +185,33 @@ export function HotmartSalesManagement() {
       toast.error("Erro ao sincronizar: " + (err.message || "Erro desconhecido"));
     } finally {
       setSyncing(false);
+    }
+  };
+
+  // Update tracking info for existing sales
+  const handleUpdateTracking = async () => {
+    setUpdatingTracking(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("hotmart-sync", {
+        body: { 
+          action: "update_tracking",
+        },
+      });
+      
+      if (error) throw error;
+      
+      if (data.success) {
+        toast.success(`Tracking atualizado: ${data.updated} vendas atualizadas`);
+        refetch();
+        queryClient.invalidateQueries({ queryKey: ["sales"] });
+      } else {
+        throw new Error(data.error || "Erro ao atualizar tracking");
+      }
+    } catch (err: any) {
+      console.error("Update tracking error:", err);
+      toast.error("Erro ao atualizar tracking: " + (err.message || "Erro desconhecido"));
+    } finally {
+      setUpdatingTracking(false);
     }
   };
 
@@ -346,18 +376,33 @@ export function HotmartSalesManagement() {
                 Vendas sincronizadas da Hotmart • Busca automática a partir da última venda
               </CardDescription>
             </div>
-            <Button 
-              onClick={handleSync} 
-              disabled={syncing}
-              className="gap-2"
-            >
-              {syncing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              {syncing ? "Sincronizando..." : "Buscar Novas Vendas"}
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={handleUpdateTracking} 
+                disabled={updatingTracking || syncing}
+                className="gap-2"
+              >
+                {updatingTracking ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                {updatingTracking ? "Atualizando..." : "Atualizar Tracking"}
+              </Button>
+              <Button 
+                onClick={handleSync} 
+                disabled={syncing || updatingTracking}
+                className="gap-2"
+              >
+                {syncing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {syncing ? "Sincronizando..." : "Buscar Novas Vendas"}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -430,10 +475,26 @@ export function HotmartSalesManagement() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredAndSortedSales.map((sale) => (
+                {filteredAndSortedSales.map((sale) => (
                     <TableRow key={sale.id}>
                       <TableCell className="font-mono text-xs">
-                        {sale.external_id.substring(0, 12)}...
+                        <div className="flex items-center gap-1">
+                          <span className="max-w-[120px] truncate" title={sale.external_id}>
+                            {sale.external_id}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 shrink-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigator.clipboard.writeText(sale.external_id);
+                              toast.success("ID copiado!");
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">
                         {sale.product_name}
