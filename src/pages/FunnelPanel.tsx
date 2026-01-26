@@ -71,6 +71,10 @@ export default function FunnelPanel() {
     );
   }
 
+  // Categorias que são "lançamentos" e precisam de campos extras
+  const LAUNCH_CATEGORIES = ["Lançamento", "Meteórico", "Reabertura", "Evento presencial"];
+  const isLaunchCategory = LAUNCH_CATEGORIES.includes(funnel.category || "");
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
@@ -100,13 +104,13 @@ export default function FunnelPanel() {
         {/* Tab: Visão Geral */}
         <TabsContent value="overview" className="space-y-6">
           {/* Informações Gerais (modo visualização) - Acima de tudo */}
-          <FunnelGeneralInfo funnel={funnel} onUpdate={fetchFunnel} />
+          <FunnelGeneralInfo funnel={funnel} onUpdate={fetchFunnel} isLaunchCategory={isLaunchCategory} />
 
-          {/* Cards de Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Cards de Overview - Próximo Evento e Datas-chave só para lançamentos */}
+          <div className={`grid grid-cols-1 ${isLaunchCategory ? "md:grid-cols-3" : "md:grid-cols-1"} gap-4`}>
             <FunnelBudgetOverview funnel={funnel} />
-            <FunnelNextMilestone funnel={funnel} />
-            <FunnelKeyDates funnel={funnel} />
+            {isLaunchCategory && <FunnelNextMilestone funnel={funnel} />}
+            {isLaunchCategory && <FunnelKeyDates funnel={funnel} />}
           </div>
 
           {/* Card de Faturamento dos Produtos */}
@@ -119,7 +123,7 @@ export default function FunnelPanel() {
         {/* Tab: Configuração */}
         <TabsContent value="config" className="space-y-6">
           {/* Informações Gerais (com edição disponível) */}
-          <FunnelGeneralInfo funnel={funnel} onUpdate={fetchFunnel} />
+          <FunnelGeneralInfo funnel={funnel} onUpdate={fetchFunnel} isLaunchCategory={isLaunchCategory} />
 
           {/* Produtos Vinculados */}
           <FunnelProducts funnelId={funnel.id} />
@@ -130,8 +134,8 @@ export default function FunnelPanel() {
           {/* Metas */}
           <FunnelGoals funnel={funnel} onUpdate={fetchFunnel} />
 
-          {/* Datas Operacionais */}
-          <FunnelOperationalDates funnel={funnel} onUpdate={fetchFunnel} />
+          {/* Datas Operacionais - só para lançamentos */}
+          {isLaunchCategory && <FunnelOperationalDates funnel={funnel} onUpdate={fetchFunnel} />}
         </TabsContent>
 
         {/* Tab: Links & Checklist */}

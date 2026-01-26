@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 interface FunnelGeneralInfoProps {
   funnel: FunnelData;
   onUpdate: () => void;
+  isLaunchCategory?: boolean;
 }
 
 const CATEGORIES = [
@@ -111,7 +112,7 @@ function InfoCard({ label, value, icon, colorClass, isBadge, isEmpty }: InfoCard
   );
 }
 
-export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) {
+export function FunnelGeneralInfo({ funnel, onUpdate, isLaunchCategory = true }: FunnelGeneralInfoProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: funnel.name || "",
@@ -173,7 +174,7 @@ export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) 
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          <div className={`grid grid-cols-2 ${isLaunchCategory ? "md:grid-cols-3" : "md:grid-cols-2"} gap-3`}>
             {/* Identificação - Azul */}
             <InfoCard
               label="Nome do Funil"
@@ -182,13 +183,16 @@ export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) 
               colorClass="bg-blue-500/10 text-blue-600 border-blue-500/20"
               isEmpty={!funnel.name}
             />
-            <InfoCard
-              label="Código"
-              value={funnel.code}
-              icon={<Hash className="h-4 w-4" />}
-              colorClass="bg-blue-500/10 text-blue-600 border-blue-500/20"
-              isEmpty={!funnel.code}
-            />
+            {/* Código - Só para lançamentos */}
+            {isLaunchCategory && (
+              <InfoCard
+                label="Código"
+                value={funnel.code}
+                icon={<Hash className="h-4 w-4" />}
+                colorClass="bg-blue-500/10 text-blue-600 border-blue-500/20"
+                isEmpty={!funnel.code}
+              />
+            )}
             <InfoCard
               label="Produto"
               value={funnel.product_name}
@@ -205,21 +209,25 @@ export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) 
               isBadge
               isEmpty={!funnel.category}
             />
-            {/* Configuração - Verde */}
-            <InfoCard
-              label="Tipo de Aulas"
-              value={funnel.lesson_type}
-              icon={<Video className="h-4 w-4" />}
-              colorClass="bg-green-500/10 text-green-600 border-green-500/20"
-              isEmpty={!funnel.lesson_type}
-            />
-            <InfoCard
-              label="Tipo de Lançamento"
-              value={funnel.launch_type}
-              icon={<Zap className="h-4 w-4" />}
-              colorClass="bg-green-500/10 text-green-600 border-green-500/20"
-              isEmpty={!funnel.launch_type}
-            />
+            {/* Configuração - Verde - Só para lançamentos */}
+            {isLaunchCategory && (
+              <>
+                <InfoCard
+                  label="Tipo de Aulas"
+                  value={funnel.lesson_type}
+                  icon={<Video className="h-4 w-4" />}
+                  colorClass="bg-green-500/10 text-green-600 border-green-500/20"
+                  isEmpty={!funnel.lesson_type}
+                />
+                <InfoCard
+                  label="Tipo de Lançamento"
+                  value={funnel.launch_type}
+                  icon={<Zap className="h-4 w-4" />}
+                  colorClass="bg-green-500/10 text-green-600 border-green-500/20"
+                  isEmpty={!funnel.launch_type}
+                />
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -248,7 +256,7 @@ export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) 
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className={`grid grid-cols-1 ${isLaunchCategory ? "md:grid-cols-2" : "md:grid-cols-2"} gap-4`}>
           <div className="space-y-2">
             <Label className="text-blue-600">Nome do Funil</Label>
             <Input
@@ -257,15 +265,17 @@ export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) 
               className="border-blue-500/30 focus-visible:ring-blue-500"
             />
           </div>
-          <div className="space-y-2">
-            <Label className="text-blue-600">Código/Versão</Label>
-            <Input
-              value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-              placeholder="Ex: V1.0, LNC-001"
-              className="border-blue-500/30 focus-visible:ring-blue-500"
-            />
-          </div>
+          {isLaunchCategory && (
+            <div className="space-y-2">
+              <Label className="text-blue-600">Código/Versão</Label>
+              <Input
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                placeholder="Ex: V1.0, LNC-001"
+                className="border-blue-500/30 focus-visible:ring-blue-500"
+              />
+            </div>
+          )}
           <div className="space-y-2">
             <Label className="text-blue-600">Produto</Label>
             <Input
@@ -292,42 +302,46 @@ export function FunnelGeneralInfo({ funnel, onUpdate }: FunnelGeneralInfoProps) 
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label className="text-green-600">Tipo de Aulas</Label>
-            <Select
-              value={formData.lesson_type}
-              onValueChange={(value) => setFormData({ ...formData, lesson_type: value })}
-            >
-              <SelectTrigger className="border-green-500/30 focus:ring-green-500">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {LESSON_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-green-600">Tipo de Lançamento</Label>
-            <Select
-              value={formData.launch_type}
-              onValueChange={(value) => setFormData({ ...formData, launch_type: value })}
-            >
-              <SelectTrigger className="border-green-500/30 focus:ring-green-500">
-                <SelectValue placeholder="Selecione" />
-              </SelectTrigger>
-              <SelectContent>
-                {LAUNCH_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {isLaunchCategory && (
+            <>
+              <div className="space-y-2">
+                <Label className="text-green-600">Tipo de Aulas</Label>
+                <Select
+                  value={formData.lesson_type}
+                  onValueChange={(value) => setFormData({ ...formData, lesson_type: value })}
+                >
+                  <SelectTrigger className="border-green-500/30 focus:ring-green-500">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LESSON_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-green-600">Tipo de Lançamento</Label>
+                <Select
+                  value={formData.launch_type}
+                  onValueChange={(value) => setFormData({ ...formData, launch_type: value })}
+                >
+                  <SelectTrigger className="border-green-500/30 focus:ring-green-500">
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LAUNCH_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>
