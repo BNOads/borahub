@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar, ChevronDown, ChevronRight, ClipboardList, Sparkles, PartyPopper } from "lucide-react";
+import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar, ChevronDown, ChevronRight, ClipboardList, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,11 +9,11 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useUserTasks, useToggleTaskComplete, useCreateTaskForUser } from "@/hooks/useTasks";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import type { TaskWithSubtasks, TaskStatus, RecurrenceType } from "@/types/tasks";
 import { RECURRENCE_LABELS } from "@/types/tasks";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import confetti from "canvas-confetti";
+import { format } from "date-fns";
 
 const priorityColors = {
   alta: "bg-destructive/10 text-destructive border-destructive/20",
@@ -28,14 +28,13 @@ const priorityLabels = {
 };
 
 export function TodaysTasks() {
-  const { toast } = useToast();
   const { profile } = useAuth();
   const { data: tasks = [], isLoading } = useUserTasks(profile?.full_name ?? null);
   const toggleComplete = useToggleTaskComplete();
   const createTask = useCreateTaskForUser();
 
-  // Track if confetti was already shown for current "all completed" state
-  const confettiShownRef = useRef(false);
+  // Track if notification was already shown for current "all completed" state
+  const notificationShownRef = useRef(false);
   const previousCompletedRef = useRef<number | null>(null);
 
   // State for collapsible sections - all collapsed by default
@@ -57,7 +56,8 @@ export function TodaysTasks() {
 
   const getTaskStatus = (task: TaskWithSubtasks): TaskStatus => {
     if (!task.due_date) return "no-date";
-    const today = new Date().toISOString().split("T")[0];
+    // Usar format do date-fns para evitar problemas de timezone
+    const today = format(new Date(), "yyyy-MM-dd");
     if (task.due_date < today) return "overdue";
     if (task.due_date === today) return "today";
     return "upcoming";
@@ -68,70 +68,37 @@ export function TodaysTasks() {
   const totalCount = tasks.length;
 
   useEffect(() => {
-    // Only trigger confetti if:
+    // Only trigger notification if:
     // 1. There are tasks
     // 2. All tasks are completed
     // 3. The completed count just increased (user completed the last task)
-    // 4. Confetti wasn't already shown for this state
+    // 4. Notification wasn't already shown for this state
     if (
       totalCount > 0 &&
       completedCount === totalCount &&
       previousCompletedRef.current !== null &&
       previousCompletedRef.current < completedCount &&
-      !confettiShownRef.current
+      !notificationShownRef.current
     ) {
-      confettiShownRef.current = true;
+      notificationShownRef.current = true;
       
-      // Fire confetti from both sides
-      const duration = 3000;
-      const end = Date.now() + duration;
-
-      const frame = () => {
-        confetti({
-          particleCount: 3,
-          angle: 60,
-          spread: 55,
-          origin: { x: 0, y: 0.7 },
-          colors: ["#D4AF37", "#FFD700", "#C0C0C0", "#B8860B"],
-        });
-        confetti({
-          particleCount: 3,
-          angle: 120,
-          spread: 55,
-          origin: { x: 1, y: 0.7 },
-          colors: ["#D4AF37", "#FFD700", "#C0C0C0", "#B8860B"],
-        });
-
-        if (Date.now() < end) {
-          requestAnimationFrame(frame);
-        }
-      };
-
-      frame();
-
-      toast({
-        title: "🎉 Parabéns!",
-        description: "Você concluiu todas as suas tarefas!",
-      });
+      toast.success("🎉 Parabéns! Você concluiu todas as suas tarefas!");
     }
 
-    // Reset confetti shown flag when not all tasks are completed
+    // Reset notification shown flag when not all tasks are completed
     if (completedCount < totalCount) {
-      confettiShownRef.current = false;
+      notificationShownRef.current = false;
     }
 
     // Update previous completed count
     previousCompletedRef.current = completedCount;
-  }, [completedCount, totalCount, toast]);
+  }, [completedCount, totalCount]);
 
   const handleToggle = async (id: string, completed: boolean) => {
     try {
       await toggleComplete.mutateAsync({ id, completed: !completed });
     } catch {
-      toast({
-        title: "Erro ao atualizar tarefa",
-        variant: "destructive",
-      });
+      toast.error("Erro ao atualizar tarefa");
     }
   };
 
@@ -143,19 +110,13 @@ export function TodaysTasks() {
         title: quickTaskTitle.trim(),
         assignee: profile.full_name,
         priority: "media",
-        due_date: new Date().toISOString().split("T")[0],
+        due_date: format(new Date(), "yyyy-MM-dd"),
       });
       setQuickTaskTitle("");
       setShowQuickAdd(false);
-      toast({
-        title: "Tarefa criada!",
-        description: "Sua tarefa foi adicionada com sucesso.",
-      });
+      toast.success("Tarefa criada com sucesso!");
     } catch {
-      toast({
-        title: "Erro ao criar tarefa",
-        variant: "destructive",
-      });
+      toast.error("Erro ao criar tarefa");
     }
   };
 
