@@ -214,7 +214,7 @@ serve(async (req) => {
           .limit(1)
           .single();
 
-        const commissionPercent = defaultProduct?.default_commission_percent || 10;
+        const commissionPercent = defaultProduct?.default_commission_percent || 5;
 
         // Process each grouped sale
         for (const [externalId, group] of groupedSales) {
