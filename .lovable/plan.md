@@ -1,88 +1,74 @@
 
+## Plano: Botão de Voltar com Navegação por Histórico
 
-## Plano: Corrigir Mudança de Data ao Concluir Tarefas
+### Problema Atual
 
-### Problema Identificado
-
-Quando uma data no formato `"2026-01-26"` é passada para `new Date()`, o JavaScript a interpreta como **meia-noite UTC**. Quando essa data é formatada para exibição no fuso horário brasileiro (UTC-3), ela aparece como **25 de janeiro** (dia anterior).
-
-### Exemplo do Bug
-
-```
-Data no banco: "2026-01-26"
-new Date("2026-01-26") → Sun Jan 26 2026 00:00:00 GMT+0000 (UTC)
-Formatado em Brasília (UTC-3) → "25 de jan." ❌
-```
+Os botões de "Voltar" estão configurados com rotas fixas (ex: `/tarefas`, `/funis`, `/treinamentos`), em vez de usar o histórico do navegador. Isso significa que se um usuário vier de uma tela diferente, ao clicar em "Voltar" ele vai para a rota fixa e não para onde estava antes.
 
 ### Solução
 
-Adicionar `"T00:00:00"` às strings de data para forçar a interpretação como **horário local**:
-
-```
-new Date("2026-01-26T00:00:00") → Sun Jan 26 2026 00:00:00 GMT-0300 (BRT)
-Formatado em Brasília → "26 de jan." ✅
-```
+Substituir as navegações fixas por `navigate(-1)`, que utiliza o histórico do navegador para voltar à última tela visitada.
 
 ---
 
 ### Arquivos a Modificar
 
-#### 1. `src/pages/Tarefas.tsx`
-- **Linha 325**: `formatDate` - adicionar `T00:00:00`
-- **Linha 334**: `isOverdue` - adicionar `T00:00:00`
-
-#### 2. `src/components/tasks/TaskKanban.tsx`
-- **Linha 119**: `formatDate` - adicionar `T00:00:00`
-- **Linha 128**: `isOverdue` - adicionar `T00:00:00`
-
-#### 3. `src/components/tasks/AdminTasksPanel.tsx`
-- **Linha 223**: `isOverdue` - adicionar `T00:00:00`
-- **Linha 231**: `formatDate` - adicionar `T00:00:00`
-
-#### 4. `src/pages/TarefaDetalhe.tsx`
-- **Linha 183**: `formatDate` - adicionar `T00:00:00`
-
-#### 5. `src/components/tasks/TaskDetailDialog.tsx`
-- **Linha 192**: `formatDate` - adicionar `T00:00:00`
+| Arquivo | Navegação Atual | Linha(s) |
+|---------|-----------------|----------|
+| `src/pages/TarefaDetalhe.tsx` | `Link to="/tarefas"` | ~226, ~244 |
+| `src/pages/PDIDetalhe.tsx` | `navigate("/pdis")` | ~97, ~268 |
+| `src/pages/CursoDetalhes.tsx` | `Link to="/treinamentos"` | ~117-121 |
+| `src/pages/AulaView.tsx` | `Link to={/treinamentos/${courseId}}` | ~120-124 |
+| `src/pages/BoraNewsDetail.tsx` | `Link to="/bora-news"` | ~47, ~60 |
+| `src/pages/QuizBuilder.tsx` | `navigate("/quizzes")` | ~278, ~319 |
+| `src/pages/QuizAnalytics.tsx` | `navigate("/quizzes")` | ~111, ~234 |
+| `src/pages/FunnelDetails.tsx` | `navigate("/funis")` | ~121 |
+| `src/pages/Perfil.tsx` | `navigate('/')` | ~216 |
+| `src/components/funnel-panel/FunnelPanelHeader.tsx` | `navigate("/funis")` | ~77 |
 
 ---
 
 ### Detalhes Técnicos
 
-**Padrão da correção:**
+**Padrão da Correção para Botões com `onClick`:**
 
 ```typescript
-// ANTES (bugado)
-const formatDate = (dateString: string | null) => {
-  if (!dateString) return "";
-  const date = new Date(dateString);
-  return date.toLocaleDateString("pt-BR", { ... });
-};
+// ANTES (rota fixa)
+<Button variant="ghost" size="icon" onClick={() => navigate("/pdis")}>
+  <ArrowLeft className="h-5 w-5" />
+</Button>
 
-// DEPOIS (corrigido)
-const formatDate = (dateString: string | null) => {
-  if (!dateString) return "";
-  const date = new Date(dateString + "T00:00:00");
-  return date.toLocaleDateString("pt-BR", { ... });
-};
+// DEPOIS (histórico do navegador)
+<Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+  <ArrowLeft className="h-5 w-5" />
+</Button>
 ```
 
-**Para funções `isOverdue`:**
+**Padrão da Correção para Links:**
 
-```typescript
-// ANTES
-const date = new Date(dateString);
+```tsx
+// ANTES (Link com rota fixa)
+<Button variant="ghost" asChild>
+  <Link to="/tarefas">
+    <ArrowLeft className="h-5 w-5" />
+  </Link>
+</Button>
 
-// DEPOIS
-const date = new Date(dateString + "T00:00:00");
+// DEPOIS (Button com navigate(-1))
+<Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+  <ArrowLeft className="h-5 w-5" />
+</Button>
 ```
+
+**Observação sobre textos de "Voltar para X":**
+- Textos como "Voltar para tarefas" ou "Voltar para PDIs" serão simplificados para apenas "Voltar" quando apropriado, já que o destino agora é dinâmico.
 
 ---
 
 ### Resultado Esperado
 
 Após as correções:
-- Datas exibidas corretamente independente do fuso horário do usuário
-- A tarefa com data "26 de jan." continuará mostrando "26 de jan." após ser concluída
-- Verificações de atraso (overdue) funcionarão corretamente
-
+- Clicar no botão "Voltar" sempre retorna para a tela anterior do histórico
+- Se o usuário acessar uma tarefa a partir do Dashboard, voltará para o Dashboard
+- Se o usuário acessar a mesma tarefa a partir da lista de Tarefas, voltará para a lista de Tarefas
+- Comportamento mais intuitivo e consistente com apps modernos
