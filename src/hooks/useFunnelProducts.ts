@@ -138,34 +138,55 @@ export function useFunnelRevenue(
   return useQuery({
     queryKey: ["funnel-revenue", funnelId, startDate, endDate],
     queryFn: async (): Promise<RevenueData> => {
-      // 1. Buscar product_ids vinculados ao funil
+      // 1. Buscar produtos vinculados ao funil (com nome do produto)
       const { data: funnelProducts, error: fpError } = await supabase
         .from("funnel_products")
-        .select("product_id")
+        .select(`
+          product_id,
+          product:products(id, name)
+        `)
         .eq("funnel_id", funnelId);
 
       if (fpError) throw fpError;
 
-      const productIds = funnelProducts?.map((fp) => fp.product_id) || [];
-      if (!productIds.length) {
+      if (!funnelProducts?.length) {
         return { total: 0, count: 0, previousTotal: 0, previousCount: 0, growthPercent: 0 };
       }
 
-      // 2. Buscar vendas do período atual
+      const productIds = funnelProducts.map((fp) => fp.product_id);
+      const productNames = funnelProducts
+        .map((fp) => (fp.product as { name: string } | null)?.name)
+        .filter(Boolean) as string[];
+
+      // 2. Buscar vendas do período atual (por product_id OU product_name)
       let currentQuery = supabase
         .from("sales")
-        .select("id, total_value, sale_date")
-        .in("product_id", productIds)
+        .select("id, total_value, sale_date, product_id, product_name")
         .eq("status", "active");
 
       if (startDate) currentQuery = currentQuery.gte("sale_date", startDate);
       if (endDate) currentQuery = currentQuery.lte("sale_date", endDate);
 
-      const { data: currentSales, error: currentError } = await currentQuery;
+      const { data: allSales, error: currentError } = await currentQuery;
       if (currentError) throw currentError;
 
-      const total = currentSales?.reduce((sum, s) => sum + (s.total_value || 0), 0) || 0;
-      const count = currentSales?.length || 0;
+      // Filtrar vendas que correspondem aos produtos vinculados
+      const currentSales = allSales?.filter((sale) => {
+        // Match por product_id
+        if (sale.product_id && productIds.includes(sale.product_id)) {
+          return true;
+        }
+        // Match por product_name (para vendas sem product_id)
+        if (!sale.product_id && sale.product_name) {
+          return productNames.some(
+            (pn) => sale.product_name?.toLowerCase() === pn.toLowerCase()
+          );
+        }
+        return false;
+      }) || [];
+
+      const total = currentSales.reduce((sum, s) => sum + (s.total_value || 0), 0);
+      const count = currentSales.length;
 
       // 3. Calcular período anterior para comparação
       let previousTotal = 0;
@@ -181,16 +202,27 @@ export function useFunnelRevenue(
         const previousStart = new Date(previousEnd);
         previousStart.setDate(previousStart.getDate() - periodDays);
 
-        const { data: previousSales } = await supabase
+        const { data: previousAllSales } = await supabase
           .from("sales")
-          .select("id, total_value")
-          .in("product_id", productIds)
+          .select("id, total_value, product_id, product_name")
           .eq("status", "active")
           .gte("sale_date", previousStart.toISOString().split("T")[0])
           .lte("sale_date", previousEnd.toISOString().split("T")[0]);
 
-        previousTotal = previousSales?.reduce((sum, s) => sum + (s.total_value || 0), 0) || 0;
-        previousCount = previousSales?.length || 0;
+        const previousSales = previousAllSales?.filter((sale) => {
+          if (sale.product_id && productIds.includes(sale.product_id)) {
+            return true;
+          }
+          if (!sale.product_id && sale.product_name) {
+            return productNames.some(
+              (pn) => sale.product_name?.toLowerCase() === pn.toLowerCase()
+            );
+          }
+          return false;
+        }) || [];
+
+        previousTotal = previousSales.reduce((sum, s) => sum + (s.total_value || 0), 0);
+        previousCount = previousSales.length;
       }
 
       const growthPercent = previousTotal > 0 
