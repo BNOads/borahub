@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatCurrency } from "@/components/funnel-panel/types";
 import { format } from "date-fns";
-import { XCircle, CheckCircle, Clock, AlertTriangle, Ban } from "lucide-react";
+import { XCircle, CheckCircle, Clock, AlertTriangle, Ban, Copy, ExternalLink, Globe } from "lucide-react";
+import { toast } from "sonner";
 
 interface SaleDetailsSheetProps {
   saleId: string | null;
@@ -67,9 +68,22 @@ export function SaleDetailsSheet({ saleId, open, onOpenChange }: SaleDetailsShee
             {/* Sale Info */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Badge variant="outline" className="font-mono">
-                  {sale.external_id}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {sale.external_id}
+                  </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => {
+                      navigator.clipboard.writeText(sale.external_id);
+                      toast.success("ID copiado!");
+                    }}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
                 <Badge variant={sale.status === 'active' ? 'default' : 'destructive'}>
                   {sale.status === 'active' ? 'Ativa' : 'Cancelada'}
                 </Badge>
@@ -117,6 +131,65 @@ export function SaleDetailsSheet({ saleId, open, onOpenChange }: SaleDetailsShee
                   <p className="font-medium">{(sale as any).payment_type || '-'}</p>
                 </div>
               </div>
+              
+              {/* Tracking / UTM Info */}
+              {((sale as any).tracking_source || (sale as any).tracking_source_sck || (sale as any).tracking_external_code) && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      Origem do Tráfego
+                    </h4>
+                    <div className="grid grid-cols-1 gap-3 bg-muted/30 p-3 rounded-lg">
+                      {(sale as any).tracking_source && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Fonte</p>
+                          <p className="font-medium">{(sale as any).tracking_source}</p>
+                        </div>
+                      )}
+                      {(sale as any).tracking_source_sck && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Source SCK / SRC</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium font-mono text-sm break-all">{(sale as any).tracking_source_sck}</p>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 shrink-0"
+                              onClick={() => {
+                                navigator.clipboard.writeText((sale as any).tracking_source_sck);
+                                toast.success("Copiado!");
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                      {(sale as any).tracking_external_code && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">Código Externo (UTM)</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium font-mono text-sm break-all">{(sale as any).tracking_external_code}</p>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 shrink-0"
+                              onClick={() => {
+                                navigator.clipboard.writeText((sale as any).tracking_external_code);
+                                toast.success("Copiado!");
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
               
               {sale.status === 'active' && (
                 <Button

@@ -1900,6 +1900,9 @@ export type Database = {
           seller_id: string | null
           status: string
           total_value: number
+          tracking_external_code: string | null
+          tracking_source: string | null
+          tracking_source_sck: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1922,6 +1925,9 @@ export type Database = {
           seller_id?: string | null
           status?: string
           total_value: number
+          tracking_external_code?: string | null
+          tracking_source?: string | null
+          tracking_source_sck?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1944,6 +1950,9 @@ export type Database = {
           seller_id?: string | null
           status?: string
           total_value?: number
+          tracking_external_code?: string | null
+          tracking_source?: string | null
+          tracking_source_sck?: string | null
           updated_at?: string | null
         }
         Relationships: [
