@@ -289,17 +289,26 @@ export function useFunnelRevenue(
       const { data: allSales, error: currentError } = await currentQuery;
       if (currentError) throw currentError;
 
+      // Lógica de match parcial: verifica se TODAS as palavras-chave do produto
+      // estão presentes no nome da venda (case-insensitive)
+      const matchesProductName = (saleName: string, productName: string) => {
+        const saleNameLower = saleName.toLowerCase();
+        const keywords = productName.toLowerCase()
+          .split(' ')
+          .filter(word => word.length > 2); // Ignorar palavras muito curtas
+        
+        return keywords.every(keyword => saleNameLower.includes(keyword));
+      };
+
       // Filtrar vendas que correspondem aos produtos vinculados
       const currentSales = allSales?.filter((sale) => {
-        // Match por product_id
+        // Match por product_id (exato)
         if (sale.product_id && productIds.includes(sale.product_id)) {
           return true;
         }
-        // Match por product_name (case-insensitive)
+        // Match por product_name (parcial - contains)
         if (sale.product_name) {
-          return productNames.some(
-            (pn) => sale.product_name?.toLowerCase().trim() === pn.toLowerCase().trim()
-          );
+          return productNames.some(pn => matchesProductName(sale.product_name!, pn));
         }
         return false;
       }) || [];
@@ -333,9 +342,7 @@ export function useFunnelRevenue(
             return true;
           }
           if (sale.product_name) {
-            return productNames.some(
-              (pn) => sale.product_name?.toLowerCase().trim() === pn.toLowerCase().trim()
-            );
+            return productNames.some(pn => matchesProductName(sale.product_name!, pn));
           }
           return false;
         }) || [];

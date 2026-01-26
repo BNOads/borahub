@@ -111,6 +111,15 @@ export function ActiveLaunches() {
       // Calculate revenue per funnel
       const revenues: Record<string, number> = {};
 
+      // Lógica de match parcial
+      const matchesProductName = (saleName: string, productName: string) => {
+        const saleNameLower = saleName.toLowerCase();
+        const keywords = productName.toLowerCase()
+          .split(' ')
+          .filter(word => word.length > 2);
+        return keywords.every(keyword => saleNameLower.includes(keyword));
+      };
+
       funnels.forEach(funnel => {
         const products = funnelProducts.filter(fp => fp.funnel_id === funnel.id);
         const productIds = products.map(p => p.product_id);
@@ -120,8 +129,8 @@ export function ActiveLaunches() {
 
         const matchedSales = allSales.filter(sale => {
           if (sale.product_id && productIds.includes(sale.product_id)) return true;
-          if (!sale.product_id && sale.product_name) {
-            return productNames.some(pn => sale.product_name?.toLowerCase() === pn.toLowerCase());
+          if (sale.product_name) {
+            return productNames.some(pn => matchesProductName(sale.product_name!, pn));
           }
           return false;
         });
