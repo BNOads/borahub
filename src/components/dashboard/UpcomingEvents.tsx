@@ -47,7 +47,7 @@ const eventTypeLabels: Record<string, string> = {
 };
 
 export function UpcomingEvents() {
-  const { data: events = [], isLoading } = useUpcomingEvents(10);
+  const { data: events = [], isLoading } = useUpcomingEvents(3);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showEventModal, setShowEventModal] = useState(false);
@@ -259,6 +259,13 @@ export function UpcomingEvents() {
                 </div>
               </div>
             ))}
+            
+            <Link
+              to="/agenda"
+              className="block w-full text-center py-2 text-sm text-accent hover:underline font-medium"
+            >
+              Ver mais eventos →
+            </Link>
           </div>
         )
       ) : (
