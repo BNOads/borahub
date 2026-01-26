@@ -28,13 +28,15 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from "recharts";
-import { Flag, Users, AlertTriangle, CheckCircle2, Clock, ListTodo, Plus } from "lucide-react";
+import { Flag, Users, AlertTriangle, CheckCircle2, Clock, ListTodo, Plus, Eye } from "lucide-react";
 import type { TaskWithSubtasks, TaskPriority, RecurrenceType, TaskFormData } from "@/types/tasks";
 import { RECURRENCE_LABELS } from "@/types/tasks";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { useCreateTask, useToggleTaskComplete } from "@/hooks/useTasks";
 import { useToast } from "@/hooks/use-toast";
+import { UserTasksModal } from "@/components/admin/UserTasksModal";
+import type { Profile } from "@/contexts/AuthContext";
 
 const categories = [
   "Lancamento",
@@ -81,6 +83,10 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<string>("");
   const [formData, setFormData] = useState<TaskFormData>(emptyFormData);
+  
+  // State for UserTasksModal
+  const [isUserTasksModalOpen, setIsUserTasksModalOpen] = useState(false);
+  const [selectedUserForModal, setSelectedUserForModal] = useState<Profile | null>(null);
 
   // Group tasks by assignee
   const tasksByAssignee = useMemo(() => {
@@ -116,6 +122,14 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
     setIsDialogOpen(false);
     setSelectedAssignee("");
     setFormData(emptyFormData);
+  };
+
+  const handleOpenUserTasksModal = (assignee: string) => {
+    const user = users.find((u) => u.full_name === assignee);
+    if (user) {
+      setSelectedUserForModal(user as Profile);
+      setIsUserTasksModalOpen(true);
+    }
   };
 
   const handleSaveTask = async () => {
@@ -394,11 +408,7 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {Object.entries(tasksByAssignee)
-            .sort(([, a], [, b]) => {
-              const aPending = a.filter((t) => !t.completed).length;
-              const bPending = b.filter((t) => !t.completed).length;
-              return bPending - aPending;
-            })
+            .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
             .map(([assignee, userTasks]) => {
               const pendingTasks = userTasks.filter((t) => !t.completed);
               const completedTasks = userTasks.filter((t) => t.completed);
@@ -424,7 +434,12 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <CardTitle className="text-base">{assignee}</CardTitle>
+                          <button
+                            onClick={() => handleOpenUserTasksModal(assignee)}
+                            className="text-base font-semibold hover:text-primary hover:underline transition-colors text-left"
+                          >
+                            {assignee}
+                          </button>
                           <p className="text-xs text-muted-foreground">
                             {pendingTasks.length} pendentes • {completedTasks.length} concluídas
                           </p>
@@ -513,9 +528,15 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
                         </div>
                       ))}
                       {pendingTasks.length > 5 && (
-                        <p className="text-xs text-center text-muted-foreground py-1">
-                          + {pendingTasks.length - 5} mais tarefas
-                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full text-xs gap-1"
+                          onClick={() => handleOpenUserTasksModal(assignee)}
+                        >
+                          <Eye className="h-3 w-3" />
+                          Ver todas ({pendingTasks.length} tarefas)
+                        </Button>
                       )}
                       {pendingTasks.length === 0 && (
                         <p className="text-sm text-center text-muted-foreground py-4">
@@ -660,6 +681,13 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* User Tasks Modal */}
+      <UserTasksModal
+        open={isUserTasksModalOpen}
+        onOpenChange={setIsUserTasksModalOpen}
+        user={selectedUserForModal}
+      />
     </div>
   );
 }
