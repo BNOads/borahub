@@ -14,6 +14,8 @@ import {
   FunnelLinksList,
   FunnelDiary,
   FunnelChecklist,
+  FunnelProducts,
+  FunnelRevenue,
 } from "@/components/funnel-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LayoutDashboard, Settings, Link2, BookOpen } from "lucide-react";
@@ -106,6 +108,9 @@ export default function FunnelPanel() {
             <FunnelKeyDates funnel={funnel} />
           </div>
 
+          {/* Card de Faturamento dos Produtos */}
+          <FunnelRevenue funnel={funnel} />
+
           {/* Links Úteis na tela inicial */}
           <FunnelLinksList funnelId={funnel.id} compact />
         </TabsContent>
@@ -114,6 +119,9 @@ export default function FunnelPanel() {
         <TabsContent value="config" className="space-y-6">
           {/* Informações Gerais (com edição disponível) */}
           <FunnelGeneralInfo funnel={funnel} onUpdate={fetchFunnel} />
+
+          {/* Produtos Vinculados */}
+          <FunnelProducts funnelId={funnel.id} />
 
           {/* Metas */}
           <FunnelGoals funnel={funnel} onUpdate={fetchFunnel} />
