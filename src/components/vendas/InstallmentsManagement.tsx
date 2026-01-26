@@ -22,9 +22,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { Search, CheckCircle, Clock, AlertTriangle, XCircle, Ban, RefreshCw, Check, X, CreditCard, Banknote, ChevronLeft, ChevronRight, User, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { Search, CheckCircle, Clock, AlertTriangle, XCircle, Ban, RefreshCw, Check, X, CreditCard, Banknote, ChevronLeft, ChevronRight, User, ArrowUpDown, ArrowUp, ArrowDown, Calendar } from "lucide-react";
+import { format, formatDistanceToNow, startOfMonth, endOfMonth, subMonths, startOfWeek, endOfWeek, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -39,6 +41,8 @@ export function InstallmentsManagement() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all");
   const [platformFilter, setPlatformFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [customDateRange, setCustomDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [currentPage, setCurrentPage] = useState(1);
   const [sortColumn, setSortColumn] = useState<SortColumn>('due_date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -64,6 +68,24 @@ export function InstallmentsManagement() {
   // All installments already come from sales with assigned seller
   const baseInstallments = installments || [];
   
+  // Helper function to get date range based on filter
+  const getDateRange = () => {
+    const today = new Date();
+    switch (dateFilter) {
+      case "this_week":
+        return { start: startOfWeek(today, { weekStartsOn: 1 }), end: endOfWeek(today, { weekStartsOn: 1 }) };
+      case "this_month":
+        return { start: startOfMonth(today), end: endOfMonth(today) };
+      case "last_month":
+        const lastMonth = subMonths(today, 1);
+        return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+      case "custom":
+        return { start: customDateRange.from, end: customDateRange.to };
+      default:
+        return null;
+    }
+  };
+
   const filteredInstallments = baseInstallments.filter(inst => {
     const matchesSearch = 
       inst.sale?.client_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -82,7 +104,15 @@ export function InstallmentsManagement() {
     // Filter by platform
     const matchesPlatform = platformFilter === "all" || inst.sale?.platform === platformFilter;
     
-    return matchesSearch && matchesStatus && matchesPaymentType && matchesPlatform;
+    // Filter by date range (due_date)
+    let matchesDate = true;
+    const dateRange = getDateRange();
+    if (dateRange && dateRange.start && dateRange.end) {
+      const dueDate = parseISO(inst.due_date);
+      matchesDate = isWithinInterval(dueDate, { start: dateRange.start, end: dateRange.end });
+    }
+    
+    return matchesSearch && matchesStatus && matchesPaymentType && matchesPlatform && matchesDate;
   });
   
   const statusIcons = {
@@ -281,6 +311,51 @@ export function InstallmentsManagement() {
               <SelectItem value="manual">Manual</SelectItem>
             </SelectContent>
           </Select>
+          <Select value={dateFilter} onValueChange={(v) => handleFilterChange(setDateFilter, v)}>
+            <SelectTrigger className="w-[180px]">
+              <Calendar className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Período" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as Datas</SelectItem>
+              <SelectItem value="this_week">Esta Semana</SelectItem>
+              <SelectItem value="this_month">Este Mês</SelectItem>
+              <SelectItem value="last_month">Mês Anterior</SelectItem>
+              <SelectItem value="custom">Personalizado</SelectItem>
+            </SelectContent>
+          </Select>
+          {dateFilter === "custom" && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-[220px] justify-start text-left font-normal">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {customDateRange.from ? (
+                    customDateRange.to ? (
+                      <>
+                        {format(customDateRange.from, "dd/MM/yy")} - {format(customDateRange.to, "dd/MM/yy")}
+                      </>
+                    ) : (
+                      format(customDateRange.from, "dd/MM/yyyy")
+                    )
+                  ) : (
+                    <span>Selecione o período</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="range"
+                  selected={{ from: customDateRange.from, to: customDateRange.to }}
+                  onSelect={(range) => {
+                    setCustomDateRange({ from: range?.from, to: range?.to });
+                    setCurrentPage(1);
+                  }}
+                  numberOfMonths={2}
+                  locale={ptBR}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
         
         <div className="flex flex-col items-end gap-1">
