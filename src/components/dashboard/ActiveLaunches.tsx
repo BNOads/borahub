@@ -1,4 +1,4 @@
-import { ArrowRight, Rocket, TrendingUp, Calendar, Clock } from "lucide-react";
+import { ArrowRight, Rocket, TrendingUp, Calendar, Clock, DollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -80,6 +80,59 @@ export function ActiveLaunches() {
     refetchOnMount: "always",
     retry: false,
     enabled: authReady && !!session,
+  });
+
+  // Fetch revenue for all active funnels (only for admins)
+  const { data: funnelRevenues = {} } = useQuery({
+    queryKey: ['funnels-revenues', funnels.map(f => f.id)],
+    queryFn: async () => {
+      if (!funnels.length) return {};
+
+      // Get all funnel products
+      const { data: funnelProducts } = await supabase
+        .from("funnel_products")
+        .select(`
+          funnel_id,
+          product_id,
+          product:products(id, name)
+        `)
+        .in("funnel_id", funnels.map(f => f.id));
+
+      if (!funnelProducts?.length) return {};
+
+      // Get all active sales
+      const { data: allSales } = await supabase
+        .from("sales")
+        .select("id, total_value, product_id, product_name")
+        .eq("status", "active");
+
+      if (!allSales?.length) return {};
+
+      // Calculate revenue per funnel
+      const revenues: Record<string, number> = {};
+
+      funnels.forEach(funnel => {
+        const products = funnelProducts.filter(fp => fp.funnel_id === funnel.id);
+        const productIds = products.map(p => p.product_id);
+        const productNames = products
+          .map(p => (p.product as { name: string } | null)?.name)
+          .filter(Boolean) as string[];
+
+        const matchedSales = allSales.filter(sale => {
+          if (sale.product_id && productIds.includes(sale.product_id)) return true;
+          if (!sale.product_id && sale.product_name) {
+            return productNames.some(pn => sale.product_name?.toLowerCase() === pn.toLowerCase());
+          }
+          return false;
+        });
+
+        revenues[funnel.id] = matchedSales.reduce((sum, s) => sum + (s.total_value || 0), 0);
+      });
+
+      return revenues;
+    },
+    enabled: authReady && !!session && isAdmin && funnels.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   if (loading) {
@@ -167,9 +220,17 @@ export function ActiveLaunches() {
                   </div>
                 )}
 
-                {/* Investment - only for admins */}
+                {/* Financial info - only for admins */}
                 {isAdmin && (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
+                    {/* Revenue */}
+                    {funnelRevenues[funnel.id] !== undefined && funnelRevenues[funnel.id] > 0 && (
+                      <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <DollarSign className="h-4 w-4" />
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(funnelRevenues[funnel.id])}
+                      </div>
+                    )}
+                    {/* Investment */}
                     <div className="flex items-center gap-1 text-accent font-semibold">
                       <TrendingUp className="h-4 w-4" />
                       {funnel.predicted_investment
