@@ -114,11 +114,9 @@ export default function CursoDetalhes() {
     return (
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Back Link */}
-            <Button variant="ghost" asChild className="hover:bg-accent/5 -ml-2 text-muted-foreground hover:text-foreground">
-                <Link to="/treinamentos" className="gap-2">
-                    <ArrowLeft className="h-4 w-4" />
-                    Voltar para Treinamentos
-                </Link>
+            <Button variant="ghost" onClick={() => navigate(-1)} className="hover:bg-accent/5 -ml-2 text-muted-foreground hover:text-foreground gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Voltar
             </Button>
 
             {/* Header Banner */}

@@ -222,11 +222,9 @@ export default function TarefaDetalhe() {
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <p className="text-destructive mb-4">Tarefa nao encontrada</p>
-        <Button variant="outline" asChild>
-          <Link to="/tarefas">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar para tarefas
-          </Link>
+        <Button variant="outline" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Voltar
         </Button>
       </div>
     );
@@ -240,10 +238,8 @@ export default function TarefaDetalhe() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link to="/tarefas">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
           <div className="flex items-center gap-2">

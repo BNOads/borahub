@@ -117,11 +117,9 @@ export default function AulaView() {
         <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 mt-4">
             {/* Back Link */}
             <div className="flex items-center justify-between">
-                <Button variant="ghost" asChild className="hover:bg-accent/5 -ml-2 text-muted-foreground hover:text-foreground">
-                    <Link to={`/treinamentos/${courseId}`} className="gap-2">
-                        <ArrowLeft className="h-4 w-4" />
-                        Voltar para o curso
-                    </Link>
+                <Button variant="ghost" onClick={() => navigate(-1)} className="hover:bg-accent/5 -ml-2 text-muted-foreground hover:text-foreground gap-2">
+                    <ArrowLeft className="h-4 w-4" />
+                    Voltar
                 </Button>
             </div>
 
