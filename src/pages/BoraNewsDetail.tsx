@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Calendar, User, Check, EyeOff, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
 
 export default function BoraNewsDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { data: news, isLoading, error } = useBoraNewsDetail(id || "");
   const markAsRead = useMarkAsRead();
   const toggleRead = useToggleRead();
@@ -44,12 +45,10 @@ export default function BoraNewsDetail() {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-4">
         <span className="text-muted-foreground">Noticia nao encontrada</span>
-        <Link to="/bora-news">
-          <Button variant="outline">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar para Bora News
-          </Button>
-        </Link>
+        <Button variant="outline" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Voltar
+        </Button>
       </div>
     );
   }
@@ -57,12 +56,10 @@ export default function BoraNewsDetail() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
-        <Link to="/bora-news">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar para Bora News
-          </Button>
-        </Link>
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Voltar
+        </Button>
       </div>
 
       <article className="bg-card border border-border rounded-xl p-6 md:p-8">

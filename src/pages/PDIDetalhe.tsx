@@ -94,8 +94,8 @@ export default function PDIDetalhe() {
       <div className="text-center py-16">
         <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
         <h2 className="text-xl font-semibold">PDI não encontrado</h2>
-        <Button variant="link" onClick={() => navigate("/pdis")}>
-          Voltar para PDIs
+        <Button variant="link" onClick={() => navigate(-1)}>
+          Voltar
         </Button>
       </div>
     );
@@ -265,7 +265,7 @@ export default function PDIDetalhe() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/pdis")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>

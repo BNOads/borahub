@@ -275,7 +275,7 @@ export default function QuizBuilder() {
     return (
       <div className="p-6 text-center">
         <p>Quiz não encontrado</p>
-        <Button onClick={() => navigate("/quizzes")} className="mt-4">
+        <Button onClick={() => navigate(-1)} className="mt-4">
           Voltar
         </Button>
       </div>
@@ -316,7 +316,7 @@ export default function QuizBuilder() {
       <div className="sticky top-0 z-10 bg-background border-b px-6 py-4">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/quizzes")}>
+            <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <div>

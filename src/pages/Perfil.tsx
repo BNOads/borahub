@@ -213,7 +213,7 @@ export default function Perfil() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/')}
+          onClick={() => navigate(-1)}
           className="rounded-lg"
         >
           <ArrowLeft className="h-4 w-4" />
