@@ -81,13 +81,14 @@ export default function FunisView() {
                 .map(p => (p.product as { name: string } | null)?.name)
                 .filter(Boolean) as string[];
 
-            // Lógica de match parcial
+            // Lógica de match parcial - normaliza quebras de linha e hífens
             const matchesProductName = (saleName: string, productName: string) => {
-                const saleNameLower = saleName.toLowerCase();
+                const normalizedSale = saleName.toLowerCase().replace(/[\n\r\-–—]/g, ' ').replace(/\s+/g, ' ');
                 const keywords = productName.toLowerCase()
-                    .split(' ')
+                    .replace(/[\n\r\-–—]/g, ' ')
+                    .split(/\s+/)
                     .filter(word => word.length > 2);
-                return keywords.every(keyword => saleNameLower.includes(keyword));
+                return keywords.every(keyword => normalizedSale.includes(keyword));
             };
 
             // Calculate total revenue with partial matching

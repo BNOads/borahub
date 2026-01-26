@@ -111,13 +111,14 @@ export function ActiveLaunches() {
       // Calculate revenue per funnel
       const revenues: Record<string, number> = {};
 
-      // Lógica de match parcial
+      // Lógica de match parcial - normaliza quebras de linha e hífens
       const matchesProductName = (saleName: string, productName: string) => {
-        const saleNameLower = saleName.toLowerCase();
+        const normalizedSale = saleName.toLowerCase().replace(/[\n\r\-–—]/g, ' ').replace(/\s+/g, ' ');
         const keywords = productName.toLowerCase()
-          .split(' ')
+          .replace(/[\n\r\-–—]/g, ' ')
+          .split(/\s+/)
           .filter(word => word.length > 2);
-        return keywords.every(keyword => saleNameLower.includes(keyword));
+        return keywords.every(keyword => normalizedSale.includes(keyword));
       };
 
       funnels.forEach(funnel => {
