@@ -98,6 +98,7 @@ export default function Tarefas() {
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
+  const [filterRecurrence, setFilterRecurrence] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -136,6 +137,15 @@ export default function Tarefas() {
   const tasks = tabView === "team" 
     ? teamTasks.filter(task => {
         if (filterAssignee !== "all" && task.assignee !== filterAssignee) return false;
+        if (filterRecurrence !== "all") {
+          if (filterRecurrence === "none") {
+            if (task.recurrence && task.recurrence !== "none") return false;
+          } else if (filterRecurrence === "any") {
+            if (!task.recurrence || task.recurrence === "none") return false;
+          } else {
+            if (task.recurrence !== filterRecurrence) return false;
+          }
+        }
         return true;
       })
     : myTasks.filter(task => {
@@ -668,20 +678,40 @@ export default function Tarefas() {
 
               {/* Filtro por responsável - apenas na aba Time */}
               {tabView === "team" && (
-                <Select value={filterAssignee} onValueChange={setFilterAssignee}>
-                  <SelectTrigger className="w-[180px]">
-                    <User className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Responsável" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {users.map((user) => (
-                      <SelectItem key={user.id} value={user.full_name}>
-                        {user.display_name || user.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select value={filterAssignee} onValueChange={setFilterAssignee}>
+                    <SelectTrigger className="w-[180px]">
+                      <User className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Responsável" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.full_name}>
+                          {user.display_name || user.full_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterRecurrence} onValueChange={setFilterRecurrence}>
+                    <SelectTrigger className="w-[160px]">
+                      <Repeat className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Recorrência" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas</SelectItem>
+                      <SelectItem value="any">Com recorrência</SelectItem>
+                      <SelectItem value="none">Sem recorrência</SelectItem>
+                      <SelectItem value="daily">Diário</SelectItem>
+                      <SelectItem value="weekly">Semanal</SelectItem>
+                      <SelectItem value="biweekly">Quinzenal</SelectItem>
+                      <SelectItem value="monthly">Mensal</SelectItem>
+                      <SelectItem value="semiannual">Semestral</SelectItem>
+                      <SelectItem value="yearly">Anual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </>
               )}
             </div>
           </div>
