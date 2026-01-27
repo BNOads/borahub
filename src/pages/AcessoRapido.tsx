@@ -21,7 +21,8 @@ import {
   CalendarDays,
   Filter,
   ClipboardList,
-  CheckSquare
+  CheckSquare,
+  FileBarChart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -116,6 +117,13 @@ const tools = [
     href: "/quizzes",
     icon: ClipboardList,
     color: "bg-violet-500/10 text-violet-500",
+  },
+  {
+    name: "Relatórios",
+    description: "Gere relatórios executivos com IA sobre sua operação",
+    href: "/relatorios",
+    icon: FileBarChart,
+    color: "bg-indigo-500/10 text-indigo-500",
   },
 ];
 
