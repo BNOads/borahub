@@ -440,7 +440,10 @@ export default function Tarefas() {
               <Button
                 variant={tabView === "team" ? "secondary" : "ghost"}
                 size="sm"
-                onClick={() => setTabView("team")}
+                onClick={() => {
+                  setTabView("team");
+                  setViewMode("by-person");
+                }}
                 className="h-8 px-3 gap-1.5"
               >
                 <User className="h-4 w-4" />
