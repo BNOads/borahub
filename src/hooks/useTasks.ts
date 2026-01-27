@@ -169,12 +169,15 @@ export function useUpdateTask() {
       previousAssignee?: string | null;
       taskTitle?: string;
     }) => {
+      // Só incluir completed_at se completed estiver sendo alterado explicitamente
+      const updatePayload: Record<string, unknown> = { ...updates };
+      if (typeof updates.completed === "boolean") {
+        updatePayload.completed_at = updates.completed ? new Date().toISOString() : null;
+      }
+
       const { data, error } = await supabase
         .from("tasks")
-        .update({
-          ...updates,
-          completed_at: updates.completed ? new Date().toISOString() : null,
-        })
+        .update(updatePayload)
         .eq("id", id)
         .select()
         .single();
