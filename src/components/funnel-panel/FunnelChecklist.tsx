@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser } from "lucide-react";
+import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -558,24 +558,25 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
                             {item.title.replace(/^\[(Diário|Pontual)\]\s*/i, "")}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-primary hover:text-primary"
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
                             onClick={() => openConvertModal({ id: item.id, title: item.title })}
                             title="Converter em tarefa"
+                            className="relative flex items-center justify-center h-8 w-8 rounded-full border-2 border-primary/30 hover:border-primary bg-background hover:bg-primary/5 transition-all"
                           >
-                            <ListTodo className="h-3 w-3" />
-                          </Button>
+                            <RefreshCcw className="h-4 w-4 text-primary" />
+                            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-3.5 w-3.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                              +
+                            </span>
+                          </button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 text-destructive hover:text-destructive"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={() => handleDeleteItem(item.id)}
                             title="Excluir item"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </div>
