@@ -70,6 +70,24 @@ O BORAnaOBRA atende arquitetos e engenheiros que buscam transformar conhecimento
 - Leitura vertical e respirável
 - Pensado para mobile
 
+## BRANDING OBRIGATÓRIO
+
+A marca DEVE ser escrita EXATAMENTE como: BORAnaOBRA
+
+❌ FORMAS INCORRETAS (penalizar severamente cada ocorrência):
+- boranaobra (tudo minúsculo)
+- BORANAOBRA (tudo maiúsculo)
+- Boranaobra (capitalizado errado)
+- Bora na Obra (separado)
+- bora na obra (separado minúsculo)
+- BORA NA OBRA (separado maiúsculo)
+- BoraNoObra, BoraNaObra, boranobra (qualquer variação)
+
+✅ FORMA CORRETA (única aceita):
+- BORAnaOBRA
+
+Se encontrar qualquer variação incorreta, marcar como erro CRÍTICO em "Trechos Problemáticos" e sugerir a correção para BORAnaOBRA.
+
 ## PROVA SOCIAL (quando presente)
 - Humana e contextualizada
 - Com antes/durante/depois
