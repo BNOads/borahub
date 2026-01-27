@@ -213,7 +213,10 @@ export function ActiveLaunches() {
         </div>
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
-          {funnels.map((funnel) => {
+          {/* Ordenar funis por quantidade de pendências (maior primeiro) */}
+          {[...funnels]
+            .sort((a, b) => (funnelChecklistPending[b.id] || 0) - (funnelChecklistPending[a.id] || 0))
+            .map((funnel) => {
             const nextMilestone = getNextMilestone(funnel);
             
             return (
