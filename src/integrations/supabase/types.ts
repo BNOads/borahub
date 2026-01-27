@@ -1980,6 +1980,71 @@ export type Database = {
           },
         ]
       }
+      reports: {
+        Row: {
+          ai_suggestions: Json | null
+          content_html: string | null
+          content_markdown: string | null
+          created_at: string
+          filters: Json | null
+          generated_at: string | null
+          generated_by: string | null
+          id: string
+          pdf_path: string | null
+          period_end: string
+          period_start: string
+          report_type: string
+          scope: Json
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          ai_suggestions?: Json | null
+          content_html?: string | null
+          content_markdown?: string | null
+          created_at?: string
+          filters?: Json | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          pdf_path?: string | null
+          period_end: string
+          period_start: string
+          report_type?: string
+          scope?: Json
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          ai_suggestions?: Json | null
+          content_html?: string | null
+          content_markdown?: string | null
+          created_at?: string
+          filters?: Json | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          pdf_path?: string | null
+          period_end?: string
+          period_start?: string
+          report_type?: string
+          scope?: Json
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales: {
         Row: {
           client_email: string | null

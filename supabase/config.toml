@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.process-task-recurrence]
 verify_jwt = false
+
+[functions.generate-report]
+verify_jwt = true

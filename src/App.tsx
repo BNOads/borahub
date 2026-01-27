@@ -41,6 +41,7 @@ import QuizzesView from "./pages/QuizzesView";
 import QuizBuilder from "./pages/QuizBuilder";
 import QuizAnalytics from "./pages/QuizAnalytics";
 import PublicQuiz from "./pages/PublicQuiz";
+import RelatoriosView from "./pages/RelatoriosView";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -109,6 +110,7 @@ const App = () => (
               <Route path="/quizzes" element={<QuizzesView />} />
               <Route path="/quizzes/:id/edit" element={<QuizBuilder />} />
               <Route path="/quizzes/:id/analytics" element={<QuizAnalytics />} />
+              <Route path="/relatorios" element={<RelatoriosView />} />
               <Route path="/perfil" element={<Perfil />} />
               
               {/* Rotas admin */}
