@@ -65,9 +65,7 @@ export function ActiveLaunches() {
         .select("*")
         .eq("status", "active")
         .eq("is_active", true)
-        .order("predicted_investment", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .order("created_at", { ascending: false });
 
       if (error) {
         console.error("Error fetching funnels:", error);
@@ -213,9 +211,10 @@ export function ActiveLaunches() {
         </div>
       ) : (
         <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
-          {/* Ordenar funis por quantidade de pendências (maior primeiro) */}
+          {/* Ordenar funis por quantidade de pendências (maior primeiro) e limitar a 10 */}
           {[...funnels]
             .sort((a, b) => (funnelChecklistPending[b.id] || 0) - (funnelChecklistPending[a.id] || 0))
+            .slice(0, 10)
             .map((funnel) => {
             const nextMilestone = getNextMilestone(funnel);
             
