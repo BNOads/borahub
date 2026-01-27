@@ -76,10 +76,21 @@ export function SalesManagement() {
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [productFilter, setProductFilter] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [customStartDate, setCustomStartDate] = useState<string>("");
+  const [customEndDate, setCustomEndDate] = useState<string>("");
   
   // Sorting
   const [sortField, setSortField] = useState<SortField>("sale_date");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  
+  // Get unique product names from sales for filter
+  const uniqueProducts = useMemo(() => {
+    if (!sales) return [];
+    const productNames = new Set(sales.map(s => s.product_name));
+    return Array.from(productNames).sort();
+  }, [sales]);
 
   // CSV Import state
   const salesFileInputRef = useRef<HTMLInputElement>(null);
@@ -276,6 +287,56 @@ export function SalesManagement() {
       result = result.filter(sale => sale.status === statusFilter);
     }
     
+    // Apply product filter
+    if (productFilter !== "all") {
+      result = result.filter(sale => sale.product_name === productFilter);
+    }
+    
+    // Apply date filter
+    if (dateFilter !== "all") {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let startDate: Date | null = null;
+      let endDate: Date | null = null;
+      
+      switch (dateFilter) {
+        case "7d":
+          startDate = new Date(today);
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case "30d":
+          startDate = new Date(today);
+          startDate.setDate(startDate.getDate() - 30);
+          break;
+        case "90d":
+          startDate = new Date(today);
+          startDate.setDate(startDate.getDate() - 90);
+          break;
+        case "this_month":
+          startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+          endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          break;
+        case "last_month":
+          startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+          endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+          break;
+        case "custom":
+          if (customStartDate) startDate = new Date(customStartDate);
+          if (customEndDate) endDate = new Date(customEndDate);
+          break;
+      }
+      
+      if (startDate || endDate) {
+        result = result.filter(sale => {
+          const saleDate = new Date(sale.sale_date);
+          saleDate.setHours(0, 0, 0, 0);
+          if (startDate && saleDate < startDate) return false;
+          if (endDate && saleDate > endDate) return false;
+          return true;
+        });
+      }
+    }
+    
     // Apply sorting
     result = [...result].sort((a, b) => {
       let aValue: string | number;
@@ -324,7 +385,7 @@ export function SalesManagement() {
     });
     
     return result;
-  }, [sales, searchTerm, statusFilter, sortField, sortDirection]);
+  }, [sales, searchTerm, statusFilter, productFilter, dateFilter, customStartDate, customEndDate, sortField, sortDirection]);
 
   // CSV Import functions
   function parseCSV(text: string): string[][] {
@@ -609,11 +670,66 @@ export function SalesManagement() {
                 </SelectContent>
               </Select>
               
-              {statusFilter !== "all" && (
+              <Select value={productFilter} onValueChange={setProductFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Produto" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Produtos</SelectItem>
+                  {uniqueProducts.map((product) => (
+                    <SelectItem key={product} value={product}>
+                      {product.length > 25 ? product.substring(0, 25) + '...' : product}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <Select value={dateFilter} onValueChange={setDateFilter}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Período" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todo Período</SelectItem>
+                  <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                  <SelectItem value="30d">Últimos 30 dias</SelectItem>
+                  <SelectItem value="90d">Últimos 90 dias</SelectItem>
+                  <SelectItem value="this_month">Este mês</SelectItem>
+                  <SelectItem value="last_month">Mês passado</SelectItem>
+                  <SelectItem value="custom">Personalizado</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {dateFilter === "custom" && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-[140px]"
+                    placeholder="Data inicial"
+                  />
+                  <span className="text-muted-foreground">a</span>
+                  <Input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-[140px]"
+                    placeholder="Data final"
+                  />
+                </div>
+              )}
+              
+              {(statusFilter !== "all" || productFilter !== "all" || dateFilter !== "all") && (
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  onClick={() => setStatusFilter("all")}
+                  onClick={() => {
+                    setStatusFilter("all");
+                    setProductFilter("all");
+                    setDateFilter("all");
+                    setCustomStartDate("");
+                    setCustomEndDate("");
+                  }}
                 >
                   Limpar filtros
                 </Button>

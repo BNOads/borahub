@@ -39,6 +39,7 @@ export function SalesDashboard() {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [sellerFilter, setSellerFilter] = useState<string>('all');
+  const [productFilter, setProductFilter] = useState<string>('all');
   const [productSortBy, setProductSortBy] = useState<'value' | 'count'>('value');
   const [productPlatformFilter, setProductPlatformFilter] = useState<'all' | 'hotmart' | 'asaas'>('all');
   const [productPage, setProductPage] = useState(1);
@@ -57,6 +58,13 @@ export function SalesDashboard() {
   const { data: sellers } = useSellers();
   
   const isLoading = salesLoading || summaryLoading || installmentsLoading;
+  
+  // Get unique product names for filter
+  const uniqueProducts = useMemo(() => {
+    if (!sales) return [];
+    const productNames = new Set(sales.map(s => s.product_name));
+    return Array.from(productNames).sort();
+  }, [sales]);
   
   // Get date range based on period filter
   const dateRange = useMemo(() => {
@@ -83,7 +91,7 @@ export function SalesDashboard() {
     }
   }, [periodFilter, customStartDate, customEndDate]);
   
-  // Filter sales based on period and seller
+  // Filter sales based on period, seller, and product
   const filteredSales = useMemo(() => {
     if (!sales) return [];
     
@@ -101,9 +109,14 @@ export function SalesDashboard() {
         return false;
       }
       
+      // Product filter
+      if (productFilter !== 'all' && sale.product_name !== productFilter) {
+        return false;
+      }
+      
       return true;
     });
-  }, [sales, dateRange, sellerFilter, isAdminOrManager]);
+  }, [sales, dateRange, sellerFilter, productFilter, isAdminOrManager]);
   
   // Filter installments based on role
   const userInstallments = isAdminOrManager 
@@ -263,7 +276,7 @@ export function SalesDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Period Filter */}
             <div className="space-y-2">
               <Label className="flex items-center gap-2 text-sm">
@@ -286,30 +299,29 @@ export function SalesDashboard() {
               </Select>
             </div>
             
-            {/* Custom date range */}
-            {periodFilter === 'custom' && (
-              <>
-                <div className="space-y-2">
-                  <Label className="text-sm">Data inicial</Label>
-                  <Input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm">Data final</Label>
-                  <Input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                  />
-                </div>
-              </>
-            )}
+            {/* Product Filter */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2 text-sm">
+                <Package className="h-4 w-4" />
+                Produto
+              </Label>
+              <Select value={productFilter} onValueChange={setProductFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos os produtos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os produtos</SelectItem>
+                  {uniqueProducts.map((product) => (
+                    <SelectItem key={product} value={product}>
+                      {product.length > 30 ? product.substring(0, 30) + '...' : product}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             
             {/* Seller Filter (only for admin/manager) */}
-            {isAdminOrManager && periodFilter !== 'custom' && (
+            {isAdminOrManager && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm">
                   <User className="h-4 w-4" />
@@ -331,26 +343,25 @@ export function SalesDashboard() {
               </div>
             )}
             
-            {/* Seller filter when custom dates are shown */}
-            {isAdminOrManager && periodFilter === 'custom' && (
-              <div className="space-y-2 md:col-span-3">
-                <Label className="flex items-center gap-2 text-sm">
-                  <User className="h-4 w-4" />
-                  Vendedor
-                </Label>
-                <Select value={sellerFilter} onValueChange={setSellerFilter}>
-                  <SelectTrigger className="max-w-xs">
-                    <SelectValue placeholder="Todos os vendedores" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os vendedores</SelectItem>
-                    {sellers?.map((seller) => (
-                      <SelectItem key={seller.id} value={seller.id}>
-                        {seller.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {/* Custom date range */}
+            {periodFilter === 'custom' && (
+              <div className="space-y-2 md:col-span-4">
+                <Label className="text-sm">Período personalizado</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="max-w-[160px]"
+                  />
+                  <span className="text-muted-foreground">a</span>
+                  <Input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="max-w-[160px]"
+                  />
+                </div>
               </div>
             )}
           </div>
