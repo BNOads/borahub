@@ -59,11 +59,24 @@ export function SalesDashboard() {
   
   const isLoading = salesLoading || summaryLoading || installmentsLoading;
   
-  // Get unique product names for filter
+  // Get unique product names for filter (normalized to avoid duplicates)
   const uniqueProducts = useMemo(() => {
     if (!sales) return [];
-    const productNames = new Set(sales.map(s => s.product_name));
-    return Array.from(productNames).sort();
+    
+    // Normalize product names and group by normalized version
+    const normalizedMap = new Map<string, string>();
+    sales.forEach(s => {
+      if (!s.product_name) return;
+      const normalized = s.product_name.trim().toLowerCase().replace(/\s+/g, ' ');
+      // Keep the first occurrence's original casing
+      if (!normalizedMap.has(normalized)) {
+        normalizedMap.set(normalized, s.product_name.trim());
+      }
+    });
+    
+    return Array.from(normalizedMap.values()).sort((a, b) => 
+      a.toLowerCase().localeCompare(b.toLowerCase())
+    );
   }, [sales]);
   
   // Get date range based on period filter
@@ -109,9 +122,13 @@ export function SalesDashboard() {
         return false;
       }
       
-      // Product filter
-      if (productFilter !== 'all' && sale.product_name !== productFilter) {
-        return false;
+      // Product filter (normalized matching)
+      if (productFilter !== 'all') {
+        const saleNormalized = sale.product_name?.trim().toLowerCase().replace(/\s+/g, ' ') || '';
+        const filterNormalized = productFilter.trim().toLowerCase().replace(/\s+/g, ' ');
+        if (saleNormalized !== filterNormalized) {
+          return false;
+        }
       }
       
       return true;
