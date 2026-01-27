@@ -80,6 +80,8 @@ export type TaskInsert = {
   due_time?: string | null;
   completed?: boolean;
   position?: number | null;
+  recurrence?: RecurrenceType | null;
+  recurrence_end_date?: string | null;
 };
 
 export type TaskUpdate = Partial<Omit<Task, "id" | "created_at" | "updated_at">>;

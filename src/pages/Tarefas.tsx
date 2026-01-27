@@ -283,6 +283,8 @@ export default function Tarefas() {
           due_time: formData.dueTime || null,
           completed: false,
           position: 0,
+          recurrence: formData.recurrence !== "none" ? formData.recurrence : null,
+          recurrence_end_date: formData.recurrenceEndDate || null,
         });
         toast({ title: "Tarefa criada" });
       }
