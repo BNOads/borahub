@@ -1,17 +1,18 @@
 import { useState } from "react";
-import { Play, Film, ExternalLink } from "lucide-react";
+import { Play, Film, ExternalLink, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getVideoInfo } from "@/lib/videoUtils";
+import { getMediaInfo } from "@/lib/videoUtils";
 
-interface VideoEmbedProps {
+interface MediaEmbedProps {
     url: string;
     className?: string;
     showPlayButton?: boolean;
 }
 
-export function VideoEmbed({ url, className, showPlayButton = true }: VideoEmbedProps) {
+export function VideoEmbed({ url, className, showPlayButton = true }: MediaEmbedProps) {
     const [isPlaying, setIsPlaying] = useState(false);
-    const videoInfo = getVideoInfo(url);
+    const [imageError, setImageError] = useState(false);
+    const mediaInfo = getMediaInfo(url);
 
     if (!url) return null;
 
@@ -19,12 +20,39 @@ export function VideoEmbed({ url, className, showPlayButton = true }: VideoEmbed
         setIsPlaying(true);
     };
 
-    // Se está tocando, mostra o iframe
+    // Se for imagem, renderiza diretamente
+    if (mediaInfo.isImage) {
+        return (
+            <div className={cn("relative w-full aspect-video rounded-2xl overflow-hidden bg-muted", className)}>
+                {!imageError ? (
+                    <img
+                        src={url}
+                        alt="Post media"
+                        className="w-full h-full object-cover"
+                        onError={() => setImageError(true)}
+                    />
+                ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-muted to-muted/50">
+                        <ImageIcon className="h-16 w-16 text-muted-foreground/30" />
+                    </div>
+                )}
+                {/* Badge do tipo */}
+                <div className="absolute top-3 left-3">
+                    <div className="px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white text-xs font-bold flex items-center gap-1.5">
+                        <ImageIcon className="h-3.5 w-3.5" />
+                        Imagem
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Se está tocando, mostra o iframe (para vídeos)
     if (isPlaying) {
         return (
             <div className={cn("relative w-full aspect-video rounded-2xl overflow-hidden bg-black", className)}>
                 <iframe
-                    src={videoInfo.embedUrl}
+                    src={mediaInfo.embedUrl}
                     className="w-full h-full"
                     allow="autoplay; encrypted-media; picture-in-picture"
                     allowFullScreen
@@ -33,7 +61,7 @@ export function VideoEmbed({ url, className, showPlayButton = true }: VideoEmbed
         );
     }
 
-    // Thumbnail com botão de play
+    // Thumbnail com botão de play (para vídeos)
     return (
         <div 
             className={cn(
@@ -43,13 +71,12 @@ export function VideoEmbed({ url, className, showPlayButton = true }: VideoEmbed
             onClick={handlePlay}
         >
             {/* Thumbnail */}
-            {videoInfo.thumbnailUrl ? (
+            {mediaInfo.thumbnailUrl ? (
                 <img
-                    src={videoInfo.thumbnailUrl}
+                    src={mediaInfo.thumbnailUrl}
                     alt="Video thumbnail"
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     onError={(e) => {
-                        // Fallback se thumbnail não carregar
                         e.currentTarget.style.display = 'none';
                     }}
                 />
@@ -75,10 +102,10 @@ export function VideoEmbed({ url, className, showPlayButton = true }: VideoEmbed
             <div className="absolute top-3 left-3">
                 <div className="px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm text-white text-xs font-bold flex items-center gap-1.5">
                     <Film className="h-3.5 w-3.5" />
-                    {videoInfo.type === "google-drive" && "Google Drive"}
-                    {videoInfo.type === "youtube" && "YouTube"}
-                    {videoInfo.type === "vimeo" && "Vimeo"}
-                    {videoInfo.type === "unknown" && "Vídeo"}
+                    {mediaInfo.type === "google-drive" && "Google Drive"}
+                    {mediaInfo.type === "youtube" && "YouTube"}
+                    {mediaInfo.type === "vimeo" && "Vimeo"}
+                    {mediaInfo.type === "unknown" && "Vídeo"}
                 </div>
             </div>
         </div>
