@@ -1,6 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   ArrowLeft,
   Save,
   Eye,
@@ -54,6 +71,7 @@ import {
   useUpdateQuestion,
   useDeleteQuestion,
   useDuplicateQuestion,
+  useReorderQuestions,
   useCreateOption,
   useUpdateOption,
   useDeleteOption,
@@ -117,12 +135,25 @@ export default function QuizBuilder() {
   const updateQuestion = useUpdateQuestion();
   const deleteQuestion = useDeleteQuestion();
   const duplicateQuestion = useDuplicateQuestion();
+  const reorderQuestions = useReorderQuestions();
   const createOption = useCreateOption();
   const updateOption = useUpdateOption();
   const deleteOption = useDeleteOption();
   const createDiagnosis = useCreateDiagnosis();
   const updateDiagnosisMutation = useUpdateDiagnosis();
   const deleteDiagnosis = useDeleteDiagnosis();
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const [activeTab, setActiveTab] = useState("intro");
   const [expandedQuestions, setExpandedQuestions] = useState<string[]>([]);
@@ -262,6 +293,21 @@ export default function QuizBuilder() {
         ? prev.filter((id) => id !== questionId)
         : [...prev, questionId]
     );
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id && quiz?.questions) {
+      const oldIndex = quiz.questions.findIndex((q) => q.id === active.id);
+      const newIndex = quiz.questions.findIndex((q) => q.id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const newOrder = arrayMove(quiz.questions, oldIndex, newIndex);
+        const questionIds = newOrder.map((q) => q.id);
+        reorderQuestions.mutate({ quizId: id!, questionIds });
+      }
+    }
   };
 
   if (isLoading) {
@@ -472,22 +518,33 @@ export default function QuizBuilder() {
 
           {/* Questions Tab */}
           <TabsContent value="questions" className="space-y-4">
-            {quiz.questions?.map((question, index) => (
-              <QuestionEditor
-                key={question.id}
-                question={question}
-                index={index}
-                quizId={id!}
-                isExpanded={expandedQuestions.includes(question.id)}
-                onToggle={() => toggleQuestionExpanded(question.id)}
-                onUpdate={(data) => updateQuestion.mutate({ ...data, id: question.id, quiz_id: id! })}
-                onDelete={() => deleteQuestion.mutate({ id: question.id, quiz_id: id! })}
-                onDuplicate={() => duplicateQuestion.mutate({ questionId: question.id, quizId: id! })}
-                onAddOption={() => handleAddOption(question.id)}
-                onUpdateOption={(optionId, data) => updateOption.mutate({ ...data, id: optionId, quiz_id: id! })}
-                onDeleteOption={(optionId) => deleteOption.mutate({ id: optionId, quiz_id: id! })}
-              />
-            ))}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={quiz.questions?.map((q) => q.id) || []}
+                strategy={verticalListSortingStrategy}
+              >
+                {quiz.questions?.map((question, index) => (
+                  <SortableQuestionItem
+                    key={question.id}
+                    question={question}
+                    index={index}
+                    quizId={id!}
+                    isExpanded={expandedQuestions.includes(question.id)}
+                    onToggle={() => toggleQuestionExpanded(question.id)}
+                    onUpdate={(data) => updateQuestion.mutate({ ...data, id: question.id, quiz_id: id! })}
+                    onDelete={() => deleteQuestion.mutate({ id: question.id, quiz_id: id! })}
+                    onDuplicate={() => duplicateQuestion.mutate({ questionId: question.id, quizId: id! })}
+                    onAddOption={() => handleAddOption(question.id)}
+                    onUpdateOption={(optionId, data) => updateOption.mutate({ ...data, id: optionId, quiz_id: id! })}
+                    onDeleteOption={(optionId) => deleteOption.mutate({ id: optionId, quiz_id: id! })}
+                  />
+                ))}
+              </SortableContext>
+            </DndContext>
             
             <div className="grid grid-cols-2 gap-3">
               <Button onClick={handleAddQuestion} className="w-full" variant="outline">
@@ -792,6 +849,42 @@ Exemplo:
   );
 }
 
+// Sortable Question Item wrapper
+function SortableQuestionItem(props: {
+  question: QuizQuestion;
+  index: number;
+  quizId: string;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onUpdate: (data: Partial<QuizQuestion>) => void;
+  onDelete: () => void;
+  onDuplicate: () => void;
+  onAddOption: () => void;
+  onUpdateOption: (optionId: string, data: Partial<QuizOption>) => void;
+  onDeleteOption: (optionId: string) => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: props.question.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <QuestionEditor {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  );
+}
+
 // Question Editor Component with local state and debounce
 function QuestionEditor({
   question,
@@ -805,6 +898,7 @@ function QuestionEditor({
   onAddOption,
   onUpdateOption,
   onDeleteOption,
+  dragHandleProps,
 }: {
   question: QuizQuestion;
   index: number;
@@ -817,6 +911,7 @@ function QuestionEditor({
   onAddOption: () => void;
   onUpdateOption: (optionId: string, data: Partial<QuizOption>) => void;
   onDeleteOption: (optionId: string) => void;
+  dragHandleProps?: Record<string, any>;
 }) {
   const isContentBlock = ["content", "testimonial", "divider"].includes(question.question_type);
   
@@ -880,7 +975,13 @@ function QuestionEditor({
           <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <GripVertical className="h-5 w-5 text-muted-foreground" />
+                <div
+                  className="cursor-grab active:cursor-grabbing touch-none"
+                  {...dragHandleProps}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <GripVertical className="h-5 w-5 text-muted-foreground" />
+                </div>
                 <Badge variant={isContentBlock ? "secondary" : "outline"}>{index + 1}</Badge>
                 <div>
                   <CardTitle className="text-base">
