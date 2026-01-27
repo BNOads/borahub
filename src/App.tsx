@@ -43,6 +43,7 @@ import QuizAnalytics from "./pages/QuizAnalytics";
 import PublicQuiz from "./pages/PublicQuiz";
 import RelatoriosView from "./pages/RelatoriosView";
 import ValidadorCopy from "./pages/ValidadorCopy";
+import TranscricoesView from "./pages/TranscricoesView";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -113,6 +114,7 @@ const App = () => (
               <Route path="/quizzes/:id/analytics" element={<QuizAnalytics />} />
               <Route path="/relatorios" element={<RelatoriosView />} />
               <Route path="/validador-copy" element={<ValidadorCopy />} />
+              <Route path="/transcricoes" element={<TranscricoesView />} />
               <Route path="/perfil" element={<Perfil />} />
               
               {/* Rotas admin */}
