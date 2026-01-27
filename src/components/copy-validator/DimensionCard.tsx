@@ -34,7 +34,9 @@ export function DimensionCard({ dimension }: DimensionCardProps) {
   const statusColor = getDimensionStatusColor(dimension.status);
   const progressColor = getProgressColor(dimension.pontuacao);
   
-  const hasDetails = dimension.problemas.length > 0 || dimension.sugestoes.length > 0 || dimension.exemplo_bora;
+  // Only show details if there are problems, or suggestions when score is not good (< 80)
+  const showSuggestions = dimension.pontuacao < 80 && dimension.sugestoes.length > 0;
+  const hasDetails = dimension.problemas.length > 0 || showSuggestions;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -94,7 +96,7 @@ export function DimensionCard({ dimension }: DimensionCardProps) {
               </div>
             )}
 
-            {dimension.sugestoes.length > 0 && (
+            {showSuggestions && (
               <div>
                 <h4 className="text-sm font-semibold text-emerald-500 mb-2 flex items-center gap-2">
                   <CheckCircle className="h-4 w-4" />
@@ -107,13 +109,6 @@ export function DimensionCard({ dimension }: DimensionCardProps) {
                     </li>
                   ))}
                 </ul>
-              </div>
-            )}
-
-            {dimension.exemplo_bora && (
-              <div className="bg-accent/5 border border-accent/10 rounded-lg p-3">
-                <h4 className="text-sm font-semibold text-accent mb-2">💡 Exemplo BORAnaOBRA</h4>
-                <p className="text-sm text-muted-foreground italic">"{dimension.exemplo_bora}"</p>
               </div>
             )}
           </div>
