@@ -23,6 +23,7 @@ import {
     Wand2,
     GripVertical,
     FileText,
+    FileCheck,
     Bot
 } from "lucide-react";
 import {
@@ -61,6 +62,7 @@ import { NewPostModal } from "@/components/conteudo/NewPostModal";
 import { ProfileManagementModal } from "@/components/conteudo/ProfileManagementModal";
 import { DiretrizesView } from "@/components/conteudo/DiretrizesView";
 import { AgentesIAView } from "@/components/conteudo/AgentesIAView";
+import { CopyValidatorTab } from "@/components/copy-validator/CopyValidatorTab";
 import { useSocialPosts, useSocialProfiles, useUpdateSocialPost, SocialPost as ImportedSocialPost, SocialProfile as ImportedSocialProfile, SOCIAL_POSTS_KEY } from "@/hooks/useSocialPosts";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -133,7 +135,7 @@ interface SocialPost {
 
 export default function ConteudoView() {
     const { isAdmin } = useAuth();
-    const [view, setView] = useState<"grid" | "kanban" | "diretrizes" | "agentes">("grid");
+    const [view, setView] = useState<"grid" | "kanban" | "diretrizes" | "agentes" | "validador">("grid");
     const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -332,6 +334,14 @@ export default function ConteudoView() {
                                 <Bot className="h-4 w-4" />
                                 Agentes de IA
                             </Button>
+                            <Button
+                                variant={view === "validador" ? "gold" : "ghost"}
+                                className={cn("rounded-xl h-9 gap-2 px-4", view === "validador" && "shadow-md")}
+                                onClick={() => setView("validador")}
+                            >
+                                <FileCheck className="h-4 w-4" />
+                                Validador
+                            </Button>
                         </div>
                         <div className="flex items-center gap-3 w-full md:w-auto">
                             <div className="relative flex-1 md:w-80">
@@ -372,6 +382,9 @@ export default function ConteudoView() {
                     )}
                     {view === "agentes" && (
                         <AgentesIAView />
+                    )}
+                    {view === "validador" && (
+                        <CopyValidatorTab />
                     )}
 
                     <DragOverlay>
