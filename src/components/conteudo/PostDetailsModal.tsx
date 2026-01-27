@@ -73,12 +73,10 @@ interface PostDetailsModalProps {
     onUpdate: () => void;
 }
 
-const TEAM_MEMBERS = [
-    { id: '1', name: "Maria Santos", role: "Head de Marketing", color: "#3498db" },
-    { id: '2', name: "Pedro Lima", role: "Gestor de Tráfego", color: "#e74c3c" },
-    { id: '3', name: "Ana Oliveira", role: "Designer Gráfico", color: "#2ecc71" },
-    { id: '4', name: "Carlos Mendes", role: "Copywriter", color: "#f1c40f" },
-    { id: '5', name: "Fernanda Costa", role: "Social Media", color: "#9b59b6" },
+// Team members colors for visual differentiation
+const TEAM_COLORS = [
+    "#3498db", "#e74c3c", "#2ecc71", "#f1c40f", "#9b59b6", 
+    "#1abc9c", "#e67e22", "#34495e", "#16a085", "#d35400"
 ];
 
 const STATUS_PIPELINE = [
@@ -97,6 +95,12 @@ interface CampoExtra {
     value: string;
 }
 
+interface TeamMember {
+    id: string;
+    name: string;
+    job_title: string | null;
+}
+
 export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetailsModalProps) {
     const [comments, setComments] = useState<any[]>([]);
     const [history, setHistory] = useState<any[]>([]);
@@ -105,6 +109,7 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
     const [loading, setLoading] = useState(false);
     const [isEditingTheme, setIsEditingTheme] = useState(false);
     const [editedTheme, setEditedTheme] = useState("");
+    const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
 
     // Novos campos de conteúdo
     const [roteiro, setRoteiro] = useState("");
@@ -113,6 +118,26 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
     const [camposExtras, setCamposExtras] = useState<CampoExtra[]>([]);
     const [novoCampoLabel, setNovoCampoLabel] = useState("");
     const [savingContent, setSavingContent] = useState(false);
+
+    // Fetch team members from profiles
+    useEffect(() => {
+        async function fetchTeamMembers() {
+            const { data } = await supabase
+                .from("profiles")
+                .select("id, full_name, job_title")
+                .eq("is_active", true)
+                .order("full_name");
+            
+            if (data) {
+                setTeamMembers(data.map(p => ({
+                    id: p.id,
+                    name: p.full_name,
+                    job_title: p.job_title
+                })));
+            }
+        }
+        fetchTeamMembers();
+    }, []);
 
     useEffect(() => {
         if (post && isOpen) {
@@ -146,20 +171,39 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
         setHistory(data || []);
     }
 
-    const getSuggestedAssignee = (status: string) => {
-        switch (status) {
-            case 'Planejado':
-            case 'Em desenvolvimento de ideia': return '1'; // Maria (Head)
-            case 'Em produção visual ou vídeo': return '3'; // Ana (Designer)
-            case 'Em revisão': return '5'; // Fernanda (Social Media)
-            case 'Ajustes solicitados': return '4'; // Carlos (Copy)
-            default: return '1';
-        }
+    const getTeamMemberColor = (index: number) => {
+        return TEAM_COLORS[index % TEAM_COLORS.length];
     };
+
+    async function handleUpdateAssignee(newAssigneeId: string) {
+        try {
+            const { error } = await supabase
+                .from("social_posts")
+                .update({ current_assignee_id: newAssigneeId })
+                .eq("id", post.id);
+
+            if (error) throw error;
+
+            const oldMember = teamMembers.find(m => m.id === post.current_assignee_id);
+            const newMember = teamMembers.find(m => m.id === newAssigneeId);
+
+            await supabase.from("post_history").insert({
+                post_id: post.id,
+                action: "Responsável alterado",
+                field_changed: "current_assignee_id",
+                old_value: oldMember?.name || post.current_assignee_id,
+                new_value: newMember?.name || newAssigneeId
+            });
+
+            toast.success("Responsável atualizado!");
+            onUpdate();
+        } catch (error: any) {
+            toast.error("Erro ao atualizar responsável: " + error.message);
+        }
+    }
 
     async function handleUpdateStatus(newStatus: string) {
         try {
-            const suggested = getSuggestedAssignee(newStatus);
             const { error } = await supabase
                 .from("social_posts")
                 .update({
@@ -410,15 +454,18 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
 
                             <div className="bg-background/80 p-5 rounded-3xl border border-border shadow-inner">
                                 <span className="text-[10px] uppercase font-black text-accent block mb-3 tracking-[0.2em] pl-1">Responsável</span>
-                                <Select defaultValue={'1'}>
+                                <Select 
+                                    value={post.current_assignee_id || ""} 
+                                    onValueChange={handleUpdateAssignee}
+                                >
                                     <SelectTrigger className="h-12 rounded-2xl bg-muted/30 border-none font-black shadow-md">
-                                        <SelectValue />
+                                        <SelectValue placeholder="Selecione o responsável" />
                                     </SelectTrigger>
                                     <SelectContent className="rounded-2xl border-accent/10 z-[100]">
-                                        {TEAM_MEMBERS.map(m => (
+                                        {teamMembers.map((m, index) => (
                                             <SelectItem key={m.id} value={m.id} className="font-bold">
                                                 <div className="flex items-center gap-2">
-                                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: m.color }} />
+                                                    <div className="h-2 w-2 rounded-full" style={{ backgroundColor: getTeamMemberColor(index) }} />
                                                     {m.name}
                                                 </div>
                                             </SelectItem>
