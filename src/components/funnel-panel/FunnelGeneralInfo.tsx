@@ -32,6 +32,7 @@ interface FunnelGeneralInfoProps {
   funnel: FunnelData;
   onUpdate: () => void;
   isLaunchCategory?: boolean;
+  isEventoPresencial?: boolean;
 }
 
 const CATEGORIES = [
@@ -112,7 +113,7 @@ function InfoCard({ label, value, icon, colorClass, isBadge, isEmpty }: InfoCard
   );
 }
 
-export function FunnelGeneralInfo({ funnel, onUpdate, isLaunchCategory = true }: FunnelGeneralInfoProps) {
+export function FunnelGeneralInfo({ funnel, onUpdate, isLaunchCategory = true, isEventoPresencial = false }: FunnelGeneralInfoProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     name: funnel.name || "",
@@ -157,6 +158,10 @@ export function FunnelGeneralInfo({ funnel, onUpdate, isLaunchCategory = true }:
     setIsEditing(false);
   };
 
+  // Determina se deve mostrar campos de lançamento (Código, Tipo de Aulas, Tipo de Lançamento)
+  // Evento presencial é lançamento mas não usa esses campos
+  const showLaunchFields = isLaunchCategory && !isEventoPresencial;
+
   // Modo Visualização
   if (!isEditing) {
     return (
@@ -174,7 +179,7 @@ export function FunnelGeneralInfo({ funnel, onUpdate, isLaunchCategory = true }:
           </div>
         </CardHeader>
         <CardContent>
-          <div className={`grid grid-cols-2 ${isLaunchCategory ? "md:grid-cols-3" : "md:grid-cols-2"} gap-3`}>
+          <div className={`grid grid-cols-2 ${showLaunchFields ? "md:grid-cols-3" : "md:grid-cols-2"} gap-3`}>
             {/* Identificação - Azul */}
             <InfoCard
               label="Nome do Funil"
@@ -183,8 +188,8 @@ export function FunnelGeneralInfo({ funnel, onUpdate, isLaunchCategory = true }:
               colorClass="bg-blue-500/10 text-blue-600 border-blue-500/20"
               isEmpty={!funnel.name}
             />
-            {/* Código - Só para lançamentos */}
-            {isLaunchCategory && (
+            {/* Código - Só para lançamentos (exceto evento presencial) */}
+            {showLaunchFields && (
               <InfoCard
                 label="Código"
                 value={funnel.code}
@@ -209,8 +214,8 @@ export function FunnelGeneralInfo({ funnel, onUpdate, isLaunchCategory = true }:
               isBadge
               isEmpty={!funnel.category}
             />
-            {/* Configuração - Verde - Só para lançamentos */}
-            {isLaunchCategory && (
+            {/* Configuração - Verde - Só para lançamentos (exceto evento presencial) */}
+            {showLaunchFields && (
               <>
                 <InfoCard
                   label="Tipo de Aulas"
@@ -256,7 +261,7 @@ export function FunnelGeneralInfo({ funnel, onUpdate, isLaunchCategory = true }:
         </div>
       </CardHeader>
       <CardContent>
-        <div className={`grid grid-cols-1 ${isLaunchCategory ? "md:grid-cols-2" : "md:grid-cols-2"} gap-4`}>
+        <div className={`grid grid-cols-1 ${showLaunchFields ? "md:grid-cols-2" : "md:grid-cols-2"} gap-4`}>
           <div className="space-y-2">
             <Label className="text-blue-600">Nome do Funil</Label>
             <Input
@@ -265,7 +270,7 @@ export function FunnelGeneralInfo({ funnel, onUpdate, isLaunchCategory = true }:
               className="border-blue-500/30 focus-visible:ring-blue-500"
             />
           </div>
-          {isLaunchCategory && (
+          {showLaunchFields && (
             <div className="space-y-2">
               <Label className="text-blue-600">Código/Versão</Label>
               <Input
@@ -302,7 +307,7 @@ export function FunnelGeneralInfo({ funnel, onUpdate, isLaunchCategory = true }:
               </SelectContent>
             </Select>
           </div>
-          {isLaunchCategory && (
+          {showLaunchFields && (
             <>
               <div className="space-y-2">
                 <Label className="text-green-600">Tipo de Aulas</Label>
