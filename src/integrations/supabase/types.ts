@@ -2831,6 +2831,74 @@ export type Database = {
           },
         ]
       }
+      transcriptions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          duration_seconds: number | null
+          error_message: string | null
+          id: string
+          language: string | null
+          original_file_name: string | null
+          original_file_path: string | null
+          source_id: string | null
+          source_type: string
+          speakers_count: number | null
+          status: string | null
+          title: string
+          transcript_segments: Json | null
+          transcript_text: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          id?: string
+          language?: string | null
+          original_file_name?: string | null
+          original_file_path?: string | null
+          source_id?: string | null
+          source_type: string
+          speakers_count?: number | null
+          status?: string | null
+          title: string
+          transcript_segments?: Json | null
+          transcript_text?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          error_message?: string | null
+          id?: string
+          language?: string | null
+          original_file_name?: string | null
+          original_file_path?: string | null
+          source_id?: string | null
+          source_type?: string
+          speakers_count?: number | null
+          status?: string | null
+          title?: string
+          transcript_segments?: Json | null
+          transcript_text?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transcriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_lesson_progress: {
         Row: {
           completed: boolean | null
