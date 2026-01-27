@@ -19,7 +19,7 @@ export default function RelatoriosView() {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
-  const { data: reports, isLoading } = useReports(
+  const { data: reports, isLoading, refetch } = useReports(
     typeFilter !== "all" ? { report_type: typeFilter } : undefined
   );
 
@@ -46,6 +46,17 @@ export default function RelatoriosView() {
     }
   };
 
+  const handleReportUpdated = async () => {
+    // Refetch reports and update the selected report
+    await refetch();
+    if (selectedReport) {
+      const updated = reports?.find((r) => r.id === selectedReport.id);
+      if (updated) {
+        setSelectedReport(updated);
+      }
+    }
+  };
+
   // If viewing a specific report
   if (selectedReport) {
     return (
@@ -55,6 +66,7 @@ export default function RelatoriosView() {
           onBack={() => setSelectedReport(null)}
           onDownload={() => handleDownloadPDF(selectedReport)}
           onGenerateSuggestion={handleGenerateSuggestion}
+          onReportUpdated={handleReportUpdated}
         />
       </div>
     );
