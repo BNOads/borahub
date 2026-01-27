@@ -1,10 +1,22 @@
-// Utilitario para lidar com URLs de video (YouTube, Google Drive, Vimeo)
+// Utilitario para lidar com URLs de midia (YouTube, Google Drive, Vimeo, imagens)
 
-export interface VideoInfo {
-  type: "youtube" | "google-drive" | "vimeo" | "unknown";
+export type MediaType = "youtube" | "google-drive" | "vimeo" | "image" | "unknown";
+
+export interface MediaInfo {
+  type: MediaType;
   id: string | null;
   embedUrl: string;
   thumbnailUrl: string | null;
+  isImage: boolean;
+}
+
+// Extensoes de imagem suportadas
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico'];
+
+// Verificar se eh uma URL de imagem
+function isImageUrl(url: string): boolean {
+  const lowerUrl = url.toLowerCase();
+  return IMAGE_EXTENSIONS.some(ext => lowerUrl.includes(ext));
 }
 
 // Extrair ID do YouTube
@@ -41,10 +53,21 @@ function getVimeoId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-// Obter informacoes do video a partir da URL
-export function getVideoInfo(url: string): VideoInfo {
+// Obter informacoes da midia a partir da URL
+export function getMediaInfo(url: string): MediaInfo {
   if (!url) {
-    return { type: "unknown", id: null, embedUrl: "", thumbnailUrl: null };
+    return { type: "unknown", id: null, embedUrl: "", thumbnailUrl: null, isImage: false };
+  }
+
+  // Verificar se eh imagem primeiro
+  if (isImageUrl(url)) {
+    return {
+      type: "image",
+      id: null,
+      embedUrl: url,
+      thumbnailUrl: url,
+      isImage: true,
+    };
   }
 
   // YouTube
@@ -55,6 +78,7 @@ export function getVideoInfo(url: string): VideoInfo {
       id,
       embedUrl: id ? `https://www.youtube.com/embed/${id}` : url,
       thumbnailUrl: id ? `https://img.youtube.com/vi/${id}/maxresdefault.jpg` : null,
+      isImage: false,
     };
   }
 
@@ -66,6 +90,7 @@ export function getVideoInfo(url: string): VideoInfo {
       id,
       embedUrl: id ? `https://drive.google.com/file/d/${id}/preview` : url,
       thumbnailUrl: id ? `https://drive.google.com/thumbnail?id=${id}&sz=w640` : null,
+      isImage: false,
     };
   }
 
@@ -77,6 +102,7 @@ export function getVideoInfo(url: string): VideoInfo {
       id,
       embedUrl: id ? `https://player.vimeo.com/video/${id}` : url,
       thumbnailUrl: null, // Vimeo precisa de API para thumbnail
+      isImage: false,
     };
   }
 
@@ -86,12 +112,23 @@ export function getVideoInfo(url: string): VideoInfo {
     id: null,
     embedUrl: url,
     thumbnailUrl: null,
+    isImage: false,
   };
 }
 
-// Verificar se eh uma URL de video valida
-export function isVideoUrl(url: string): boolean {
+// Alias para compatibilidade
+export function getVideoInfo(url: string): MediaInfo {
+  return getMediaInfo(url);
+}
+
+// Verificar se eh uma URL de midia valida
+export function isMediaUrl(url: string): boolean {
   if (!url) return false;
-  const info = getVideoInfo(url);
-  return info.type !== "unknown" || url.includes("embed") || url.includes("player");
+  const info = getMediaInfo(url);
+  return info.type !== "unknown" || url.includes("embed") || url.includes("player") || info.isImage;
+}
+
+// Alias para compatibilidade
+export function isVideoUrl(url: string): boolean {
+  return isMediaUrl(url);
 }
