@@ -143,9 +143,13 @@ export function useCreateTask() {
       if (error) throw error;
       return data as Task;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: taskKeys.today() });
+      // Invalidar query do usuário assignee
+      if (data.assignee) {
+        queryClient.invalidateQueries({ queryKey: taskKeys.byUser(data.assignee) });
+      }
     },
   });
 }
@@ -200,10 +204,17 @@ export function useUpdateTask() {
       
       return data as Task;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: taskKeys.today() });
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(variables.id) });
+      // Invalidar queries do usuário assignee (atual e anterior)
+      if (data.assignee) {
+        queryClient.invalidateQueries({ queryKey: taskKeys.byUser(data.assignee) });
+      }
+      if (variables.previousAssignee && variables.previousAssignee !== data.assignee) {
+        queryClient.invalidateQueries({ queryKey: taskKeys.byUser(variables.previousAssignee) });
+      }
     },
   });
 }
@@ -223,6 +234,8 @@ export function useDeleteTask() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: taskKeys.today() });
+      // Invalidar todas as queries por usuário
+      queryClient.invalidateQueries({ queryKey: ["tasks", "user"] });
     },
   });
 }

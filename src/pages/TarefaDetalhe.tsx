@@ -30,6 +30,7 @@ import {
   Trash2,
   Link as LinkIcon,
   Copy,
+  Repeat,
 } from "lucide-react";
 import {
   useTask,
@@ -42,7 +43,11 @@ import { CommentSection } from "@/components/tasks/CommentSection";
 import { HistoryTimeline } from "@/components/tasks/HistoryTimeline";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import type { TaskPriority, TaskFormData } from "@/types/tasks";
+import type { TaskPriority, TaskFormData, RecurrenceType } from "@/types/tasks";
+import { RECURRENCE_LABELS } from "@/types/tasks";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const categories = [
   "Lancamento",
@@ -52,24 +57,32 @@ const categories = [
   "Administrativo",
 ];
 
-const team = [
-  "Maria Santos",
-  "Pedro Lima",
-  "Ana Costa",
-  "Lucas Oliveira",
-  "Julia Silva",
-];
-
 export default function TarefaDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { authReady, session } = useAuth();
 
   const { data: task, isLoading, error } = useTask(id || null);
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const toggleComplete = useToggleTaskComplete();
 
+  // Buscar usuarios reais do banco
+  const { data: users = [] } = useQuery({
+    queryKey: ["profiles-for-task-detail"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, display_name, avatar_url")
+        .eq("is_active", true)
+        .order("full_name");
+
+      if (error) return [];
+      return data;
+    },
+    enabled: authReady && !!session,
+  });
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<TaskFormData | null>(null);
 
@@ -83,8 +96,8 @@ export default function TarefaDetalhe() {
         assignee: task.assignee || "",
         dueDate: task.due_date || "",
         dueTime: task.due_time || "",
-        recurrence: "none",
-        recurrenceEndDate: "",
+        recurrence: (task.recurrence as RecurrenceType) || "none",
+        recurrenceEndDate: task.recurrence_end_date || "",
       });
       setIsEditing(true);
     }
@@ -180,9 +193,17 @@ export default function TarefaDetalhe() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
-    const date = new Date(dateString + "T00:00:00");
+    // Handle both date-only strings (YYYY-MM-DD) and full timestamps
+    const isTimestamp = dateString.includes('T') || dateString.includes(' ');
+    const date = isTimestamp ? new Date(dateString) : new Date(dateString + "T00:00:00");
+    
+    if (isNaN(date.getTime())) return null;
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    
+    const dateOnly = new Date(date);
+    dateOnly.setHours(0, 0, 0, 0);
     
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -190,9 +211,9 @@ export default function TarefaDetalhe() {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     
-    if (date.getTime() === today.getTime()) return "Hoje";
-    if (date.getTime() === tomorrow.getTime()) return "Amanhã";
-    if (date.getTime() === yesterday.getTime()) return "Ontem";
+    if (dateOnly.getTime() === today.getTime()) return "Hoje";
+    if (dateOnly.getTime() === tomorrow.getTime()) return "Amanhã";
+    if (dateOnly.getTime() === yesterday.getTime()) return "Ontem";
     
     return date.toLocaleDateString("pt-BR", {
       day: "2-digit",
@@ -475,9 +496,9 @@ export default function TarefaDetalhe() {
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
-                      {team.map((member) => (
-                        <SelectItem key={member} value={member}>
-                          {member}
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.full_name}>
+                          {user.full_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -523,6 +544,26 @@ export default function TarefaDetalhe() {
                   </p>
                 )}
               </div>
+
+              {/* Recurrence Info */}
+              {task.recurrence && task.recurrence !== "none" && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Repeat className="h-3 w-3" />
+                    Recorrência
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="border-accent text-accent">
+                      {RECURRENCE_LABELS[task.recurrence as RecurrenceType]}
+                    </Badge>
+                  </div>
+                  {task.recurrence_end_date && (
+                    <p className="text-xs text-muted-foreground">
+                      Até {formatDate(task.recurrence_end_date)}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="pt-4 border-t">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
