@@ -82,9 +82,9 @@ export function ActiveLaunches() {
     enabled: authReady && !!session,
   });
 
-  // Fetch revenue for all active funnels (only for admins)
+  // Fetch revenue for all active funnels - last 30 days (only for admins)
   const { data: funnelRevenues = {} } = useQuery({
-    queryKey: ['funnels-revenues', funnels.map(f => f.id)],
+    queryKey: ['funnels-revenues-30d', funnels.map(f => f.id)],
     queryFn: async () => {
       if (!funnels.length) return {};
 
@@ -100,11 +100,17 @@ export function ActiveLaunches() {
 
       if (!funnelProducts?.length) return {};
 
-      // Get all active sales
+      // Calculate date 30 days ago
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const startDate = thirtyDaysAgo.toISOString().split('T')[0];
+
+      // Get active sales from last 30 days
       const { data: allSales } = await supabase
         .from("sales")
-        .select("id, total_value, product_id, product_name")
-        .eq("status", "active");
+        .select("id, total_value, product_id, product_name, sale_date")
+        .eq("status", "active")
+        .gte("sale_date", startDate);
 
       if (!allSales?.length) return {};
 
