@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -233,6 +233,9 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
   const [convertModalOpen, setConvertModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ id: string; title: string } | null>(null);
   
+  // Flag para evitar auto-add após limpeza manual
+  const wasManuallyCleared = useRef(false);
+  
   // Expandir categorias padrão baseado no tipo de funil
   const defaultExpanded = funnelCategory === "Evento presencial" 
     ? new Set(["planejamento", "custom"]) 
@@ -247,10 +250,11 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
     return DEFAULT_CHECKLIST_ITEMS;
   };
 
-  // Auto-adicionar itens padrão quando o checklist estiver vazio
+  // Auto-adicionar itens padrão quando o checklist estiver vazio (apenas na primeira vez)
   useEffect(() => {
     const autoAddItems = async () => {
-      if (!isLoading && items.length === 0 && !isAddingDefaults) {
+      // Não auto-adiciona se foi limpo manualmente
+      if (!isLoading && items.length === 0 && !isAddingDefaults && !wasManuallyCleared.current) {
         await addDefaultItemsSilent();
       }
     };
@@ -365,6 +369,8 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
 
   const deleteAllItems = async () => {
     setIsDeletingAll(true);
+    // Marca que foi limpo manualmente para evitar auto-add
+    wasManuallyCleared.current = true;
     try {
       const { error } = await supabase
         .from("funnel_checklist")
@@ -376,6 +382,8 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
       refetch();
     } catch (error: any) {
       toast.error("Erro ao limpar checklist: " + error.message);
+      // Se deu erro, reseta a flag
+      wasManuallyCleared.current = false;
     } finally {
       setIsDeletingAll(false);
     }
