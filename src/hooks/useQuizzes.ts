@@ -557,6 +557,32 @@ export function useDeleteQuestion() {
   });
 }
 
+// Reorder questions
+export function useReorderQuestions() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ quizId, questionIds }: { quizId: string; questionIds: string[] }) => {
+      // Update all positions in parallel
+      const updates = questionIds.map((id, index) =>
+        supabase
+          .from("quiz_questions")
+          .update({ position: index })
+          .eq("id", id)
+      );
+
+      const results = await Promise.all(updates);
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) throw errors[0].error;
+
+      return quizId;
+    },
+    onSuccess: (quizId) => {
+      queryClient.invalidateQueries({ queryKey: ["quiz", quizId] });
+    },
+  });
+}
+
 // Duplicate question with all options
 export function useDuplicateQuestion() {
   const queryClient = useQueryClient();
