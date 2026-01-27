@@ -94,7 +94,17 @@ export function useCreateTranscription() {
 
       // 1. Upload file to storage
       onProgress?.(5, "Fazendo upload do arquivo...");
-      const filePath = `${user.id}/${Date.now()}-${file.name}`;
+      
+      // Sanitize filename: remove emojis, special chars, keep only alphanumeric, dots, dashes, underscores
+      const sanitizedName = file.name
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Remove accents
+        .replace(/[^\w\s.-]/g, "") // Remove special chars and emojis
+        .replace(/\s+/g, "_") // Replace spaces with underscores
+        .replace(/_+/g, "_") // Remove duplicate underscores
+        .trim() || "audio";
+      
+      const filePath = `${user.id}/${Date.now()}-${sanitizedName}`;
       const { error: uploadError } = await supabase.storage
         .from("video-uploads")
         .upload(filePath, file);
