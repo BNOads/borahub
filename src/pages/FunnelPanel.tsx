@@ -137,9 +137,6 @@ export default function FunnelPanel() {
 
         {/* Tab: Visão Geral */}
         <TabsContent value="overview" className="space-y-6">
-          {/* Informações Gerais (modo visualização) - Acima de tudo */}
-          <FunnelGeneralInfo funnel={funnel} onUpdate={fetchFunnel} isLaunchCategory={isLaunchCategory} isEventoPresencial={isEventoPresencial} />
-
           {/* Cards de Overview - Próximo Evento e Datas-chave só para lançamentos */}
           <div className={`grid grid-cols-1 ${isLaunchCategory ? "md:grid-cols-3" : "md:grid-cols-1"} gap-4`}>
             <FunnelBudgetOverview funnel={funnel} />

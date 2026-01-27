@@ -83,9 +83,11 @@ export function FunnelPanelHeader({ funnel, onUpdate }: FunnelPanelHeaderProps) 
                   {statusLabels[funnel.status || "active"]}
                 </Badge>
                 
-                <Badge variant="outline" className="uppercase text-xs">
-                  {funnel.visibility === "public" ? "Público" : "Interno"}
-                </Badge>
+                {funnel.category && (
+                  <Badge variant="outline" className="text-xs font-medium">
+                    {funnel.category}
+                  </Badge>
+                )}
                 
                 {funnel.predicted_investment && funnel.predicted_investment > 0 && (
                   <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
