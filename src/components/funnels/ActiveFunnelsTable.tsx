@@ -3,7 +3,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Folder, Pencil, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ExternalLink, Folder, Pencil, Trash2, AlertTriangle } from "lucide-react";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -18,6 +19,7 @@ import {
 import { Database } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 type Funnel = Database["public"]["Tables"]["funnels"]["Row"];
 
@@ -28,6 +30,36 @@ interface ActiveFunnelsTableProps {
 
 export function ActiveFunnelsTable({ funnels, onUpdate }: ActiveFunnelsTableProps) {
     const navigate = useNavigate();
+
+    // Fetch pending checklist items for all funnels
+    const { data: funnelChecklistPending = {} } = useQuery({
+        queryKey: ['funnels-table-checklist-pending', funnels.map(f => f.id)],
+        queryFn: async () => {
+            if (!funnels.length) return {};
+
+            const { data: checklistItems } = await supabase
+                .from("funnel_checklist")
+                .select("funnel_id, is_completed")
+                .in("funnel_id", funnels.map(f => f.id));
+
+            if (!checklistItems?.length) return {};
+
+            const pending: Record<string, number> = {};
+            funnels.forEach(f => {
+                const funnelItems = checklistItems.filter(item => item.funnel_id === f.id);
+                pending[f.id] = funnelItems.filter(item => !item.is_completed).length;
+            });
+
+            return pending;
+        },
+        enabled: funnels.length > 0,
+        staleTime: 2 * 60 * 1000,
+    });
+
+    // Sort funnels by pending count (descending)
+    const sortedFunnels = [...funnels].sort((a, b) => 
+        (funnelChecklistPending[b.id] || 0) - (funnelChecklistPending[a.id] || 0)
+    );
 
     const handleToggleActive = async (id: string, currentStatus: boolean, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -79,19 +111,20 @@ export function ActiveFunnelsTable({ funnels, onUpdate }: ActiveFunnelsTableProp
                         <TableHead className="w-[100px]">Status</TableHead>
                         <TableHead>Nome do Funil / Produto</TableHead>
                         <TableHead>Categoria</TableHead>
+                        <TableHead>Pendências</TableHead>
                         <TableHead>Investimento Previsto</TableHead>
                         <TableHead className="text-right">Ações</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {funnels.length === 0 ? (
+                    {sortedFunnels.length === 0 ? (
                         <TableRow>
                             <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">
                                 Nenhum funil ativo encontrado.
                             </TableCell>
                         </TableRow>
                     ) : (
-                        funnels.map((funnel) => (
+                        sortedFunnels.map((funnel) => (
                             <TableRow
                                 key={funnel.id}
                                 className="cursor-pointer hover:bg-muted/50"
@@ -117,6 +150,19 @@ export function ActiveFunnelsTable({ funnels, onUpdate }: ActiveFunnelsTableProp
                                     </div>
                                 </TableCell>
                                 <TableCell>{(funnel as any).category || "-"}</TableCell>
+                                <TableCell>
+                                    {funnelChecklistPending[funnel.id] > 0 ? (
+                                        <Badge 
+                                            variant="outline" 
+                                            className="border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950/30 gap-1"
+                                        >
+                                            <AlertTriangle className="h-3 w-3" />
+                                            {funnelChecklistPending[funnel.id]}
+                                        </Badge>
+                                    ) : (
+                                        <span className="text-muted-foreground">-</span>
+                                    )}
+                                </TableCell>
                                 <TableCell>
                                     {funnel.predicted_investment
                                         ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(funnel.predicted_investment)
