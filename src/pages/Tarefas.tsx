@@ -28,6 +28,7 @@ import {
   Plus,
   Calendar,
   User,
+  Users,
   Flag,
   Search,
   Filter,
@@ -62,6 +63,7 @@ import {
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { AdminTasksPanel } from "@/components/tasks/AdminTasksPanel";
 import { TaskKanban } from "@/components/tasks/TaskKanban";
+import { TasksByPersonView } from "@/components/tasks/TasksByPersonView";
 import type { TaskPriority, TaskWithSubtasks, TaskFormData, RecurrenceType } from "@/types/tasks";
 import { RECURRENCE_LABELS } from "@/types/tasks";
 import { Repeat } from "lucide-react";
@@ -89,7 +91,7 @@ const emptyFormData: TaskFormData = {
   recurrenceEndDate: "",
 };
 
-type ViewMode = "list" | "kanban";
+type ViewMode = "list" | "kanban" | "by-person";
 type TabView = "tasks" | "team" | "admin";
 
 export default function Tarefas() {
@@ -464,14 +466,27 @@ export default function Tarefas() {
                 size="sm"
                 onClick={() => setViewMode("list")}
                 className="h-8 px-3"
+                title="Lista"
               >
                 <LayoutList className="h-4 w-4" />
               </Button>
+              {tabView === "team" && (
+                <Button
+                  variant={viewMode === "by-person" ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("by-person")}
+                  className="h-8 px-3"
+                  title="Por pessoa"
+                >
+                  <Users className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant={viewMode === "kanban" ? "secondary" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode("kanban")}
                 className="h-8 px-3"
+                title="Kanban"
               >
                 <LayoutGrid className="h-4 w-4" />
               </Button>
@@ -812,6 +827,14 @@ export default function Tarefas() {
               onToggleComplete={handleToggleComplete}
               onChangePriority={handleChangePriority}
               isLoading={isLoading}
+            />
+          ) : viewMode === "by-person" && tabView === "team" ? (
+            <TasksByPersonView
+              tasks={tasks}
+              users={users}
+              isLoading={isLoading}
+              onToggleComplete={handleToggleComplete}
+              onViewDetail={handleOpenDetail}
             />
           ) : (
             <div className="space-y-6">
