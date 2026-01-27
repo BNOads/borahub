@@ -718,8 +718,8 @@ export default function PublicQuiz() {
                 </Card>
               )}
 
-              {/* CTA */}
-              {quiz.final_cta_url && (
+              {/* CTA - only show after diagnosis is generated */}
+              {quiz.final_cta_url && !isGeneratingAI && (
                 <Button
                   size="lg"
                   className="w-full"
