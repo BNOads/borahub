@@ -1,346 +1,245 @@
 
-# Plano: Ferramenta Relatórios com IA
+# Plano: Validador de Copy BORAnaOBRA
 
-## Visão Geral
+## Resumo
 
-Este plano detalha a implementação do módulo **Relatórios** no BORA Hub - uma ferramenta nativa para consolidar dados da plataforma, gerar relatórios narrativos com IA, exportar PDFs e manter histórico persistente.
+Criar uma ferramenta completa de validação de copy que analisa textos de marketing contra as diretrizes da marca BORAnaOBRA usando IA, fornecendo pontuação detalhada, feedback acionável e sugestões de reescrita.
 
 ---
 
 ## Arquitetura da Solução
 
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Frontend (React)                            │
-├─────────────────────────────────────────────────────────────────────┤
-│  src/pages/RelatoriosView.tsx          ← Página principal           │
-│  src/components/relatorios/            ← Componentes do módulo      │
-│    ├── ReportHistory.tsx               ← Lista de relatórios salvos │
-│    ├── CreateReportModal.tsx           ← Modal de criação           │
-│    ├── ReportViewer.tsx                ← Visualização do relatório  │
-│    ├── ReportSuggestions.tsx           ← Sugestões da IA            │
-│    └── ReportPDFGenerator.tsx          ← Geração de PDF             │
-│  src/hooks/useReports.ts               ← Hook de dados              │
-└─────────────────────────────────────────────────────────────────────┘
-                                   │
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    Edge Function (Deno)                             │
-├─────────────────────────────────────────────────────────────────────┤
-│  supabase/functions/generate-report/index.ts                        │
-│    ├── Consolida dados do período                                   │
-│    ├── Chama Lovable AI (gemini-3-flash-preview)                    │
-│    ├── Gera narrativa estruturada                                   │
-│    └── Retorna relatório + sugestões                                │
-└─────────────────────────────────────────────────────────────────────┘
-                                   │
-                                   ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Supabase Database                              │
-├─────────────────────────────────────────────────────────────────────┤
-│  reports                         ← Metadados dos relatórios         │
-│  report_sections                 ← Seções/blocos do relatório       │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Banco de Dados
-
-### Tabela: `reports`
-
-| Coluna | Tipo | Descrição |
-|--------|------|-----------|
-| id | uuid (PK) | Identificador único |
-| title | text | Título do relatório |
-| report_type | text | Tipo (semanal, evento, comercial, etc.) |
-| period_start | date | Início do período analisado |
-| period_end | date | Fim do período analisado |
-| scope | jsonb | Escopo selecionado (eventos, funis, vendas, etc.) |
-| filters | jsonb | Filtros aplicados (produto, time, responsável) |
-| content_html | text | Conteúdo HTML renderizado |
-| content_markdown | text | Conteúdo em Markdown |
-| ai_suggestions | jsonb | Sugestões de novos relatórios |
-| generated_by | uuid (FK) | Usuário que gerou |
-| generated_at | timestamptz | Data de geração |
-| status | text | Status (generating, completed, error) |
-| pdf_path | text | Caminho do PDF no Storage (opcional) |
-| created_at | timestamptz | Data de criação |
-| updated_at | timestamptz | Última atualização |
-
-### Políticas RLS
-
-- Usuários autenticados podem visualizar relatórios
-- Usuários autenticados podem criar relatórios
-- Apenas o criador ou admins podem deletar relatórios
-
----
-
-## Edge Function: `generate-report`
-
-A edge function será responsável por:
-
-1. **Receber parâmetros**: período, escopo, filtros
-2. **Consolidar dados** de todas as tabelas relevantes:
-   - `events` - Eventos do período
-   - `funnels` + `funnel_checklist` - Funis e pendências
-   - `sales` + `installments` - Vendas e faturamento
-   - `tasks` - Tarefas por pessoa
-   - `sponsors` - Patrocinadores
-   - `bora_news` - Atualizações internas
-3. **Montar prompt contextual** com os dados consolidados
-4. **Chamar Lovable AI** (google/gemini-3-flash-preview)
-5. **Estruturar resposta** em blocos temáticos
-6. **Gerar sugestões** de relatórios adicionais
-7. **Salvar no banco** e retornar resultado
-
-### Estrutura do Prompt para IA
+A ferramenta será acessível via:
+1. **Página dedicada** em `/validador-copy` 
+2. **Aba integrada** na Gestão de Conteúdo (ConteudoView) para acesso rápido
 
 ```text
-Você é um analista de operações experiente do BORA Hub.
-Gere um relatório executivo baseado nos dados fornecidos.
-
-PERÍODO: [data_inicio] a [data_fim]
-ESCOPO: [escopos_selecionados]
-
-DADOS CONSOLIDADOS:
-[dados_formatados_por_área]
-
-ESTRUTURA DO RELATÓRIO:
-1. Resumo Executivo (principais acontecimentos)
-2. [Blocos temáticos baseados no escopo]
-3. Alertas e Riscos
-4. Próximos Passos com Responsáveis
-
-REGRAS:
-- Nunca invente números
-- Se faltar dados, sinalize explicitamente
-- Use tom profissional e objetivo
-- Formate em Markdown com seções claras
++---------------------------+
+|      Frontend (React)     |
++---------------------------+
+            |
+            v
++---------------------------+
+|    Edge Function          |
+|  (validate-copy/index.ts) |
++---------------------------+
+            |
+            v
++---------------------------+
+|   Lovable AI Gateway      |
+|  (google/gemini-3-flash)  |
++---------------------------+
 ```
 
 ---
 
-## Componentes Frontend
+## Componentes a Criar
 
-### 1. `RelatoriosView.tsx` (Página Principal)
+### 1. Página Principal
+**Arquivo:** `src/pages/ValidadorCopy.tsx`
 
-- Header com ícone e descrição
-- Botão "Novo Relatório"
-- Tabs ou filtros (tipo, período, autor)
-- Lista de relatórios (ReportHistory)
+Interface com:
+- Textarea para inserção da copy (limite 10.000 caracteres)
+- Contador de caracteres em tempo real
+- Botão "Validar Copy" com loading state
+- Área de resultados com:
+  - Score geral circular/gauge
+  - Cards de dimensões com barras de progresso
+  - Seções colapsáveis para feedback detalhado
+  - Trechos problemáticos destacados
+- Botões de ação: Copiar feedback, Revalidar
 
-### 2. `CreateReportModal.tsx`
+### 2. Componentes de UI
+**Arquivos:**
+- `src/components/copy-validator/ScoreDisplay.tsx` - Exibição visual do score (0-100)
+- `src/components/copy-validator/DimensionCard.tsx` - Card de cada dimensão avaliada
+- `src/components/copy-validator/ProblemHighlight.tsx` - Destaque de trechos problemáticos
+- `src/components/copy-validator/ValidationResults.tsx` - Container dos resultados
 
-- Seleção de período (date range picker)
-- Checkboxes de escopo:
-  - Eventos
-  - Funis de marketing
-  - Vendas e faturamento
-  - Tarefas por pessoa
-  - Patrocinadores
-  - Conteúdo
-- Filtros opcionais (produto, time, responsável)
-- Botão "Gerar com IA" com loading state
+### 3. Edge Function
+**Arquivo:** `supabase/functions/validate-copy/index.ts`
 
-### 3. `ReportViewer.tsx`
-
-- Renderização do relatório em HTML/Markdown
-- Botões: Baixar PDF, Gerar Variação
-- Seção de sugestões da IA ao final
-- Metadados (data, autor, período)
-
-### 4. `ReportHistory.tsx`
-
-- Tabela/cards com relatórios salvos
-- Colunas: Título, Tipo, Período, Data, Autor, Ações
-- Ações: Visualizar, Baixar PDF
-- Filtros por tipo e período
-
-### 5. `ReportSuggestions.tsx`
-
-- Lista de sugestões contextuais
-- Cada sugestão com:
-  - Título do relatório sugerido
-  - Descrição do valor
-  - Botão "Gerar agora"
-
-### 6. `ReportPDFGenerator.tsx`
-
-- Utiliza jsPDF (já instalado)
-- Gera PDF formatado com:
-  - Capa com logo e título
-  - Seções estruturadas
-  - Rodapé "Gerado pelo BORA Hub"
+Recebe o texto e retorna análise estruturada via JSON.
 
 ---
 
-## Navegação e Rotas
+## Integração na Gestão de Conteúdo
 
-### Atualização em `AcessoRapido.tsx`
-
-Adicionar novo item na lista de ferramentas:
-
-```typescript
-{
-  name: "Relatórios",
-  description: "Gere relatórios executivos com IA sobre sua operação",
-  href: "/relatorios",
-  icon: FileBarChart,
-  color: "bg-indigo-500/10 text-indigo-500",
-}
-```
-
-### Nova Rota em `App.tsx`
-
-```typescript
-<Route path="/relatorios" element={<RelatoriosView />} />
-```
+Adicionar nova aba "Validador" na ConteudoView, seguindo o padrão existente das abas "Diretrizes" e "Agentes de IA".
 
 ---
 
-## Fluxo de Geração de Relatório
+## Fluxo de Dados
 
 ```text
-1. Usuário clica "Novo Relatório"
-           │
-           ▼
-2. Modal abre → seleciona período + escopo + filtros
-           │
-           ▼
-3. Clica "Gerar com IA"
-           │
-           ▼
-4. Frontend envia request para edge function
-           │
-           ▼
-5. Edge function:
-   a. Busca dados das tabelas relevantes
-   b. Consolida em formato estruturado
-   c. Envia para Lovable AI com prompt
-   d. Recebe narrativa + sugestões
-   e. Salva no banco (status: completed)
-   f. Retorna ID do relatório
-           │
-           ▼
-6. Frontend redireciona para visualização
-           │
-           ▼
-7. Usuário pode baixar PDF ou gerar variação
+1. Usuário cola/digita texto
+2. Clica "Validar Copy"
+3. Frontend envia POST para /functions/v1/validate-copy
+4. Edge Function:
+   a. Valida autenticação (opcional - JWT)
+   b. Envia prompt estruturado para Lovable AI
+   c. Recebe resposta JSON estruturada
+   d. Retorna resultado para frontend
+5. Frontend renderiza resultados interativos
 ```
-
----
-
-## Tipos de Relatórios Suportados
-
-| Tipo | Descrição | Escopos Principais |
-|------|-----------|-------------------|
-| `weekly` | Relatório Semanal | Todos |
-| `event` | Relatório de Evento | Eventos, Funis |
-| `commercial` | Relatório Comercial | Vendas, Comissões |
-| `operational` | Relatório Operacional | Tarefas, Funis |
-| `custom` | Relatório Personalizado | Seleção livre |
-
----
-
-## Sugestões Automáticas da IA
-
-Após cada geração, a IA retornará sugestões como:
-
-- Relatório individual por colaborador
-- Relatório de performance de eventos
-- Relatório de gargalos operacionais
-- Relatório de produtividade por time
-- Relatório de vendas por produto
-- Relatório de metas vs realizado
-- Relatório de riscos da semana
-
-Cada sugestão terá:
-- `title`: Nome do relatório
-- `description`: Valor que entrega
-- `suggested_scope`: Escopos recomendados
-- `suggested_period`: Período sugerido
 
 ---
 
 ## Detalhes Técnicos
 
-### Hook `useReports.ts`
+### Estrutura do JSON de Resposta da IA
 
 ```typescript
-// Queries
-- useReports(filters) → lista relatórios com paginação
-- useReport(id) → detalhes de um relatório
-- useReportTypes() → tipos disponíveis
-
-// Mutations
-- useGenerateReport() → chama edge function
-- useDeleteReport() → remove relatório
+interface ValidationResult {
+  pontuacao_geral: number; // 0-100
+  status: "Aprovado" | "Ajustes Recomendados" | "Necessita Revisão" | "Não Aprovado";
+  dimensoes: Array<{
+    nome: string;
+    pontuacao: number;
+    peso: number;
+    status: "Ótimo" | "Atenção" | "Crítico";
+    problemas: string[];
+    sugestoes: string[];
+    exemplo_bora?: string;
+  }>;
+  destaques_positivos: string[];
+  trechos_problematicos: Array<{
+    trecho_original: string;
+    problema: string;
+    sugestao_reescrita: string;
+  }>;
+  resumo_executivo: string;
+}
 ```
 
-### Configuração Edge Function
+### Dimensões de Avaliação (conforme PRD)
 
-Atualizar `supabase/config.toml`:
+| Dimensão | Peso |
+|----------|------|
+| Tom e Voz | 20% |
+| Emoções Trabalhadas | 15% |
+| Estrutura Invisível | 20% |
+| Restrições de Linguagem | 20% |
+| Prova Social | 10% |
+| Urgência | 10% |
+| Formato e Legibilidade | 5% |
 
-```toml
-[functions.generate-report]
-verify_jwt = true
+### Classificação Visual
+
+| Score | Status | Cor |
+|-------|--------|-----|
+| 90-100 | Aprovado | Verde |
+| 75-89 | Ajustes Recomendados | Amarelo |
+| 60-74 | Necessita Revisão | Laranja |
+| 0-59 | Não Aprovado | Vermelho |
+
+---
+
+## Arquivos a Criar/Modificar
+
+### Criar:
+1. `src/pages/ValidadorCopy.tsx` - Página principal
+2. `src/components/copy-validator/ScoreDisplay.tsx` - Gauge de score
+3. `src/components/copy-validator/DimensionCard.tsx` - Card de dimensão
+4. `src/components/copy-validator/ProblemHighlight.tsx` - Destaque de problemas
+5. `src/components/copy-validator/ValidationResults.tsx` - Container de resultados
+6. `supabase/functions/validate-copy/index.ts` - Edge function
+
+### Modificar:
+1. `src/App.tsx` - Adicionar rota `/validador-copy`
+2. `src/pages/AcessoRapido.tsx` - Adicionar card da ferramenta
+3. `src/pages/ConteudoView.tsx` - Adicionar aba "Validador"
+4. `supabase/config.toml` - Registrar nova function
+
+---
+
+## UI/UX
+
+### Página Principal
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  📝 Validador de Copy BORAnaOBRA                        │
+│  Analise sua copy contra as diretrizes da marca         │
+├─────────────────────────────────────────────────────────┤
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │                                                     │ │
+│ │  [Textarea: Cole sua copy aqui...]                  │ │
+│ │                                                     │ │
+│ │                                          3420/10000 │ │
+│ └─────────────────────────────────────────────────────┘ │
+│                                                         │
+│              [ 🔍 Validar Copy ]                        │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│  RESULTADOS                                             │
+│ ┌───────────┐ ┌───────────────────────────────────────┐ │
+│ │           │ │ Tom e Voz         ████████░░  80/100  │ │
+│ │    85     │ │ Emoções           ██████████  95/100  │ │
+│ │   /100    │ │ Estrutura         ██████░░░░  60/100  │ │
+│ │           │ │ Linguagem         ████████░░  85/100  │ │
+│ │ Ajustes   │ │ Prova Social      ██████████  100/100 │ │
+│ │Recomendad│ │ Urgência          ████████░░  80/100  │ │
+│ └───────────┘ │ Formato           ██████████  90/100  │ │
+│               └───────────────────────────────────────┘ │
+│                                                         │
+│ ▼ Feedback Detalhado                                    │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ ⚠️ Estrutura Invisível - 60/100                     │ │
+│ │ Problemas: [lista]                                   │ │
+│ │ Sugestões: [lista]                                   │ │
+│ └─────────────────────────────────────────────────────┘ │
+│                                                         │
+│ ▼ Trechos Problemáticos                                 │
+│ ┌─────────────────────────────────────────────────────┐ │
+│ │ ❌ "transformação digital garantida"                 │ │
+│ │ Problema: Jargão de marketing                        │ │
+│ │ Sugestão: "um caminho claro para estruturar..."     │ │
+│ └─────────────────────────────────────────────────────┘ │
+│                                                         │
+│ [ 📋 Copiar Feedback ] [ 🔄 Nova Validação ]           │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Integrações Necessárias
+---
 
-- **jsPDF**: já instalado, usar para gerar PDFs
-- **date-fns**: já instalado, para formatação de datas
-- **MarkdownRenderer**: já existe, usar para renderizar conteúdo
+## Edge Function: Prompt System
+
+O prompt completo do PRD será incorporado no `systemPrompt` da edge function, instruindo a IA a:
+
+1. Avaliar as 7 dimensões com critérios específicos
+2. Aplicar penalizações conforme as regras
+3. Retornar JSON estruturado
+4. Incluir exemplos BORAnaOBRA quando apropriado
 
 ---
 
-## Arquivos a Criar
+## Considerações de Implementação
 
-| Arquivo | Descrição |
-|---------|-----------|
-| `src/pages/RelatoriosView.tsx` | Página principal do módulo |
-| `src/components/relatorios/ReportHistory.tsx` | Lista de relatórios |
-| `src/components/relatorios/CreateReportModal.tsx` | Modal de criação |
-| `src/components/relatorios/ReportViewer.tsx` | Visualizador |
-| `src/components/relatorios/ReportSuggestions.tsx` | Sugestões da IA |
-| `src/hooks/useReports.ts` | Hook de dados |
-| `supabase/functions/generate-report/index.ts` | Edge function |
+### Performance
+- Timeout de 30 segundos para a edge function
+- Loading state com mensagem animada durante processamento
+- Tratamento de erros 429 (rate limit) e 402 (payment required)
 
-## Arquivos a Modificar
+### Acessibilidade
+- Cores com contraste adequado para status
+- Ícones com labels de acessibilidade
+- Feedback visual claro do estado de validação
 
-| Arquivo | Modificação |
-|---------|-------------|
-| `src/App.tsx` | Adicionar rota `/relatorios` |
-| `src/pages/AcessoRapido.tsx` | Adicionar card Relatórios |
-| `supabase/config.toml` | Configurar edge function |
+### Mobile
+- Layout responsivo
+- Textarea adaptativo
+- Cards de resultado empilhados em mobile
 
 ---
 
-## MVP Obrigatório (Fase 1)
+## Ordem de Implementação
 
-1. Tabela `reports` no banco
-2. Edge function para geração com IA
-3. Página principal com histórico
-4. Modal de criação com seleção de período/escopo
-5. Visualizador de relatório
-6. Download de PDF
-7. Sugestões de novos relatórios
-
-## Fases Futuras
-
-- Relatórios recorrentes automáticos (cron)
-- Envio por email/WhatsApp
-- Relatórios individuais por pessoa
-- Comparativos entre períodos
-- Templates customizáveis
-- Armazenamento de PDF no Storage
-
----
-
-## Considerações de Segurança
-
-- RLS habilitado na tabela `reports`
-- Edge function com `verify_jwt = true`
-- Validação de permissões no backend
-- Logs de geração para auditoria
+1. Criar edge function `validate-copy` com prompt do PRD
+2. Criar tipos TypeScript para a resposta
+3. Criar componentes de UI (ScoreDisplay, DimensionCard, etc)
+4. Criar página ValidadorCopy
+5. Adicionar rota no App.tsx
+6. Adicionar card no AcessoRapido
+7. Integrar como aba na ConteudoView
+8. Testar e ajustar prompt baseado nos resultados
