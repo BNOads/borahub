@@ -35,6 +35,3 @@ verify_jwt = false
 
 [functions.rewrite-copy]
 verify_jwt = false
-
-[functions.transcribe-video]
-verify_jwt = false
