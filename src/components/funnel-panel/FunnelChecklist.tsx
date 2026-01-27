@@ -217,7 +217,6 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
 
   const [newItem, setNewItem] = useState("");
   const [isAddingDefaults, setIsAddingDefaults] = useState(false);
-  const [hasAutoAdded, setHasAutoAdded] = useState(false);
   
   // Expandir categorias padrão baseado no tipo de funil
   const defaultExpanded = funnelCategory === "Evento presencial" 
@@ -233,17 +232,15 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
     return DEFAULT_CHECKLIST_ITEMS;
   };
 
-  // Auto-adicionar itens padrão quando o checklist estiver vazio (apenas uma vez)
+  // Auto-adicionar itens padrão quando o checklist estiver vazio
   useEffect(() => {
-    if (!isLoading && items.length === 0 && !hasAutoAdded && !isAddingDefaults) {
-      setHasAutoAdded(true);
-      // Pequeno delay para evitar race conditions
-      const timer = setTimeout(() => {
-        addDefaultItemsSilent();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [isLoading, items.length, hasAutoAdded, isAddingDefaults]);
+    const autoAddItems = async () => {
+      if (!isLoading && items.length === 0 && !isAddingDefaults) {
+        await addDefaultItemsSilent();
+      }
+    };
+    autoAddItems();
+  }, [isLoading, items.length]);
 
   // Versão silenciosa sem toast de sucesso para auto-add
   const addDefaultItemsSilent = async () => {
