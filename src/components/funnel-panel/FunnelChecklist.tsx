@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight } from "lucide-react";
+import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -16,6 +16,18 @@ import {
 } from "@/hooks/useFunnelExtras";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import { ConvertToTaskModal } from "./ConvertToTaskModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface FunnelChecklistProps {
   funnelId: string;
@@ -217,6 +229,9 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
 
   const [newItem, setNewItem] = useState("");
   const [isAddingDefaults, setIsAddingDefaults] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [convertModalOpen, setConvertModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<{ id: string; title: string } | null>(null);
   
   // Expandir categorias padrão baseado no tipo de funil
   const defaultExpanded = funnelCategory === "Evento presencial" 
@@ -348,6 +363,29 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
     }
   };
 
+  const deleteAllItems = async () => {
+    setIsDeletingAll(true);
+    try {
+      const { error } = await supabase
+        .from("funnel_checklist")
+        .delete()
+        .eq("funnel_id", funnelId);
+
+      if (error) throw error;
+      toast.success("Checklist limpo!");
+      refetch();
+    } catch (error: any) {
+      toast.error("Erro ao limpar checklist: " + error.message);
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
+  const openConvertModal = (item: { id: string; title: string }) => {
+    setSelectedItem(item);
+    setConvertModalOpen(true);
+  };
+
   const getItemCategory = (title: string): string => {
     if (title.includes("[Diário]")) return "diario";
     // Primeiro verifica nos itens de evento presencial
@@ -380,6 +418,40 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
             <span className="text-sm text-muted-foreground">
               {completedCount}/{items.length}
             </span>
+            {items.length > 0 && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-destructive hover:text-destructive"
+                    disabled={isDeletingAll}
+                  >
+                    {isDeletingAll ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Eraser className="h-3.5 w-3.5" />
+                    )}
+                    Limpar
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Limpar checklist?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação irá remover todos os {items.length} itens do checklist.
+                      Esta ação não pode ser desfeita.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={deleteAllItems} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Limpar tudo
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -478,14 +550,26 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
                             {item.title.replace(/^\[(Diário|Pontual)\]\s*/i, "")}
                           </span>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive flex-shrink-0"
-                          onClick={() => handleDeleteItem(item.id)}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-primary hover:text-primary"
+                            onClick={() => openConvertModal({ id: item.id, title: item.title })}
+                            title="Converter em tarefa"
+                          >
+                            <ListTodo className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:text-destructive"
+                            onClick={() => handleDeleteItem(item.id)}
+                            title="Excluir item"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </CollapsibleContent>
@@ -495,6 +579,14 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
           </div>
         )}
       </CardContent>
+
+      <ConvertToTaskModal
+        open={convertModalOpen}
+        onOpenChange={setConvertModalOpen}
+        checklistItem={selectedItem}
+        funnelId={funnelId}
+        onSuccess={refetch}
+      />
     </Card>
   );
 }
