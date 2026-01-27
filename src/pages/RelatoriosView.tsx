@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileBarChart, Plus, Filter } from "lucide-react";
+import { FileBarChart, Plus, Filter, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -10,12 +10,14 @@ import {
 } from "@/components/ui/select";
 import { useReports, Report, REPORT_TYPES } from "@/hooks/useReports";
 import { CreateReportModal } from "@/components/relatorios/CreateReportModal";
+import { UploadReportModal } from "@/components/relatorios/UploadReportModal";
 import { ReportHistory } from "@/components/relatorios/ReportHistory";
 import { ReportViewer } from "@/components/relatorios/ReportViewer";
 import { generateReportPDF } from "@/components/relatorios/ReportPDFGenerator";
 
 export default function RelatoriosView() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
@@ -88,10 +90,16 @@ export default function RelatoriosView() {
           </div>
         </div>
 
-        <Button onClick={() => setIsCreateModalOpen(true)} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Novo Relatório
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsUploadModalOpen(true)} className="gap-2">
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Upload Manual</span>
+          </Button>
+          <Button onClick={() => setIsCreateModalOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Gerar com IA</span>
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -124,6 +132,13 @@ export default function RelatoriosView() {
       <CreateReportModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
+        onSuccess={handleReportCreated}
+      />
+
+      {/* Upload Modal */}
+      <UploadReportModal
+        open={isUploadModalOpen}
+        onOpenChange={setIsUploadModalOpen}
         onSuccess={handleReportCreated}
       />
     </div>
