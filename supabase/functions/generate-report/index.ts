@@ -22,7 +22,7 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Não autorizado" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -30,20 +30,31 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    // Create client for auth validation
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
-    // Get user from token
+    // Validate JWT using getClaims
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData.user) {
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getUser(token);
+    
+    if (claimsError || !claimsData.user) {
+      console.error("Auth error:", claimsError);
       return new Response(JSON.stringify({ error: "Token inválido" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const userId = claimsData.user.id;
+
+    // Create service client for data operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { title, report_type, period_start, period_end, scope, filters } =
       (await req.json()) as GenerateReportRequest;
@@ -60,7 +71,7 @@ serve(async (req) => {
         period_end,
         scope,
         filters: filters || {},
-        generated_by: userData.user.id,
+        generated_by: userId,
         status: "generating",
       })
       .select()
