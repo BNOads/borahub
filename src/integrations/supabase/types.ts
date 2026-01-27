@@ -621,6 +621,42 @@ export type Database = {
           },
         ]
       }
+      funnel_events: {
+        Row: {
+          created_at: string
+          event_id: string
+          funnel_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          funnel_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          funnel_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_events_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funnel_links: {
         Row: {
           created_at: string | null
