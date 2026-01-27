@@ -95,7 +95,7 @@ export function CreateReportModal({ open, onOpenChange, onSuccess }: CreateRepor
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
@@ -106,7 +106,7 @@ export function CreateReportModal({ open, onOpenChange, onSuccess }: CreateRepor
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-5 py-4 overflow-y-auto flex-1 pr-1">
           {/* Título */}
           <div className="space-y-2">
             <Label htmlFor="title">Título (opcional)</Label>
@@ -192,12 +192,12 @@ export function CreateReportModal({ open, onOpenChange, onSuccess }: CreateRepor
           {/* Escopo */}
           <div className="space-y-3">
             <Label>Dados a incluir</Label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               {REPORT_SCOPES.map((scope) => (
                 <div
                   key={scope.value}
                   className={cn(
-                    "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
+                    "flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors",
                     selectedScopes.includes(scope.value)
                       ? "border-primary bg-primary/5"
                       : "border-border hover:bg-muted/50"
@@ -207,11 +207,9 @@ export function CreateReportModal({ open, onOpenChange, onSuccess }: CreateRepor
                   <Checkbox
                     checked={selectedScopes.includes(scope.value)}
                     onCheckedChange={() => handleScopeToggle(scope.value)}
+                    className="h-4 w-4"
                   />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">{scope.label}</p>
-                    <p className="text-xs text-muted-foreground">{scope.description}</p>
-                  </div>
+                  <span className="text-sm font-medium">{scope.label}</span>
                 </div>
               ))}
             </div>
