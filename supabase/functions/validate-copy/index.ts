@@ -98,6 +98,20 @@ Se encontrar qualquer variação incorreta, marcar como erro CRÍTICO em "Trecho
 - Baseada em: consequência, fim de janela, decisão adiada
 - NUNCA baseada em desespero ou manipulação
 
+## TRATAMENTO DE LINKS
+
+IMPORTANTE: Ao analisar o texto, IGNORE completamente qualquer URL ou link presente.
+- Não avalie links como parte do texto
+- Não penalize termos que apareçam dentro de URLs
+- Não considere links para verificação de branding, linguagem ou qualquer outro critério
+- Foque APENAS no texto que não é URL
+
+Exemplos de links a ignorar:
+- https://exemplo.com/pagina-de-vendas
+- http://site.com/carrinho
+- www.exemplo.com/lp
+- Qualquer texto que comece com http://, https://, ou www.
+
 ## SUA TAREFA
 
 Avalie o texto fornecido em 8 dimensões, atribuindo pontos de 0 a 100 em cada:
