@@ -19,7 +19,8 @@ import {
   FunnelMatchedSales,
 } from "@/components/funnel-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutDashboard, Settings, Link2, BookOpen } from "lucide-react";
+import { LayoutDashboard, Settings, Link2, BookOpen, AlertTriangle } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 export default function FunnelPanel() {
   const { id } = useParams();
@@ -76,8 +77,39 @@ export default function FunnelPanel() {
   const isLaunchCategory = LAUNCH_CATEGORIES.includes(funnel.category || "");
   const isEventoPresencial = funnel.category === "Evento presencial";
 
+  // Buscar itens pendentes do checklist
+  const { data: pendingChecklistCount = 0 } = useQuery({
+    queryKey: ['funnel-checklist-pending', funnel.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("funnel_checklist")
+        .select("id")
+        .eq("funnel_id", funnel.id)
+        .eq("is_completed", false);
+      
+      if (error) throw error;
+      return data?.length || 0;
+    },
+    enabled: !!funnel.id,
+  });
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Alerta de Pontos de Atenção */}
+      {pendingChecklistCount > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="font-semibold text-amber-800 dark:text-amber-300">Pontos de Atenção</h3>
+              <ul className="mt-1 text-sm text-amber-700 dark:text-amber-400 list-disc list-inside">
+                <li>Existem {pendingChecklistCount} itens pendentes no checklist de configuração</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <FunnelPanelHeader funnel={funnel} onUpdate={fetchFunnel} />
 
