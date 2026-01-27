@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileBarChart, Plus, Filter, Upload } from "lucide-react";
+import { FileBarChart, Plus, Filter, Upload, FolderPlus, LayoutGrid, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -8,22 +8,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useReports, Report, REPORT_TYPES } from "@/hooks/useReports";
+import { useReportFolders } from "@/hooks/useReportFolders";
 import { CreateReportModal } from "@/components/relatorios/CreateReportModal";
 import { UploadReportModal } from "@/components/relatorios/UploadReportModal";
+import { CreateFolderModal } from "@/components/relatorios/CreateFolderModal";
 import { ReportHistory } from "@/components/relatorios/ReportHistory";
+import { ReportFoldersView } from "@/components/relatorios/ReportFoldersView";
 import { ReportViewer } from "@/components/relatorios/ReportViewer";
 import { generateReportPDF } from "@/components/relatorios/ReportPDFGenerator";
 
 export default function RelatoriosView() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [viewMode, setViewMode] = useState<"list" | "folders">("folders");
 
   const { data: reports, isLoading, refetch } = useReports(
     typeFilter !== "all" ? { report_type: typeFilter } : undefined
   );
+  const { data: folders } = useReportFolders();
 
   const handleViewReport = (report: Report) => {
     setSelectedReport(report);
@@ -34,14 +41,11 @@ export default function RelatoriosView() {
   };
 
   const handleGenerateSuggestion = (suggestion: { title: string; scope: string[] }) => {
-    // Open create modal with pre-filled values from suggestion
     setSelectedReport(null);
     setIsCreateModalOpen(true);
-    // The modal will handle the suggestion data
   };
 
   const handleReportCreated = (reportId: string) => {
-    // Find and display the newly created report
     const newReport = reports?.find((r) => r.id === reportId);
     if (newReport) {
       setSelectedReport(newReport);
@@ -49,7 +53,6 @@ export default function RelatoriosView() {
   };
 
   const handleReportUpdated = async () => {
-    // Refetch reports and update the selected report
     await refetch();
     if (selectedReport) {
       const updated = reports?.find((r) => r.id === selectedReport.id);
@@ -91,9 +94,12 @@ export default function RelatoriosView() {
         </div>
 
         <div className="flex gap-2">
+          <Button variant="outline" size="icon" onClick={() => setIsFolderModalOpen(true)} title="Nova Pasta">
+            <FolderPlus className="h-4 w-4" />
+          </Button>
           <Button variant="outline" onClick={() => setIsUploadModalOpen(true)} className="gap-2">
             <Upload className="h-4 w-4" />
-            <span className="hidden sm:inline">Upload Manual</span>
+            <span className="hidden sm:inline">Upload</span>
           </Button>
           <Button onClick={() => setIsCreateModalOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" />
@@ -102,44 +108,72 @@ export default function RelatoriosView() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <Filter className="h-4 w-4 text-muted-foreground" />
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filtrar por tipo" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os tipos</SelectItem>
-            {REPORT_TYPES.map((type) => (
-              <SelectItem key={type.value} value={type.value}>
-                {type.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Filters and View Toggle */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Filtrar por tipo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os tipos</SelectItem>
+              {REPORT_TYPES.map((type) => (
+                <SelectItem key={type.value} value={type.value}>
+                  {type.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "list" | "folders")}>
+          <TabsList className="h-9">
+            <TabsTrigger value="folders" className="gap-1.5 px-3">
+              <LayoutGrid className="h-4 w-4" />
+              <span className="hidden sm:inline">Pastas</span>
+            </TabsTrigger>
+            <TabsTrigger value="list" className="gap-1.5 px-3">
+              <List className="h-4 w-4" />
+              <span className="hidden sm:inline">Lista</span>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      {/* Report History */}
-      <ReportHistory
-        reports={reports}
-        isLoading={isLoading}
-        onView={handleViewReport}
-        onDownload={handleDownloadPDF}
-      />
+      {/* Content */}
+      {viewMode === "folders" ? (
+        <ReportFoldersView
+          folders={folders || []}
+          reports={reports || []}
+          onViewReport={handleViewReport}
+          onDownloadReport={handleDownloadPDF}
+        />
+      ) : (
+        <ReportHistory
+          reports={reports}
+          isLoading={isLoading}
+          onView={handleViewReport}
+          onDownload={handleDownloadPDF}
+        />
+      )}
 
-      {/* Create Modal */}
+      {/* Modals */}
       <CreateReportModal
         open={isCreateModalOpen}
         onOpenChange={setIsCreateModalOpen}
         onSuccess={handleReportCreated}
       />
 
-      {/* Upload Modal */}
       <UploadReportModal
         open={isUploadModalOpen}
         onOpenChange={setIsUploadModalOpen}
         onSuccess={handleReportCreated}
+      />
+
+      <CreateFolderModal
+        open={isFolderModalOpen}
+        onOpenChange={setIsFolderModalOpen}
       />
     </div>
   );
