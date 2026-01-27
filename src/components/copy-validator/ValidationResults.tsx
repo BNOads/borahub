@@ -3,7 +3,7 @@ import { ScoreDisplay } from "./ScoreDisplay";
 import { DimensionCard } from "./DimensionCard";
 import { ProblemHighlight } from "./ProblemHighlight";
 import { Button } from "@/components/ui/button";
-import { Copy, RotateCcw, CheckCircle, Sparkles, Wand2, Loader2, ChevronDown } from "lucide-react";
+import { Copy, CheckCircle, Sparkles, Wand2, Loader2, ChevronDown, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import {
   Collapsible,
@@ -101,7 +101,7 @@ export function ValidationResults({ result, originalText, onReset, onNewCopy }: 
               )}
             </Button>
             <Button onClick={onReset} variant="ghost" className="gap-2">
-              <RotateCcw className="h-4 w-4" />
+              <ArrowRight className="h-4 w-4" />
               Nova Validação
             </Button>
           </div>
