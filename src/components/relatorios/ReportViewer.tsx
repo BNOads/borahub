@@ -1,30 +1,54 @@
+import { useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowLeft, Download, Calendar, User, FileText } from "lucide-react";
+import { ArrowLeft, Download, Calendar, User, FileText, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { MarkdownRenderer } from "@/components/ui/markdown-renderer";
 import { Report, REPORT_TYPES, REPORT_SCOPES } from "@/hooks/useReports";
 import { ReportSuggestions } from "./ReportSuggestions";
+import { ReportEditor } from "./ReportEditor";
+import { ReportAttachments } from "./ReportAttachments";
 
 interface ReportViewerProps {
   report: Report;
   onBack: () => void;
   onDownload: () => void;
   onGenerateSuggestion: (suggestion: { title: string; scope: string[] }) => void;
+  onReportUpdated?: () => void;
 }
 
-export function ReportViewer({ report, onBack, onDownload, onGenerateSuggestion }: ReportViewerProps) {
+export function ReportViewer({ report, onBack, onDownload, onGenerateSuggestion, onReportUpdated }: ReportViewerProps) {
+  const [isEditing, setIsEditing] = useState(false);
+
   const getReportTypeLabel = (type: string) => {
     return REPORT_TYPES.find((t) => t.value === type)?.label || type;
   };
 
-  const getScopeLabels = (scopes: string[]) => {
-    return scopes
-      .map((s) => REPORT_SCOPES.find((scope) => scope.value === s)?.label || s)
-      .join(", ");
+  const handleSaveEdit = () => {
+    setIsEditing(false);
+    onReportUpdated?.();
   };
+
+  // Editing mode
+  if (isEditing) {
+    return (
+      <div className="space-y-6">
+        <Button variant="ghost" onClick={() => setIsEditing(false)} className="gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Voltar
+        </Button>
+        <div className="rounded-xl border bg-card p-6">
+          <ReportEditor
+            report={report}
+            onCancel={() => setIsEditing(false)}
+            onSave={handleSaveEdit}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -34,10 +58,16 @@ export function ReportViewer({ report, onBack, onDownload, onGenerateSuggestion 
           <ArrowLeft className="h-4 w-4" />
           Voltar
         </Button>
-        <Button onClick={onDownload} className="gap-2">
-          <Download className="h-4 w-4" />
-          Baixar PDF
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setIsEditing(true)} className="gap-2">
+            <Pencil className="h-4 w-4" />
+            Editar
+          </Button>
+          <Button onClick={onDownload} className="gap-2">
+            <Download className="h-4 w-4" />
+            Baixar PDF
+          </Button>
+        </div>
       </div>
 
       {/* Report Card */}
@@ -97,6 +127,11 @@ export function ReportViewer({ report, onBack, onDownload, onGenerateSuggestion 
           ) : (
             <p className="text-muted-foreground">Nenhum conteúdo disponível.</p>
           )}
+        </div>
+
+        {/* Attachments Section */}
+        <div className="p-6 border-t">
+          <ReportAttachments reportId={report.id} />
         </div>
       </div>
 

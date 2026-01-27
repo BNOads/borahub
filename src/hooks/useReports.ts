@@ -163,6 +163,44 @@ export function useGenerateReport() {
   });
 }
 
+export interface UpdateReportParams {
+  id: string;
+  title?: string;
+  content_markdown?: string;
+}
+
+export function useUpdateReport() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: UpdateReportParams) => {
+      const { id, ...updates } = params;
+      const { error } = await supabase
+        .from("reports")
+        .update(updates)
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reports"] });
+      queryClient.invalidateQueries({ queryKey: ["report"] });
+      toast({
+        title: "Relatório atualizado!",
+        description: "As alterações foram salvas com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao atualizar",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+}
+
 export function useDeleteReport() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
