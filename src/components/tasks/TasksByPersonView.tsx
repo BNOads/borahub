@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -8,10 +8,12 @@ import {
   CheckCircle2,
   Circle,
   Clock,
-  Flag,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Collapsible,
@@ -63,6 +65,7 @@ export function TasksByPersonView({
   onViewDetail,
 }: TasksByPersonViewProps) {
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // Agrupa tarefas por responsável (assignee = full_name)
   const tasksByPerson = useMemo(() => {
@@ -79,6 +82,13 @@ export function TasksByPersonView({
     // Ordena por nome
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b));
   }, [tasks]);
+
+  // Expande todos por padrão quando os dados carregam
+  useEffect(() => {
+    if (tasksByPerson.length > 0 && expandedUsers.size === 0) {
+      setExpandedUsers(new Set(tasksByPerson.map(([name]) => name)));
+    }
+  }, [tasksByPerson]);
 
   // Encontra o perfil do usuário pelo nome
   const getUserProfile = (name: string): UserProfile | undefined => {
@@ -101,13 +111,13 @@ export function TasksByPersonView({
 
   const getPriorityBadge = (priority: string) => {
     const colors: Record<string, string> = {
-      alta: "bg-red-500 hover:bg-red-600",
+      alta: "bg-destructive hover:bg-destructive/90",
       media: "bg-amber-500 hover:bg-amber-600",
-      baixa: "bg-green-500 hover:bg-green-600",
+      baixa: "bg-emerald-500 hover:bg-emerald-600",
     };
     return (
       <Badge
-        className={`${colors[priority] || "bg-gray-500"} text-white text-xs`}
+        className={`${colors[priority] || "bg-muted"} text-white text-xs`}
       >
         {priority.charAt(0).toUpperCase() + priority.slice(1)}
       </Badge>
@@ -157,15 +167,46 @@ export function TasksByPersonView({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {/* Botão para mostrar/ocultar concluídas */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowCompleted(!showCompleted)}
+          className="gap-2"
+        >
+          {showCompleted ? (
+            <>
+              <EyeOff className="h-4 w-4" />
+              Ocultar concluídas
+            </>
+          ) : (
+            <>
+              <Eye className="h-4 w-4" />
+              Mostrar concluídas
+            </>
+          )}
+        </Button>
+      </div>
+
       {tasksByPerson.map(([personName, personTasks]) => {
         const userProfile = getUserProfile(personName);
         const isExpanded = expandedUsers.has(personName);
+        
+        // Filtra tarefas baseado no showCompleted
+        const filteredTasks = showCompleted 
+          ? personTasks 
+          : personTasks.filter(t => !t.completed);
+        
         const pendingCount = personTasks.filter((t) => !t.completed).length;
         const completedCount = personTasks.filter((t) => t.completed).length;
         const overdueCount = personTasks.filter(
           (t) => isOverdue(t.due_date ?? null, t.completed)
         ).length;
+
+        // Não exibe usuário se não tiver tarefas pendentes e showCompleted = false
+        if (!showCompleted && filteredTasks.length === 0) return null;
 
         return (
           <Collapsible
@@ -197,7 +238,7 @@ export function TasksByPersonView({
 
                   <div className="flex items-center gap-3 text-sm">
                     <span className="text-muted-foreground">
-                      {personTasks.length} tarefa{personTasks.length !== 1 ? "s" : ""}
+                      {filteredTasks.length} tarefa{filteredTasks.length !== 1 ? "s" : ""}
                     </span>
                     
                     <div className="flex items-center gap-2">
@@ -205,7 +246,7 @@ export function TasksByPersonView({
                         <Circle className="h-3.5 w-3.5" />
                         <span>{pendingCount}</span>
                       </div>
-                      <div className="flex items-center gap-1 text-emerald-600">
+                      <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         <span>{completedCount}</span>
                       </div>
@@ -234,7 +275,7 @@ export function TasksByPersonView({
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {personTasks.map((task) => {
+                      {filteredTasks.map((task) => {
                         const overdue = isOverdue(task.due_date ?? null, task.completed);
                         return (
                           <TableRow
