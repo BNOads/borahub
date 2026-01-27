@@ -61,7 +61,6 @@ O BORAnaOBRA atende arquitetos e engenheiros que buscam transformar conhecimento
   - bônus, oferta, desconto
   - upsell, downsell, order bump
   - webinar, masterclass, imersão
-  - método (quando usado de forma genérica sem contexto BORAnaOBRA)
 
 ✅ SEMPRE:
 - Frases curtas (12-15 palavras em média)
