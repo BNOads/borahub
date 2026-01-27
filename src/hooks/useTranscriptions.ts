@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { transcribeFile } from "@/lib/whisperTranscriber";
 
 export interface TranscriptSegment {
   speaker: string;
@@ -73,6 +74,7 @@ interface CreateTranscriptionParams {
   language: string;
   sourceType?: "upload" | "post" | "lesson";
   sourceId?: string;
+  onProgress?: (progress: number, status: string) => void;
 }
 
 export function useCreateTranscription() {
@@ -80,10 +82,18 @@ export function useCreateTranscription() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ title, file, language, sourceType = "upload", sourceId }: CreateTranscriptionParams) => {
+    mutationFn: async ({ 
+      title, 
+      file, 
+      language, 
+      sourceType = "upload", 
+      sourceId,
+      onProgress 
+    }: CreateTranscriptionParams) => {
       if (!user) throw new Error("User not authenticated");
 
       // 1. Upload file to storage
+      onProgress?.(5, "Fazendo upload do arquivo...");
       const filePath = `${user.id}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage
         .from("video-uploads")
@@ -94,16 +104,8 @@ export function useCreateTranscription() {
         throw new Error(`Erro ao fazer upload do arquivo: ${uploadError.message}`);
       }
 
-      // 2. Get signed URL for the file
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from("video-uploads")
-        .createSignedUrl(filePath, 3600); // 1 hour expiry
-
-      if (signedUrlError || !signedUrlData?.signedUrl) {
-        throw new Error("Erro ao gerar URL do arquivo");
-      }
-
-      // 3. Create transcription record
+      // 2. Create transcription record with pending status
+      onProgress?.(10, "Criando registro de transcrição...");
       const { data: transcription, error: insertError } = await supabase
         .from("transcriptions")
         .insert({
@@ -114,7 +116,7 @@ export function useCreateTranscription() {
           original_file_path: filePath,
           original_file_name: file.name,
           language,
-          status: "pending",
+          status: "processing",
         })
         .select()
         .single();
@@ -125,32 +127,55 @@ export function useCreateTranscription() {
         throw new Error(`Erro ao criar transcrição: ${insertError.message}`);
       }
 
-      // 4. Call edge function to process transcription
-      const { error: functionError } = await supabase.functions.invoke("transcribe-video", {
-        body: {
-          transcription_id: transcription.id,
-          file_url: signedUrlData.signedUrl,
-          language,
-        },
-      });
+      try {
+        // 3. Process transcription locally with Whisper
+        const result = await transcribeFile(file, language, (progress, status) => {
+          // Scale progress from 10-95%
+          const scaledProgress = 10 + (progress * 0.85);
+          onProgress?.(scaledProgress, status);
+        });
 
-      if (functionError) {
-        console.error("Function error:", functionError);
+        // 4. Update transcription with results
+        onProgress?.(95, "Salvando transcrição...");
+        const { error: updateError } = await supabase
+          .from("transcriptions")
+          .update({
+            status: "completed",
+            transcript_text: result.text,
+            transcript_segments: JSON.parse(JSON.stringify(result.segments)),
+            speakers_count: 1, // Whisper não faz diarização
+            duration_seconds: result.duration,
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            error_message: null,
+          })
+          .eq("id", transcription.id);
+
+        if (updateError) {
+          throw new Error(`Erro ao salvar transcrição: ${updateError.message}`);
+        }
+
+        onProgress?.(100, "Concluído!");
+
+        return { ...transcription, ...result } as Transcription;
+      } catch (error) {
         // Update status to failed
         await supabase
           .from("transcriptions")
-          .update({ status: "failed", error_message: functionError.message })
+          .update({ 
+            status: "failed", 
+            error_message: error instanceof Error ? error.message : "Erro desconhecido",
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", transcription.id);
-        throw new Error(`Erro ao processar transcrição: ${functionError.message}`);
+        throw error;
       }
-
-      return transcription as Transcription;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["transcriptions"] });
       toast({
-        title: "Transcrição iniciada",
-        description: "O processamento foi iniciado. Você será notificado quando concluir.",
+        title: "Transcrição concluída",
+        description: "A transcrição foi processada com sucesso.",
       });
     },
     onError: (error) => {
@@ -207,7 +232,7 @@ export function useDeleteTranscription() {
   });
 }
 
-// Hook to poll for transcription updates
+// Hook to poll for transcription updates (kept for compatibility but less needed now)
 export function useTranscriptionPolling(id: string | undefined, enabled: boolean = true) {
   return useQuery({
     queryKey: ["transcription-poll", id],

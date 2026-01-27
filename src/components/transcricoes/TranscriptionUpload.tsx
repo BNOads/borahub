@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useCreateTranscription } from "@/hooks/useTranscriptions";
 
@@ -49,6 +50,8 @@ export function TranscriptionUpload({ onTranscriptionCreated }: TranscriptionUpl
   const [title, setTitle] = useState("");
   const [language, setLanguage] = useState("pt");
   const [isDragging, setIsDragging] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressStatus, setProgressStatus] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const createTranscription = useCreateTranscription();
@@ -102,10 +105,17 @@ export function TranscriptionUpload({ onTranscriptionCreated }: TranscriptionUpl
   const handleSubmit = async () => {
     if (!file || !title.trim()) return;
 
+    setProgress(0);
+    setProgressStatus("Iniciando...");
+
     const result = await createTranscription.mutateAsync({
       title: title.trim(),
       file,
       language,
+      onProgress: (prog, status) => {
+        setProgress(prog);
+        setProgressStatus(status);
+      },
     });
 
     if (result?.id) {
@@ -114,6 +124,8 @@ export function TranscriptionUpload({ onTranscriptionCreated }: TranscriptionUpl
       setFile(null);
       setTitle("");
       setLanguage("pt");
+      setProgress(0);
+      setProgressStatus("");
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -165,7 +177,7 @@ export function TranscriptionUpload({ onTranscriptionCreated }: TranscriptionUpl
                 Formatos suportados: MP3, MP4, M4A, MOV, AAC, WAV, OGG, OPUS, WMA, MPEG, WMV
               </p>
               <p className="text-xs text-muted-foreground">
-                Tamanho máximo: 100MB
+                Tamanho máximo: 100MB • Processado localmente com Whisper AI
               </p>
             </div>
           ) : (
@@ -179,24 +191,46 @@ export function TranscriptionUpload({ onTranscriptionCreated }: TranscriptionUpl
                   {formatFileSize(file.size)}
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="flex-shrink-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearFile();
-                }}
-              >
-                <X className="h-5 w-5" />
-              </Button>
+              {!createTranscription.isPending && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="flex-shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    clearFile();
+                  }}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              )}
             </div>
           )}
         </div>
       </Card>
 
+      {/* Progress durante processamento */}
+      {createTranscription.isPending && (
+        <Card className="p-6 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <div className="flex-1">
+                <p className="font-medium">Processando transcrição...</p>
+                <p className="text-sm text-muted-foreground">{progressStatus}</p>
+              </div>
+              <span className="text-sm font-medium text-primary">{Math.round(progress)}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+            <p className="text-xs text-muted-foreground text-center">
+              O modelo Whisper está processando seu áudio localmente. Isso pode levar alguns minutos na primeira vez (download do modelo).
+            </p>
+          </div>
+        </Card>
+      )}
+
       {/* Campos adicionais */}
-      {file && (
+      {file && !createTranscription.isPending && (
         <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
           <div className="space-y-2">
             <Label htmlFor="title">Título da transcrição</Label>
@@ -231,17 +265,8 @@ export function TranscriptionUpload({ onTranscriptionCreated }: TranscriptionUpl
             className="w-full h-12 text-base font-medium"
             size="lg"
           >
-            {createTranscription.isPending ? (
-              <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Enviando...
-              </>
-            ) : (
-              <>
-                <FileAudio className="h-5 w-5 mr-2" />
-                Transcrever
-              </>
-            )}
+            <FileAudio className="h-5 w-5 mr-2" />
+            Transcrever com Whisper
           </Button>
         </div>
       )}
