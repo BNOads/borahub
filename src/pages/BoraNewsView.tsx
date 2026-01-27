@@ -7,6 +7,7 @@ import {
   Eye,
   EyeOff,
   Star,
+  Edit,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,8 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export default function BoraNewsView() {
   const [activeTab, setActiveTab] = useState("todas");
+  const [editingNews, setEditingNews] = useState<BoraNewsWithLeitura | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const { isAdmin } = useAuth();
 
   const { data: allNews, isLoading } = useBoraNewsList(!isAdmin);
@@ -273,6 +276,17 @@ export default function BoraNewsView() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  onClick={() => {
+                                    setEditingNews(item);
+                                    setIsEditModalOpen(true);
+                                  }}
+                                  title="Editar"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   onClick={() => handleToggleDestaque(item)}
                                   title={
                                     item.destaque
@@ -351,6 +365,16 @@ export default function BoraNewsView() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Modal */}
+      <CreateBoraNewsModal
+        editData={editingNews}
+        open={isEditModalOpen}
+        onOpenChange={(open) => {
+          setIsEditModalOpen(open);
+          if (!open) setEditingNews(null);
+        }}
+      />
     </div>
   );
 }

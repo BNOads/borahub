@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useCreateBoraNews, BoraNewsInsert } from "@/hooks/useBoraNews";
+import { useCreateBoraNews, useUpdateBoraNews, BoraNewsInsert, BoraNewsWithLeitura } from "@/hooks/useBoraNews";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCreateNotification } from "@/hooks/useNotifications";
 
@@ -33,11 +33,24 @@ interface FormData {
   destaque: boolean;
 }
 
-export function CreateBoraNewsModal() {
-  const [open, setOpen] = useState(false);
+interface CreateBoraNewsModalProps {
+  editData?: BoraNewsWithLeitura | null;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function CreateBoraNewsModal({ editData, open: externalOpen, onOpenChange }: CreateBoraNewsModalProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const { profile } = useAuth();
   const createNews = useCreateBoraNews();
+  const updateNews = useUpdateBoraNews();
   const createNotification = useCreateNotification();
+
+  const isControlled = externalOpen !== undefined;
+  const open = isControlled ? externalOpen : internalOpen;
+  const setOpen = isControlled ? (onOpenChange || (() => {})) : setInternalOpen;
+
+  const isEditing = !!editData;
 
   const {
     register,
@@ -46,63 +59,82 @@ export function CreateBoraNewsModal() {
     setValue,
     watch,
     formState: { errors },
-  } = useForm<FormData>({
-    defaultValues: {
-      titulo: "",
-      conteudo: "",
-      resumo: "",
-      status_publicacao: "rascunho",
-      destaque: false,
-    },
-  });
+  } = useForm<FormData>();
 
   const destaque = watch("destaque");
   const status = watch("status_publicacao");
 
+  useEffect(() => {
+    if (open) {
+      reset({
+        titulo: editData?.titulo || "",
+        conteudo: editData?.conteudo || "",
+        resumo: editData?.resumo || "",
+        status_publicacao: (editData?.status_publicacao as 'publicado' | 'rascunho') || "rascunho",
+        destaque: editData?.destaque || false,
+      });
+    }
+  }, [open, editData, reset]);
+
   const onSubmit = async (data: FormData) => {
     try {
-      const autorNome = profile?.full_name || profile?.display_name || "Admin";
-      const newsData: BoraNewsInsert = {
-        titulo: data.titulo,
-        conteudo: data.conteudo,
-        resumo: data.resumo || undefined,
-        autor_nome: autorNome,
-        status_publicacao: data.status_publicacao,
-        destaque: data.destaque,
-        data_publicacao: new Date().toISOString(),
-      };
-      await createNews.mutateAsync(newsData);
-      
-      // Send notification to all users when news is published
-      if (data.status_publicacao === 'publicado') {
-        await createNotification.mutateAsync({
-          title: "Nova notícia no Bora News",
-          message: data.titulo,
-          type: "info",
-          recipient_id: null, // null means all users
+      if (isEditing && editData) {
+        await updateNews.mutateAsync({
+          id: editData.id,
+          titulo: data.titulo,
+          conteudo: data.conteudo,
+          resumo: data.resumo || null,
+          status_publicacao: data.status_publicacao,
+          destaque: data.destaque,
         });
+        toast.success("Notícia atualizada com sucesso!");
+      } else {
+        const autorNome = profile?.full_name || profile?.display_name || "Admin";
+        const newsData: BoraNewsInsert = {
+          titulo: data.titulo,
+          conteudo: data.conteudo,
+          resumo: data.resumo || undefined,
+          autor_nome: autorNome,
+          status_publicacao: data.status_publicacao,
+          destaque: data.destaque,
+          data_publicacao: new Date().toISOString(),
+        };
+        await createNews.mutateAsync(newsData);
+        
+        if (data.status_publicacao === 'publicado') {
+          await createNotification.mutateAsync({
+            title: "Nova notícia no Bora News",
+            message: data.titulo,
+            type: "info",
+            recipient_id: null,
+          });
+        }
+        toast.success("Notícia criada com sucesso!");
       }
       
-      toast.success("Notícia criada com sucesso!");
       setOpen(false);
       reset();
     } catch (error) {
-      toast.error("Erro ao criar notícia");
+      toast.error(isEditing ? "Erro ao atualizar notícia" : "Erro ao criar notícia");
       console.error(error);
     }
   };
 
+  const isPending = createNews.isPending || updateNews.isPending;
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          Nova Noticia
-        </Button>
-      </DialogTrigger>
+      {!isControlled && (
+        <DialogTrigger asChild>
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            Nova Noticia
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Criar Bora News</DialogTitle>
+          <DialogTitle>{isEditing ? "Editar Bora News" : "Criar Bora News"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
           <div className="space-y-2">
@@ -174,9 +206,9 @@ export function CreateBoraNewsModal() {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={createNews.isPending}>
-              {createNews.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Criar Noticia
+            <Button type="submit" disabled={isPending}>
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isEditing ? "Salvar Alterações" : "Criar Noticia"}
             </Button>
           </div>
         </form>
