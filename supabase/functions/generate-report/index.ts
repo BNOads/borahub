@@ -104,51 +104,136 @@ serve(async (req) => {
       consolidatedData.funnels = funnels || [];
     }
 
-    // Sales
+    // Sales - with more detailed data
     if (scope.includes("sales")) {
       const { data: sales } = await supabase
         .from("sales")
-        .select("*, installments(*)")
+        .select("*, installments(*), profiles:seller_id(full_name)")
         .gte("sale_date", period_start)
         .lte("sale_date", period_end);
-      consolidatedData.sales = sales || [];
-
-      // Calculate totals
+      
+      // Calculate comprehensive totals
       if (sales && sales.length > 0) {
         const totalRevenue = sales.reduce((sum, s) => sum + (s.total_value || 0), 0);
         const approvedSales = sales.filter((s) => s.status === "approved");
+        const approvedRevenue = approvedSales.reduce((sum, s) => sum + (s.total_value || 0), 0);
+        const pendingSales = sales.filter((s) => s.status === "pending");
+        const canceledSales = sales.filter((s) => s.status === "canceled" || s.status === "refunded");
+        
+        // Group by product
+        const salesByProduct: Record<string, { count: number; revenue: number }> = {};
+        sales.forEach((s) => {
+          const product = s.product_name || "Produto não especificado";
+          if (!salesByProduct[product]) {
+            salesByProduct[product] = { count: 0, revenue: 0 };
+          }
+          salesByProduct[product].count++;
+          salesByProduct[product].revenue += s.total_value || 0;
+        });
+        
+        // Group by seller
+        const salesBySeller: Record<string, { count: number; revenue: number }> = {};
+        sales.forEach((s) => {
+          const seller = s.profiles?.full_name || "Vendedor não atribuído";
+          if (!salesBySeller[seller]) {
+            salesBySeller[seller] = { count: 0, revenue: 0 };
+          }
+          salesBySeller[seller].count++;
+          salesBySeller[seller].revenue += s.total_value || 0;
+        });
+        
         consolidatedData.salesSummary = {
           total: sales.length,
           approved: approvedSales.length,
+          pending: pendingSales.length,
+          canceled: canceledSales.length,
           totalRevenue,
+          approvedRevenue,
           avgTicket: sales.length > 0 ? totalRevenue / sales.length : 0,
+          byProduct: salesByProduct,
+          bySeller: salesBySeller,
+        };
+        
+        // Include recent sales list (limited)
+        consolidatedData.recentSales = sales.slice(0, 20).map((s) => ({
+          date: s.sale_date,
+          product: s.product_name,
+          value: s.total_value,
+          status: s.status,
+          seller: s.profiles?.full_name,
+        }));
+      } else {
+        consolidatedData.salesSummary = {
+          total: 0,
+          approved: 0,
+          pending: 0,
+          canceled: 0,
+          totalRevenue: 0,
+          approvedRevenue: 0,
+          avgTicket: 0,
+          byProduct: {},
+          bySeller: {},
         };
       }
     }
 
-    // Tasks
+    // Tasks - with detailed person breakdown
     if (scope.includes("tasks")) {
       const { data: tasks } = await supabase
         .from("tasks")
         .select("*, profiles:assigned_to(full_name)")
-        .gte("created_at", period_start)
-        .lte("created_at", `${period_end}T23:59:59`);
-      consolidatedData.tasks = tasks || [];
+        .or(`created_at.gte.${period_start},updated_at.gte.${period_start}`);
+      
+      // Filter tasks that were active in the period
+      const periodTasks = (tasks || []).filter((t) => {
+        const createdAt = new Date(t.created_at);
+        const updatedAt = new Date(t.updated_at);
+        const start = new Date(period_start);
+        const end = new Date(period_end + "T23:59:59");
+        return (createdAt >= start && createdAt <= end) || (updatedAt >= start && updatedAt <= end);
+      });
+      
+      consolidatedData.tasks = periodTasks;
 
-      // Group by assignee
-      if (tasks && tasks.length > 0) {
-        const tasksByPerson: Record<string, { total: number; completed: number }> = {};
-        tasks.forEach((t) => {
+      // Group by assignee with detailed stats
+      if (periodTasks.length > 0) {
+        const tasksByPerson: Record<string, { 
+          total: number; 
+          completed: number; 
+          inProgress: number;
+          pending: number;
+          completedTasks: string[];
+        }> = {};
+        
+        periodTasks.forEach((t) => {
           const name = t.profiles?.full_name || "Não atribuída";
           if (!tasksByPerson[name]) {
-            tasksByPerson[name] = { total: 0, completed: 0 };
+            tasksByPerson[name] = { 
+              total: 0, 
+              completed: 0, 
+              inProgress: 0, 
+              pending: 0,
+              completedTasks: [] 
+            };
           }
           tasksByPerson[name].total++;
           if (t.status === "done") {
             tasksByPerson[name].completed++;
+            tasksByPerson[name].completedTasks.push(t.title);
+          } else if (t.status === "in_progress") {
+            tasksByPerson[name].inProgress++;
+          } else {
+            tasksByPerson[name].pending++;
           }
         });
+        
         consolidatedData.tasksSummary = tasksByPerson;
+        consolidatedData.tasksOverview = {
+          totalTasks: periodTasks.length,
+          completed: periodTasks.filter((t) => t.status === "done").length,
+          inProgress: periodTasks.filter((t) => t.status === "in_progress").length,
+          pending: periodTasks.filter((t) => t.status === "todo" || t.status === "pending").length,
+        };
       }
     }
 
@@ -176,32 +261,54 @@ serve(async (req) => {
 
     // Build prompt for AI
     const systemPrompt = `Você é um analista de operações experiente do BORA Hub, uma plataforma de gestão empresarial.
-Sua tarefa é gerar um relatório executivo profissional baseado nos dados fornecidos.
+Sua tarefa é gerar um relatório executivo profissional e COMPLETO baseado nos dados fornecidos.
 
 REGRAS IMPORTANTES:
 - Nunca invente números ou dados que não foram fornecidos
 - Se faltar dados em alguma área, sinalize explicitamente
 - Use tom profissional e objetivo
 - Formate em Markdown com seções claras
+- Use **negrito** para destacar números importantes e métricas chave
 - Destaque insights e recomendações
 - Inclua alertas para riscos identificados
 - Sugira próximos passos quando apropriado
 
-ESTRUTURA DO RELATÓRIO:
-1. Resumo Executivo (2-3 parágrafos resumindo os principais acontecimentos)
-2. Blocos temáticos baseados no escopo selecionado
-3. Alertas e Riscos (se houver)
-4. Próximos Passos Recomendados`;
+ESTRUTURA OBRIGATÓRIA DO RELATÓRIO:
+1. Resumo Executivo (2-3 parágrafos resumindo os principais acontecimentos e resultados)
 
-    const userPrompt = `Gere um relatório executivo para o período de ${period_start} a ${period_end}.
+2. Para cada escopo selecionado, INCLUA UMA SEÇÃO COMPLETA:
+   - Se "sales" estiver no escopo: Seção detalhada de VENDAS E FATURAMENTO com:
+     * Total de vendas e faturamento bruto
+     * Vendas aprovadas vs pendentes vs canceladas  
+     * Ranking de produtos mais vendidos
+     * Ranking de vendedores por faturamento
+     * Ticket médio
+   
+   - Se "tasks" estiver no escopo: Seção detalhada de TAREFAS POR PESSOA com:
+     * Visão geral (total, concluídas, em andamento, pendentes)
+     * Lista COMPLETA de cada pessoa com suas tarefas
+     * Quantidade de tarefas concluídas por cada pessoa
+     * Nomes das tarefas concluídas por cada pessoa
+     * Taxa de conclusão por pessoa
+   
+   - Se "events" estiver no escopo: Lista de eventos realizados
+   - Se "funnels" estiver no escopo: Status dos funis de marketing
+   - Se "content" estiver no escopo: Resumo de conteúdos publicados
+
+3. Alertas e Riscos (gargalos, atrasos, problemas identificados)
+4. Próximos Passos Recomendados com responsáveis quando possível`;
+
+    const userPrompt = `Gere um relatório executivo COMPLETO E DETALHADO para o período de ${period_start} a ${period_end}.
 
 TIPO DE RELATÓRIO: ${report_type}
 ESCOPOS SELECIONADOS: ${scope.join(", ")}
 
+IMPORTANTE: Para CADA escopo selecionado, você DEVE incluir uma seção dedicada com TODOS os dados disponíveis.
+
 DADOS CONSOLIDADOS:
 ${JSON.stringify(consolidatedData, null, 2)}
 
-Por favor, analise esses dados e gere um relatório completo em Markdown.`;
+Por favor, analise esses dados e gere um relatório COMPLETO em Markdown, cobrindo TODOS os escopos selecionados com seus dados detalhados.`;
 
     let reportContent = "";
     let aiSuggestions: Array<{
@@ -346,22 +453,81 @@ function generateFallbackReport(
     const summary = data.salesSummary as {
       total: number;
       approved: number;
+      pending: number;
+      canceled: number;
       totalRevenue: number;
+      approvedRevenue: number;
       avgTicket: number;
+      byProduct: Record<string, { count: number; revenue: number }>;
+      bySeller: Record<string, { count: number; revenue: number }>;
     };
     report += `## Vendas e Faturamento\n\n`;
+    report += `### Visão Geral\n\n`;
     report += `- Total de vendas: **${summary.total}**\n`;
     report += `- Vendas aprovadas: **${summary.approved}**\n`;
+    report += `- Vendas pendentes: **${summary.pending}**\n`;
+    report += `- Vendas canceladas: **${summary.canceled}**\n`;
     report += `- Faturamento total: **R$ ${summary.totalRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}**\n`;
+    report += `- Faturamento aprovado: **R$ ${summary.approvedRevenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}**\n`;
     report += `- Ticket médio: **R$ ${summary.avgTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}**\n\n`;
+    
+    if (Object.keys(summary.byProduct).length > 0) {
+      report += `### Vendas por Produto\n\n`;
+      Object.entries(summary.byProduct)
+        .sort((a, b) => b[1].revenue - a[1].revenue)
+        .forEach(([product, stats]) => {
+          report += `- **${product}**: ${stats.count} vendas - R$ ${stats.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}\n`;
+        });
+      report += `\n`;
+    }
+    
+    if (Object.keys(summary.bySeller).length > 0) {
+      report += `### Vendas por Vendedor\n\n`;
+      Object.entries(summary.bySeller)
+        .sort((a, b) => b[1].revenue - a[1].revenue)
+        .forEach(([seller, stats]) => {
+          report += `- **${seller}**: ${stats.count} vendas - R$ ${stats.revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}\n`;
+        });
+      report += `\n`;
+    }
   }
 
   if (scope.includes("tasks") && data.tasksSummary) {
-    const summary = data.tasksSummary as Record<string, { total: number; completed: number }>;
+    const summary = data.tasksSummary as Record<string, { 
+      total: number; 
+      completed: number; 
+      inProgress: number;
+      pending: number;
+      completedTasks: string[];
+    }>;
+    const overview = data.tasksOverview as { totalTasks: number; completed: number; inProgress: number; pending: number } | undefined;
+    
     report += `## Tarefas por Pessoa\n\n`;
+    
+    if (overview) {
+      report += `### Visão Geral\n\n`;
+      report += `- Total de tarefas: **${overview.totalTasks}**\n`;
+      report += `- Concluídas: **${overview.completed}**\n`;
+      report += `- Em andamento: **${overview.inProgress}**\n`;
+      report += `- Pendentes: **${overview.pending}**\n\n`;
+    }
+    
+    report += `### Detalhamento por Pessoa\n\n`;
     Object.entries(summary).forEach(([person, stats]) => {
       const completion = stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(0) : 0;
-      report += `- **${person}**: ${stats.completed}/${stats.total} concluídas (${completion}%)\n`;
+      report += `#### ${person}\n\n`;
+      report += `- Total: **${stats.total}** | Concluídas: **${stats.completed}** | Em andamento: **${stats.inProgress}** | Pendentes: **${stats.pending}**\n`;
+      report += `- Taxa de conclusão: **${completion}%**\n`;
+      if (stats.completedTasks && stats.completedTasks.length > 0) {
+        report += `- Tarefas concluídas:\n`;
+        stats.completedTasks.slice(0, 10).forEach((task) => {
+          report += `  - ${task}\n`;
+        });
+        if (stats.completedTasks.length > 10) {
+          report += `  - ... e mais ${stats.completedTasks.length - 10} tarefas\n`;
+        }
+      }
+      report += `\n`;
     });
     report += `\n`;
   }

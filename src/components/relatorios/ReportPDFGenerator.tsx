@@ -205,20 +205,64 @@ export async function generateReportPDF(report: Report): Promise<void> {
       continue;
     }
 
-    // Regular paragraph
+    // Regular paragraph with inline formatting
     addPageIfNeeded(8);
     pdf.setFontSize(10);
-    pdf.setFont("helvetica", "normal");
     pdf.setTextColor(60, 60, 60);
 
-    // Remove markdown bold/italic markers for PDF
-    const cleanText = trimmedLine.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1");
-    const paragraphLines = pdf.splitTextToSize(cleanText, contentWidth);
-    paragraphLines.forEach((pLine: string) => {
-      addPageIfNeeded(6);
-      pdf.text(pLine, margin, yPosition);
+    // Parse and render text with bold formatting
+    const renderFormattedLine = (text: string) => {
+      const parts = text.split(/(\*\*[^*]+\*\*)/g);
+      let xPos = margin;
+      
+      parts.forEach((part) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          // Bold text
+          const boldText = part.slice(2, -2);
+          pdf.setFont("helvetica", "bold");
+          pdf.text(boldText, xPos, yPosition);
+          xPos += pdf.getTextWidth(boldText);
+        } else if (part) {
+          // Normal text
+          pdf.setFont("helvetica", "normal");
+          pdf.text(part, xPos, yPosition);
+          xPos += pdf.getTextWidth(part);
+        }
+      });
+    };
+
+    // Check if line fits in one row or needs splitting
+    const cleanForMeasure = trimmedLine.replace(/\*\*/g, "");
+    if (pdf.getTextWidth(cleanForMeasure) <= contentWidth) {
+      renderFormattedLine(trimmedLine);
       yPosition += 5;
-    });
+    } else {
+      // Split into multiple lines, preserving bold
+      const words = trimmedLine.split(" ");
+      let currentLine = "";
+      
+      for (const word of words) {
+        const testLine = currentLine ? `${currentLine} ${word}` : word;
+        const testClean = testLine.replace(/\*\*/g, "");
+        
+        if (pdf.getTextWidth(testClean) <= contentWidth) {
+          currentLine = testLine;
+        } else {
+          if (currentLine) {
+            addPageIfNeeded(6);
+            renderFormattedLine(currentLine);
+            yPosition += 5;
+          }
+          currentLine = word;
+        }
+      }
+      
+      if (currentLine) {
+        addPageIfNeeded(6);
+        renderFormattedLine(currentLine);
+        yPosition += 5;
+      }
+    }
     yPosition += 2;
   }
 
