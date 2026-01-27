@@ -26,10 +26,9 @@ export function ValidationResults({ result, originalText, onReset, onNewCopy }: 
   const [showProblems, setShowProblems] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleCopyFeedback = async () => {
-    const feedback = generateFeedbackText(result);
-    await navigator.clipboard.writeText(feedback);
-    toast.success("Feedback copiado para a área de transferência!");
+  const handleCopyText = async () => {
+    await navigator.clipboard.writeText(originalText);
+    toast.success("Copy copiada para a área de transferência!");
   };
 
   const handleGenerateNewCopy = async () => {
@@ -79,9 +78,9 @@ export function ValidationResults({ result, originalText, onReset, onNewCopy }: 
           </div>
           
           <div className="flex flex-wrap gap-2">
-            <Button onClick={handleCopyFeedback} variant="outline" className="gap-2">
+            <Button onClick={handleCopyText} variant="outline" className="gap-2">
               <Copy className="h-4 w-4" />
-              Copiar Feedback
+              Copiar Copy
             </Button>
             <Button 
               onClick={handleGenerateNewCopy} 
@@ -165,33 +164,3 @@ export function ValidationResults({ result, originalText, onReset, onNewCopy }: 
   );
 }
 
-function generateFeedbackText(result: ValidationResult): string {
-  let text = `📊 VALIDAÇÃO DE COPY BORAnaOBRA\n`;
-  text += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
-  text += `📈 Pontuação: ${result.pontuacao_geral}/100 - ${result.status}\n\n`;
-  text += `📝 Resumo: ${result.resumo_executivo}\n\n`;
-  
-  text += `📊 DIMENSÕES:\n`;
-  result.dimensoes.forEach(d => {
-    const icon = d.status === "Ótimo" ? "✅" : d.status === "Atenção" ? "⚠️" : d.status === "Crítico" ? "❌" : "➖";
-    text += `${icon} ${d.nome}: ${d.status === "N/A" ? "N/A" : `${d.pontuacao}/100`}\n`;
-  });
-  
-  if (result.destaques_positivos.length > 0) {
-    text += `\n✨ DESTAQUES POSITIVOS:\n`;
-    result.destaques_positivos.forEach(d => {
-      text += `• ${d}\n`;
-    });
-  }
-  
-  if (result.trechos_problematicos.length > 0) {
-    text += `\n⚠️ TRECHOS A REVISAR:\n`;
-    result.trechos_problematicos.forEach(p => {
-      text += `\n❌ "${p.trecho_original}"\n`;
-      text += `   Problema: ${p.problema}\n`;
-      text += `   💡 Sugestão: "${p.sugestao_reescrita}"\n`;
-    });
-  }
-  
-  return text;
-}
