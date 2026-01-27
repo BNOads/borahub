@@ -27,6 +27,7 @@ export interface SocialPost {
     editorial_line_id: string;
     created_at: string;
     updated_at: string;
+    video_url?: string | null;
     profiles?: SocialProfile;
     comments_count?: number;
     history_count?: number;
@@ -74,6 +75,7 @@ export function useSocialPosts(weekStart: string, weekEnd: string) {
                     editorial_line_id,
                     created_at,
                     updated_at,
+                    video_url,
                     profiles:social_profiles(id, name, icon, color),
                     post_comments(count),
                     post_history(count)

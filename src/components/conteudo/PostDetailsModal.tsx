@@ -41,7 +41,8 @@ import {
     Link as LinkIcon,
     Plus,
     X,
-    Save
+    Save,
+    Film
 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +50,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { VideoEmbed } from "./VideoEmbed";
 
 // Youtube Icon Component
 const YoutubeIcon = ({ className }: { className?: string }) => (
@@ -115,6 +117,7 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
     const [roteiro, setRoteiro] = useState("");
     const [arquivosLink, setArquivosLink] = useState("");
     const [bigIdea, setBigIdea] = useState("");
+    const [videoUrl, setVideoUrl] = useState("");
     const [camposExtras, setCamposExtras] = useState<CampoExtra[]>([]);
     const [novoCampoLabel, setNovoCampoLabel] = useState("");
     const [savingContent, setSavingContent] = useState(false);
@@ -145,6 +148,7 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
             setRoteiro(post.roteiro || "");
             setArquivosLink(post.arquivos_link || "");
             setBigIdea(post.big_idea || "");
+            setVideoUrl(post.video_url || "");
             // Garantir que campos_extras seja sempre um array válido
             const extras = post.campos_extras;
             setCamposExtras(Array.isArray(extras) ? extras : []);
@@ -352,9 +356,15 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
     async function handleSaveContentFields() {
         try {
             setSavingContent(true);
-            // Campos extras não existem na tabela social_posts do banco externo
-            // Salvando apenas campos padrão
-            toast.success("Conteúdo salvo localmente!");
+            
+            const { error } = await supabase
+                .from("social_posts")
+                .update({ video_url: videoUrl })
+                .eq("id", post.id);
+
+            if (error) throw error;
+            
+            toast.success("Conteúdo salvo com sucesso!");
             onUpdate();
         } catch (error: any) {
             toast.error("Erro ao salvar: " + error.message);
@@ -540,6 +550,23 @@ export function PostDetailsModal({ isOpen, onClose, post, onUpdate }: PostDetail
                                     placeholder="Escreva o roteiro ou script do post aqui..."
                                     className="min-h-[100px] bg-muted/30 border-none rounded-xl text-sm resize-none"
                                 />
+                            </div>
+
+                            {/* Vídeo do Post */}
+                            <div className="bg-background/80 p-4 rounded-2xl border border-border">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Film className="h-4 w-4 text-purple-500" />
+                                    <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Vídeo do Post</span>
+                                </div>
+                                <Input
+                                    value={videoUrl}
+                                    onChange={(e) => setVideoUrl(e.target.value)}
+                                    placeholder="Cole o link do Google Drive, YouTube ou Vimeo..."
+                                    className="h-10 bg-muted/30 border-none rounded-xl text-sm mb-3"
+                                />
+                                {videoUrl && (
+                                    <VideoEmbed url={videoUrl} className="mt-2" />
+                                )}
                             </div>
 
                             {/* Arquivos/Link */}

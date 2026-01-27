@@ -2383,6 +2383,7 @@ export type Database = {
           status: string
           theme: string | null
           updated_at: string
+          video_url: string | null
         }
         Insert: {
           arquivos_link?: string | null
@@ -2402,6 +2403,7 @@ export type Database = {
           status?: string
           theme?: string | null
           updated_at?: string
+          video_url?: string | null
         }
         Update: {
           arquivos_link?: string | null
@@ -2421,6 +2423,7 @@ export type Database = {
           status?: string
           theme?: string | null
           updated_at?: string
+          video_url?: string | null
         }
         Relationships: [
           {
