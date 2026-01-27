@@ -19,7 +19,7 @@ import {
   FunnelMatchedSales,
 } from "@/components/funnel-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutDashboard, Settings, Link2, BookOpen, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Settings, Link2, BookOpen, AlertTriangle, ClipboardList } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 export default function FunnelPanel() {
@@ -125,9 +125,9 @@ export default function FunnelPanel() {
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Configuração</span>
           </TabsTrigger>
-          <TabsTrigger value="links" className="gap-2">
-            <Link2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Links & Checklist</span>
+          <TabsTrigger value="checklist" className="gap-2">
+            <ClipboardList className="h-4 w-4" />
+            <span className="hidden sm:inline">Checklist</span>
           </TabsTrigger>
           <TabsTrigger value="diary" className="gap-2">
             <BookOpen className="h-4 w-4" />
@@ -175,12 +175,9 @@ export default function FunnelPanel() {
           {isLaunchCategory && <FunnelOperationalDates funnel={funnel} onUpdate={fetchFunnel} />}
         </TabsContent>
 
-        {/* Tab: Links & Checklist */}
-        <TabsContent value="links" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <FunnelLinksList funnelId={funnel.id} />
-            <FunnelChecklist funnelId={funnel.id} funnelCategory={funnel.category || undefined} />
-          </div>
+        {/* Tab: Checklist */}
+        <TabsContent value="checklist" className="space-y-6">
+          <FunnelChecklist funnelId={funnel.id} funnelCategory={funnel.category || undefined} />
         </TabsContent>
 
         {/* Tab: Diário */}
