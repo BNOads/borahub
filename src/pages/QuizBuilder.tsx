@@ -53,6 +53,7 @@ import {
   useCreateQuestion,
   useUpdateQuestion,
   useDeleteQuestion,
+  useDuplicateQuestion,
   useCreateOption,
   useUpdateOption,
   useDeleteOption,
@@ -115,6 +116,7 @@ export default function QuizBuilder() {
   const createQuestion = useCreateQuestion();
   const updateQuestion = useUpdateQuestion();
   const deleteQuestion = useDeleteQuestion();
+  const duplicateQuestion = useDuplicateQuestion();
   const createOption = useCreateOption();
   const updateOption = useUpdateOption();
   const deleteOption = useDeleteOption();
@@ -480,6 +482,7 @@ export default function QuizBuilder() {
                 onToggle={() => toggleQuestionExpanded(question.id)}
                 onUpdate={(data) => updateQuestion.mutate({ ...data, id: question.id, quiz_id: id! })}
                 onDelete={() => deleteQuestion.mutate({ id: question.id, quiz_id: id! })}
+                onDuplicate={() => duplicateQuestion.mutate({ questionId: question.id, quizId: id! })}
                 onAddOption={() => handleAddOption(question.id)}
                 onUpdateOption={(optionId, data) => updateOption.mutate({ ...data, id: optionId, quiz_id: id! })}
                 onDeleteOption={(optionId) => deleteOption.mutate({ id: optionId, quiz_id: id! })}
@@ -798,6 +801,7 @@ function QuestionEditor({
   onToggle,
   onUpdate,
   onDelete,
+  onDuplicate,
   onAddOption,
   onUpdateOption,
   onDeleteOption,
@@ -809,6 +813,7 @@ function QuestionEditor({
   onToggle: () => void;
   onUpdate: (data: Partial<QuizQuestion>) => void;
   onDelete: () => void;
+  onDuplicate: () => void;
   onAddOption: () => void;
   onUpdateOption: (optionId: string, data: Partial<QuizOption>) => void;
   onDeleteOption: (optionId: string) => void;
@@ -887,8 +892,11 @@ function QuestionEditor({
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDuplicate(); }} title="Duplicar">
+                  <Copy className="h-4 w-4 text-muted-foreground" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDelete(); }} title="Excluir">
                   <Trash2 className="h-4 w-4 text-muted-foreground" />
                 </Button>
                 {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}

@@ -557,6 +557,79 @@ export function useDeleteQuestion() {
   });
 }
 
+// Duplicate question with all options
+export function useDuplicateQuestion() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ questionId, quizId }: { questionId: string; quizId: string }) => {
+      // Get original question with options
+      const { data: originalQuestion, error: questionError } = await supabase
+        .from("quiz_questions")
+        .select("*, quiz_options(*)")
+        .eq("id", questionId)
+        .single();
+
+      if (questionError) throw questionError;
+
+      // Get max position to place the duplicate after
+      const { data: questions } = await supabase
+        .from("quiz_questions")
+        .select("position")
+        .eq("quiz_id", quizId)
+        .order("position", { ascending: false })
+        .limit(1);
+
+      const newPosition = (questions?.[0]?.position ?? 0) + 1;
+
+      // Create duplicated question
+      const { quiz_options, id: _, quiz_id: __, created_at: ___, updated_at: ____, ...questionData } = originalQuestion;
+
+      const { data: newQuestion, error: newQuestionError } = await supabase
+        .from("quiz_questions")
+        .insert({
+          ...questionData,
+          quiz_id: quizId,
+          question_text: `${questionData.question_text} (cópia)`,
+          position: newPosition,
+        })
+        .select()
+        .single();
+
+      if (newQuestionError) throw newQuestionError;
+
+      // Duplicate options if any
+      if (quiz_options && quiz_options.length > 0) {
+        const optionsToInsert = quiz_options.map((opt: any) => ({
+          question_id: newQuestion.id,
+          option_text: opt.option_text,
+          image_url: opt.image_url,
+          position: opt.position,
+          points: opt.points,
+          tags: opt.tags,
+          scoring_values: opt.scoring_values,
+        }));
+
+        const { error: optionsError } = await supabase
+          .from("quiz_options")
+          .insert(optionsToInsert);
+
+        if (optionsError) throw optionsError;
+      }
+
+      return { newQuestion, quizId };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["quiz", result.quizId] });
+      toast({ title: "Pergunta duplicada com sucesso!" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Erro ao duplicar pergunta", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
 // Option CRUD
 export function useCreateOption() {
   const queryClient = useQueryClient();
