@@ -44,6 +44,24 @@ O BORAnaOBRA atende arquitetos e engenheiros que buscam transformar conhecimento
 - Ataques a faculdades ou concorrentes
 - Mais de 3 usos de CAPS LOCK
 - Mais de 1 exclamação por parágrafo
+- TERMOS DE MARKETING DIGITAL (cada termo = penalização):
+  - página, landing page, LP
+  - carrinho, checkout
+  - lançamento, lança, launch
+  - abertura, abrir carrinho
+  - click, clique, CTA
+  - download, baixar (quando refere a material)
+  - funil, topo de funil, fundo de funil
+  - lead, leads, captura
+  - tráfego, ads, anúncio
+  - conversão, converter
+  - copy, copywriting
+  - gatilho, gatilho mental
+  - escassez, urgência artificial
+  - bônus, oferta, desconto
+  - upsell, downsell, order bump
+  - webinar, masterclass, imersão
+  - método (quando usado de forma genérica sem contexto BORAnaOBRA)
 
 ✅ SEMPRE:
 - Frases curtas (12-15 palavras em média)
