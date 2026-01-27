@@ -1,4 +1,4 @@
-import { ArrowRight, Rocket, TrendingUp, Calendar, Clock, DollarSign } from "lucide-react";
+import { ArrowRight, Rocket, TrendingUp, Calendar, Clock, DollarSign, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -155,6 +155,33 @@ export function ActiveLaunches() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
+  // Fetch pending checklist items for all active funnels
+  const { data: funnelChecklistPending = {} } = useQuery({
+    queryKey: ['funnels-checklist-pending', funnels.map(f => f.id)],
+    queryFn: async () => {
+      if (!funnels.length) return {};
+
+      const { data: checklistItems } = await supabase
+        .from("funnel_checklist")
+        .select("funnel_id, is_completed")
+        .in("funnel_id", funnels.map(f => f.id));
+
+      if (!checklistItems?.length) return {};
+
+      // Count pending items per funnel
+      const pending: Record<string, number> = {};
+      funnels.forEach(f => {
+        const funnelItems = checklistItems.filter(item => item.funnel_id === f.id);
+        const pendingCount = funnelItems.filter(item => !item.is_completed).length;
+        pending[f.id] = pendingCount;
+      });
+
+      return pending;
+    },
+    enabled: authReady && !!session && funnels.length > 0,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
   if (loading) {
     return (
       <div className="rounded-xl border border-border bg-card p-6 h-[200px] flex items-center justify-center">
@@ -219,6 +246,16 @@ export function ActiveLaunches() {
                       className={categoryColors[funnel.category] || "border-muted-foreground text-muted-foreground"}
                     >
                       {funnel.category}
+                    </Badge>
+                  )}
+                  {/* Aviso de pendências no checklist */}
+                  {funnelChecklistPending[funnel.id] > 0 && (
+                    <Badge 
+                      variant="outline" 
+                      className="border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950/30 gap-1"
+                    >
+                      <AlertTriangle className="h-3 w-3" />
+                      {funnelChecklistPending[funnel.id]} pendência{funnelChecklistPending[funnel.id] > 1 ? 's' : ''}
                     </Badge>
                   )}
                 </div>
