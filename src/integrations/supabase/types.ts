@@ -2021,6 +2021,33 @@ export type Database = {
           },
         ]
       }
+      report_folders: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       reports: {
         Row: {
           ai_suggestions: Json | null
@@ -2028,6 +2055,7 @@ export type Database = {
           content_markdown: string | null
           created_at: string
           filters: Json | null
+          folder_id: string | null
           generated_at: string | null
           generated_by: string | null
           id: string
@@ -2046,6 +2074,7 @@ export type Database = {
           content_markdown?: string | null
           created_at?: string
           filters?: Json | null
+          folder_id?: string | null
           generated_at?: string | null
           generated_by?: string | null
           id?: string
@@ -2064,6 +2093,7 @@ export type Database = {
           content_markdown?: string | null
           created_at?: string
           filters?: Json | null
+          folder_id?: string | null
           generated_at?: string | null
           generated_by?: string | null
           id?: string
@@ -2077,6 +2107,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reports_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "report_folders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reports_generated_by_fkey"
             columns: ["generated_by"]

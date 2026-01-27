@@ -18,6 +18,7 @@ export interface Report {
   generated_at: string;
   status: "generating" | "completed" | "error";
   pdf_path: string | null;
+  folder_id: string | null;
   created_at: string;
   updated_at: string;
   profiles?: {
