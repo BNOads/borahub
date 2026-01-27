@@ -21,6 +21,7 @@ import {
   CalendarDays,
   Filter,
   ClipboardList,
+  FileCheck,
   CheckSquare,
   FileBarChart
 } from "lucide-react";
@@ -124,6 +125,13 @@ const tools = [
     href: "/relatorios",
     icon: FileBarChart,
     color: "bg-indigo-500/10 text-indigo-500",
+  },
+  {
+    name: "Validador de Copy",
+    description: "Analise suas copies contra as diretrizes da marca BORAnaOBRA",
+    href: "/validador-copy",
+    icon: FileCheck,
+    color: "bg-lime-500/10 text-lime-500",
   },
 ];
 
