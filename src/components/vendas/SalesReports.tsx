@@ -63,7 +63,15 @@ export function SalesReports() {
   });
   const [platformFilter, setPlatformFilter] = useState<string>("all");
   const [sellerFilter, setSellerFilter] = useState<string>("all");
+  const [productFilter, setProductFilter] = useState<string>("all");
   const [commissionSort, setCommissionSort] = useState<{ column: string; direction: 'asc' | 'desc' }>({ column: 'sellerName', direction: 'asc' });
+  
+  // Get unique product names for filter
+  const uniqueProducts = useMemo(() => {
+    if (!sales) return [];
+    const productNames = new Set(sales.map(s => s.product_name));
+    return Array.from(productNames).sort();
+  }, [sales]);
   
   // Calculate seller performance based on COMMISSION COMPETENCE MONTH (not sale date)
   // This ensures cards and detail table show consistent data
@@ -117,8 +125,9 @@ export function SalesReports() {
       // Apply filters
       const matchesPlatform = platformFilter === "all" || sale.platform === platformFilter;
       const matchesSeller = sellerFilter === "all" || comm.seller_id === sellerFilter;
+      const matchesProduct = productFilter === "all" || sale.product_name === productFilter;
       
-      if (!matchesPlatform || !matchesSeller) return;
+      if (!matchesPlatform || !matchesSeller || !matchesProduct) return;
       
       const sellerId = comm.seller_id;
       const sellerName = seller?.full_name || 'Desconhecido';
@@ -179,7 +188,7 @@ export function SalesReports() {
     });
     
     return Array.from(sellerMap.values()).sort((a, b) => b.totalRevenue - a.totalRevenue);
-  }, [sales, commissions, installments, dateRange, platformFilter, sellerFilter]);
+  }, [sales, commissions, installments, dateRange, platformFilter, sellerFilter, productFilter]);
   
   // Calculate totals from sellerPerformance (for sales/revenue)
   const salesTotals = useMemo(() => {
@@ -217,8 +226,9 @@ export function SalesReports() {
 
         const matchesPlatform = platformFilter === "all" || sale.platform === platformFilter;
         const matchesSeller = sellerFilter === "all" || comm.seller_id === sellerFilter;
+        const matchesProduct = productFilter === "all" || sale.product_name === productFilter;
 
-        if (!inCompetenceRange || !matchesPlatform || !matchesSeller) return null;
+        if (!inCompetenceRange || !matchesPlatform || !matchesSeller || !matchesProduct) return null;
 
         return {
           id: comm.id,
@@ -255,7 +265,7 @@ export function SalesReports() {
         competenceMonth: string;
         releasedAt: string | null;
       }>;
-  }, [commissions, dateRange, platformFilter, sellerFilter]);
+  }, [commissions, dateRange, platformFilter, sellerFilter, productFilter]);
   
   // Calculate commission totals from commissionsDetail to match the detail table exactly
   const commissionTotals = useMemo(() => {
@@ -357,8 +367,9 @@ export function SalesReports() {
       // Apply filters
       const matchesPlatform = platformFilter === "all" || sale.platform === platformFilter;
       const matchesSeller = sellerFilter === "all" || comm.seller_id === sellerFilter;
+      const matchesProduct = productFilter === "all" || sale.product_name === productFilter;
       
-      if (!matchesPlatform || !matchesSeller) return acc;
+      if (!matchesPlatform || !matchesSeller || !matchesProduct) return acc;
       
       // Only count each installment once
       if (countedInstallments.has(installment.id)) return acc;
@@ -374,7 +385,7 @@ export function SalesReports() {
       }
       return acc;
     }, { received: 0, pending: 0, overdue: 0 });
-  }, [commissions, dateRange, platformFilter, sellerFilter]);
+  }, [commissions, dateRange, platformFilter, sellerFilter, productFilter]);
   
   function exportToCSV() {
     const headers = ['Vendedor', 'Email', 'Total Vendas', 'Faturamento', 'Comissão Liberada', 'Comissão Pendente', 'Comissão Suspensa', 'Parcelas Pagas', 'Parcelas Pendentes', 'Inadimplência'];
@@ -543,7 +554,7 @@ export function SalesReports() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium">Data Início</Label>
               <Input
@@ -570,6 +581,22 @@ export function SalesReports() {
                   <SelectItem value="all">Todas</SelectItem>
                   <SelectItem value="hotmart">Hotmart</SelectItem>
                   <SelectItem value="asaas">Asaas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Produto</Label>
+              <Select value={productFilter} onValueChange={setProductFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os produtos</SelectItem>
+                  {uniqueProducts.map((product) => (
+                    <SelectItem key={product} value={product}>
+                      {product.length > 25 ? product.substring(0, 25) + '...' : product}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
