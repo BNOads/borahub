@@ -114,11 +114,14 @@ export default function FunnelPanel() {
             {isLaunchCategory && <FunnelKeyDates funnel={funnel} />}
           </div>
 
-          {/* Card de Faturamento dos Produtos */}
-          <FunnelRevenue funnel={funnel} />
+          {/* Faturamento e Links lado a lado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Card de Faturamento dos Produtos */}
+            <FunnelRevenue funnel={funnel} />
 
-          {/* Links Úteis na tela inicial */}
-          <FunnelLinksList funnelId={funnel.id} compact />
+            {/* Links Úteis */}
+            <FunnelLinksList funnelId={funnel.id} />
+          </div>
         </TabsContent>
 
         {/* Tab: Configuração */}
