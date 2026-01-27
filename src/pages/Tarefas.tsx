@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -99,6 +101,7 @@ export default function Tarefas() {
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterRecurrence, setFilterRecurrence] = useState<string>("all");
+  const [filterDateRange, setFilterDateRange] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -133,6 +136,33 @@ export default function Tarefas() {
   const isLoading = tabView === "team" ? teamLoading : myTasksLoading;
   const error = tabView === "team" ? teamError : myTasksError;
 
+  // Função helper para verificar se a tarefa está no período selecionado
+  const isInDateRange = (taskDate: string | null, range: string): boolean => {
+    if (!taskDate || range === "all") return true;
+    
+    const date = parseISO(taskDate);
+    const today = new Date();
+    
+    switch (range) {
+      case "today":
+        return format(date, "yyyy-MM-dd") === format(today, "yyyy-MM-dd");
+      case "week":
+        return isWithinInterval(date, {
+          start: startOfWeek(today, { weekStartsOn: 1 }),
+          end: endOfWeek(today, { weekStartsOn: 1 }),
+        });
+      case "month":
+        return isWithinInterval(date, {
+          start: startOfMonth(today),
+          end: endOfMonth(today),
+        });
+      case "overdue":
+        return date < startOfDay(today);
+      default:
+        return true;
+    }
+  };
+
   // Aplica filtros locais
   const tasks = tabView === "team" 
     ? teamTasks.filter(task => {
@@ -146,6 +176,7 @@ export default function Tarefas() {
             if (task.recurrence !== filterRecurrence) return false;
           }
         }
+        if (!isInDateRange(task.due_date, filterDateRange)) return false;
         return true;
       })
     : myTasks.filter(task => {
@@ -709,6 +740,20 @@ export default function Tarefas() {
                       <SelectItem value="monthly">Mensal</SelectItem>
                       <SelectItem value="semiannual">Semestral</SelectItem>
                       <SelectItem value="yearly">Anual</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Select value={filterDateRange} onValueChange={setFilterDateRange}>
+                    <SelectTrigger className="w-[160px]">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Período" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas as datas</SelectItem>
+                      <SelectItem value="today">Hoje</SelectItem>
+                      <SelectItem value="week">Esta semana</SelectItem>
+                      <SelectItem value="month">Este mês</SelectItem>
+                      <SelectItem value="overdue">Atrasadas</SelectItem>
                     </SelectContent>
                   </Select>
                 </>
