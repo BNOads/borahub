@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarIcon, Loader2, Sparkles } from "lucide-react";
@@ -7,7 +7,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -27,6 +26,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useGenerateReport, REPORT_TYPES, REPORT_SCOPES, GenerateReportParams } from "@/hooks/useReports";
 
@@ -48,13 +48,47 @@ const QUICK_PERIODS = [
   { label: "Este mês", getValue: () => ({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) }) },
 ];
 
+const PROGRESS_STEPS = [
+  { progress: 15, message: "Coletando dados de eventos..." },
+  { progress: 30, message: "Analisando funis e campanhas..." },
+  { progress: 45, message: "Consolidando vendas e faturamento..." },
+  { progress: 60, message: "Processando tarefas por pessoa..." },
+  { progress: 75, message: "Gerando análise com IA..." },
+  { progress: 90, message: "Formatando relatório..." },
+];
+
 export function CreateReportModal({ open, onOpenChange, onSuccess }: CreateReportModalProps) {
   const [title, setTitle] = useState("");
   const [reportType, setReportType] = useState("custom");
   const [dateRange, setDateRange] = useState<DateRangeState>({ from: subDays(new Date(), 7), to: new Date() });
   const [selectedScopes, setSelectedScopes] = useState<string[]>(["events", "funnels", "sales", "tasks"]);
+  const [progress, setProgress] = useState(0);
+  const [progressMessage, setProgressMessage] = useState("");
 
   const generateReport = useGenerateReport();
+
+  // Progress animation during generation
+  useEffect(() => {
+    if (!generateReport.isPending) {
+      setProgress(0);
+      setProgressMessage("");
+      return;
+    }
+
+    let stepIndex = 0;
+    setProgress(PROGRESS_STEPS[0].progress);
+    setProgressMessage(PROGRESS_STEPS[0].message);
+
+    const interval = setInterval(() => {
+      stepIndex++;
+      if (stepIndex < PROGRESS_STEPS.length) {
+        setProgress(PROGRESS_STEPS[stepIndex].progress);
+        setProgressMessage(PROGRESS_STEPS[stepIndex].message);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [generateReport.isPending]);
 
   const handleScopeToggle = (scope: string) => {
     setSelectedScopes((prev) =>
@@ -80,9 +114,13 @@ export function CreateReportModal({ open, onOpenChange, onSuccess }: CreateRepor
     const result = await generateReport.mutateAsync(params);
     
     if (result?.id) {
-      onSuccess?.(result.id);
-      onOpenChange(false);
-      resetForm();
+      setProgress(100);
+      setProgressMessage("Relatório gerado com sucesso!");
+      setTimeout(() => {
+        onSuccess?.(result.id);
+        onOpenChange(false);
+        resetForm();
+      }, 500);
     }
   };
 
@@ -91,6 +129,8 @@ export function CreateReportModal({ open, onOpenChange, onSuccess }: CreateRepor
     setReportType("custom");
     setDateRange({ from: subDays(new Date(), 7), to: new Date() });
     setSelectedScopes(["events", "funnels", "sales", "tasks"]);
+    setProgress(0);
+    setProgressMessage("");
   };
 
   return (
@@ -216,8 +256,19 @@ export function CreateReportModal({ open, onOpenChange, onSuccess }: CreateRepor
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        {/* Progress bar during generation */}
+        {generateReport.isPending && (
+          <div className="space-y-2 py-2 border-t">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">{progressMessage}</span>
+              <span className="font-medium text-primary">{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2 border-t">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={generateReport.isPending}>
             Cancelar
           </Button>
           <Button
@@ -236,7 +287,7 @@ export function CreateReportModal({ open, onOpenChange, onSuccess }: CreateRepor
               </>
             )}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
