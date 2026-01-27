@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FileText, Loader2, Search, Sparkles } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +15,26 @@ export default function ValidadorCopy() {
   const [texto, setTexto] = useState("");
   const [isValidating, setIsValidating] = useState(false);
   const [result, setResult] = useState<ValidationResult | null>(null);
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    if (!isValidating) {
+      setProgress(0);
+      return;
+    }
+
+    // Simula progresso gradual até 90% em ~15 segundos
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) return prev;
+        // Acelera no início, desacelera perto de 90%
+        const increment = prev < 30 ? 8 : prev < 60 ? 5 : prev < 80 ? 3 : 1;
+        return Math.min(prev + increment, 90);
+      });
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [isValidating]);
 
   const handleValidate = async () => {
     if (!texto.trim()) {
@@ -45,6 +66,7 @@ export default function ValidadorCopy() {
         return;
       }
 
+      setProgress(100);
       setResult(data);
       toast.success("Copy validada com sucesso!");
     } catch (error) {
@@ -105,21 +127,35 @@ export default function ValidadorCopy() {
                 className="gap-2 px-8"
                 variant="gold"
               >
-                {isValidating ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    Analisando sua copy...
-                  </>
-                ) : (
+              {isValidating ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Analisando...
+                </>
+              ) : (
                   <>
                     <Sparkles className="h-5 w-5" />
                     Validar Copy
                   </>
                 )}
-              </Button>
-            </div>
+            </Button>
+          </div>
 
-            {/* Tips */}
+          {/* Progress Bar */}
+          {isValidating && (
+            <div className="space-y-2 pt-2">
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Analisando dimensões da copy...</span>
+                <span>{Math.round(progress)}%</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+              <p className="text-xs text-muted-foreground text-center">
+                Avaliando tom, estrutura, linguagem e mais...
+              </p>
+            </div>
+          )}
+
+          {/* Tips */}
             <div className="mt-6 p-4 rounded-xl bg-muted/50 border">
               <h3 className="font-semibold mb-2 flex items-center gap-2">
                 <Search className="h-4 w-4 text-accent" />
