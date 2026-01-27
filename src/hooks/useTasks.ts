@@ -31,7 +31,7 @@ export function useTasks(filters?: Partial<TaskFilters>) {
       let query = supabase
           .from("tasks")
           .select(`
-            id, title, description, priority, category, assignee, due_date, due_time, completed, position, created_at, updated_at, completed_at,
+            id, title, description, priority, category, assignee, assigned_to_id, due_date, due_time, completed, position, created_at, updated_at, completed_at, recurrence, recurrence_end_date, parent_task_id, is_recurring_instance,
             subtasks (id, title, completed)
           `)
           .order("position", { ascending: true })
@@ -57,15 +57,7 @@ export function useTasks(filters?: Partial<TaskFilters>) {
           console.error('Error fetching tasks:', error);
           return [];
         }
-        // Map data to include default values for missing columns
-        return (data || []).map((task: any) => ({
-          ...task,
-          recurrence: task.recurrence || null,
-          recurrence_end_date: task.recurrence_end_date || null,
-          assigned_to_id: task.assigned_to_id || null,
-          parent_task_id: null,
-          is_recurring_instance: false,
-        })) as TaskWithSubtasks[];
+        return (data || []) as TaskWithSubtasks[];
       } catch (error) {
         console.error('Exception in useTasks:', error);
         return [];
@@ -88,7 +80,7 @@ export function useTodaysTasks() {
         const { data, error } = await supabase
           .from("tasks")
           .select(`
-            id, title, description, priority, category, assignee, due_date, due_time, completed, position, created_at, updated_at, completed_at,
+            id, title, description, priority, category, assignee, assigned_to_id, due_date, due_time, completed, position, created_at, updated_at, completed_at, recurrence, recurrence_end_date, parent_task_id, is_recurring_instance,
             subtasks (id, title, completed)
           `)
           .lte("due_date", new Date().toISOString().split("T")[0])
@@ -100,15 +92,7 @@ export function useTodaysTasks() {
           console.error('Error fetching today tasks:', error);
           return [];
         }
-        // Map data to include default values for missing columns
-        return (data || []).map((task: any) => ({
-          ...task,
-          recurrence: task.recurrence || null,
-          recurrence_end_date: task.recurrence_end_date || null,
-          assigned_to_id: task.assigned_to_id || null,
-          parent_task_id: null,
-          is_recurring_instance: false,
-        })) as TaskWithSubtasks[];
+        return (data || []) as TaskWithSubtasks[];
       } catch (error) {
         console.error('Exception in useTodaysTasks:', error);
         return [];
@@ -322,7 +306,7 @@ export function useUserTasks(userFullName: string | null) {
         const { data, error } = await supabase
           .from("tasks")
           .select(`
-            id, title, description, priority, category, assignee, due_date, due_time, completed, position, created_at, updated_at, completed_at,
+            id, title, description, priority, category, assignee, assigned_to_id, due_date, due_time, completed, position, created_at, updated_at, completed_at, recurrence, recurrence_end_date, parent_task_id, is_recurring_instance,
             subtasks (id, title, completed)
           `)
           .eq("assignee", userFullName)
@@ -334,15 +318,7 @@ export function useUserTasks(userFullName: string | null) {
           console.error("Error fetching user tasks:", error);
           return [];
         }
-        // Map data to include default values for missing columns
-        return (data || []).map((task: any) => ({
-          ...task,
-          recurrence: task.recurrence || null,
-          recurrence_end_date: task.recurrence_end_date || null,
-          assigned_to_id: task.assigned_to_id || null,
-          parent_task_id: null,
-          is_recurring_instance: false,
-        })) as TaskWithSubtasks[];
+        return (data || []) as TaskWithSubtasks[];
       } catch (error) {
         console.error("Exception in useUserTasks:", error);
         return [];
