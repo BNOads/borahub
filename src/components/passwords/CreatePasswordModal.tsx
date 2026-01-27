@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -46,16 +46,21 @@ export function CreatePasswordModal({ onSuccess, editData, open: externalOpen, s
     const open = externalOpen !== undefined ? externalOpen : internalOpen;
     const setOpen = setExternalOpen || setInternalOpen;
 
-    const { register, handleSubmit, reset, control, formState: { errors } } = useForm<FormData>({
-        defaultValues: editData || {
-            nome_acesso: "",
-            categoria: "Ferramenta",
-            login_usuario: "",
-            senha_criptografada: "",
-            link_acesso: "",
-            notas_adicionais: ""
+    const { register, handleSubmit, reset, control, formState: { errors } } = useForm<FormData>();
+
+    // Reset form when editData changes or modal opens
+    useEffect(() => {
+        if (open) {
+            reset(editData || {
+                nome_acesso: "",
+                categoria: "Ferramenta",
+                login_usuario: "",
+                senha_criptografada: "",
+                link_acesso: "",
+                notas_adicionais: ""
+            });
         }
-    });
+    }, [open, editData, reset]);
 
     const onSubmit = async (data: FormData) => {
         setIsLoading(true);

@@ -328,14 +328,19 @@ export default function Senhas() {
             </div>
 
             {/* Edit Modal */}
-            {editingAcesso && (
-                <CreatePasswordModal
-                    open={isEditModalOpen}
-                    setOpen={setIsEditModalOpen}
-                    editData={editingAcesso}
-                    onSuccess={fetchAcessos}
-                />
-            )}
+            <CreatePasswordModal
+                open={isEditModalOpen}
+                setOpen={(open) => {
+                    setIsEditModalOpen(open);
+                    if (!open) setEditingAcesso(null);
+                }}
+                editData={editingAcesso}
+                onSuccess={() => {
+                    fetchAcessos();
+                    setEditingAcesso(null);
+                    setIsEditModalOpen(false);
+                }}
+            />
 
             {/* Delete Confirmation */}
             <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
