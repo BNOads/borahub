@@ -119,14 +119,15 @@ export default function ValidadorCopy() {
               />
             </div>
 
-            <div className="flex justify-center">
-              <Button
-                onClick={handleValidate}
-                disabled={isValidating || !texto.trim()}
-                size="lg"
-                className="gap-2 px-8"
-                variant="gold"
-              >
+          <div className="flex justify-center">
+            <Button
+              onClick={handleValidate}
+              disabled={isValidating || !texto.trim()}
+              size="lg"
+              className="gap-2 px-8"
+              variant="gold"
+              data-validate-btn
+            >
               {isValidating ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -174,7 +175,19 @@ export default function ValidadorCopy() {
           </CardContent>
         </Card>
       ) : (
-        <ValidationResults result={result} onReset={handleReset} />
+        <ValidationResults 
+          result={result} 
+          originalText={texto}
+          onReset={handleReset} 
+          onNewCopy={(newCopy) => {
+            setTexto(newCopy);
+            setResult(null);
+            // Auto-validate the new copy
+            setTimeout(() => {
+              document.querySelector<HTMLButtonElement>('[data-validate-btn]')?.click();
+            }, 100);
+          }}
+        />
       )}
     </div>
   );

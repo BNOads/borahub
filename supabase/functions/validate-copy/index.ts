@@ -64,15 +64,16 @@ O BORAnaOBRA atende arquitetos e engenheiros que buscam transformar conhecimento
 
 ## SUA TAREFA
 
-Avalie o texto fornecido em 7 dimensões, atribuindo pontos de 0 a 100 em cada:
+Avalie o texto fornecido em 8 dimensões, atribuindo pontos de 0 a 100 em cada:
 
 1. **Tom e Voz** (peso 20%)
 2. **Emoções Trabalhadas** (peso 15%)
 3. **Estrutura Invisível** (peso 20%)
-4. **Restrições de Linguagem** (peso 20%)
-5. **Prova Social** (peso 10%, se não houver prova social no texto, avalie como N/A e redistribua o peso)
-6. **Urgência** (peso 10%, se não houver urgência no texto, avalie como N/A e redistribua o peso)
-7. **Formato e Legibilidade** (peso 5%)
+4. **Restrições de Linguagem** (peso 15%)
+5. **Português e Gramática** (peso 10%) - Avalie ortografia, concordância, pontuação e clareza gramatical
+6. **Prova Social** (peso 10%, se não houver prova social no texto, avalie como N/A e redistribua o peso)
+7. **Urgência** (peso 5%, se não houver urgência no texto, avalie como N/A e redistribua o peso)
+8. **Formato e Legibilidade** (peso 5%)
 
 Para dimensões N/A, redistribua o peso proporcionalmente entre as outras dimensões.
 

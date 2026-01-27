@@ -61,7 +61,17 @@ export function CopyValidatorTab() {
   };
 
   if (result) {
-    return <ValidationResults result={result} onReset={handleReset} />;
+    return (
+      <ValidationResults 
+        result={result} 
+        originalText={texto}
+        onReset={handleReset}
+        onNewCopy={(newCopy) => {
+          setTexto(newCopy);
+          setResult(null);
+        }}
+      />
+    );
   }
 
   return (
