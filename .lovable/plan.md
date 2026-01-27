@@ -1,245 +1,327 @@
 
-# Plano: Validador de Copy BORAnaOBRA
+# Plano de Implementacao - Ferramenta de Transcricao de Videos
 
-## Resumo
+## Visao Geral
 
-Criar uma ferramenta completa de validação de copy que analisa textos de marketing contra as diretrizes da marca BORAnaOBRA usando IA, fornecendo pontuação detalhada, feedback acionável e sugestões de reescrita.
+Implementar uma ferramenta nativa de transcricao de videos no BoraHub que permite:
+- Upload manual de arquivos de audio/video
+- Transcricao de videos ja existentes na plataforma
+- Diarizacao automatica (identificacao de speakers)
+- Historico de transcricoes
+
+A transcricao sera feita via ElevenLabs Speech-to-Text (Scribe v2), que suporta diarizacao e diversos formatos de audio.
 
 ---
 
-## Arquitetura da Solução
-
-A ferramenta será acessível via:
-1. **Página dedicada** em `/validador-copy` 
-2. **Aba integrada** na Gestão de Conteúdo (ConteudoView) para acesso rápido
+## Arquitetura da Solucao
 
 ```text
-+---------------------------+
-|      Frontend (React)     |
-+---------------------------+
-            |
-            v
-+---------------------------+
-|    Edge Function          |
-|  (validate-copy/index.ts) |
-+---------------------------+
-            |
-            v
-+---------------------------+
-|   Lovable AI Gateway      |
-|  (google/gemini-3-flash)  |
-+---------------------------+
++-------------------+     +------------------+     +----------------+
+|   Frontend React  | --> |  Edge Function   | --> |   ElevenLabs   |
+|   (Upload/View)   |     |  transcribe-video|     |   Scribe API   |
++-------------------+     +------------------+     +----------------+
+         |                        |
+         v                        v
++-------------------+     +------------------+
+| Supabase Storage  |     |  Supabase DB     |
+| (video-uploads)   |     |  (transcriptions)|
++-------------------+     +------------------+
 ```
 
 ---
 
-## Componentes a Criar
+## Fase 1: Configuracao de Infraestrutura
 
-### 1. Página Principal
-**Arquivo:** `src/pages/ValidadorCopy.tsx`
+### 1.1 Conectar ElevenLabs
 
-Interface com:
-- Textarea para inserção da copy (limite 10.000 caracteres)
-- Contador de caracteres em tempo real
-- Botão "Validar Copy" com loading state
-- Área de resultados com:
-  - Score geral circular/gauge
-  - Cards de dimensões com barras de progresso
-  - Seções colapsáveis para feedback detalhado
-  - Trechos problemáticos destacados
-- Botões de ação: Copiar feedback, Revalidar
+Usar o conector ElevenLabs para obter a API key:
+- Chamar `standard_connectors--connect` com `connector_id: "elevenlabs"`
+- A chave `ELEVENLABS_API_KEY` ficara disponivel como secret
 
-### 2. Componentes de UI
-**Arquivos:**
-- `src/components/copy-validator/ScoreDisplay.tsx` - Exibição visual do score (0-100)
-- `src/components/copy-validator/DimensionCard.tsx` - Card de cada dimensão avaliada
-- `src/components/copy-validator/ProblemHighlight.tsx` - Destaque de trechos problemáticos
-- `src/components/copy-validator/ValidationResults.tsx` - Container dos resultados
+### 1.2 Criar Storage Bucket
 
-### 3. Edge Function
-**Arquivo:** `supabase/functions/validate-copy/index.ts`
+Migrar SQL para criar bucket de uploads:
 
-Recebe o texto e retorna análise estruturada via JSON.
+```sql
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+VALUES ('video-uploads', 'video-uploads', false, 104857600);
+-- 100MB limit
 
----
+-- RLS policies para upload
+CREATE POLICY "Users can upload videos"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'video-uploads');
 
-## Integração na Gestão de Conteúdo
+CREATE POLICY "Users can view their uploads"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (bucket_id = 'video-uploads' AND auth.uid()::text = (storage.foldername(name))[1]);
+```
 
-Adicionar nova aba "Validador" na ConteudoView, seguindo o padrão existente das abas "Diretrizes" e "Agentes de IA".
+### 1.3 Criar Tabela de Transcricoes
 
----
+```sql
+CREATE TABLE transcriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id) NOT NULL,
+  title TEXT NOT NULL,
+  source_type TEXT NOT NULL CHECK (source_type IN ('upload', 'post', 'lesson')),
+  source_id TEXT, -- ID do post/lesson se aplicavel
+  original_file_path TEXT,
+  original_file_name TEXT,
+  duration_seconds INTEGER,
+  language TEXT DEFAULT 'pt',
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  error_message TEXT,
+  speakers_count INTEGER,
+  transcript_text TEXT,
+  transcript_segments JSONB, -- Array com {speaker, start, end, text}
+  created_at TIMESTAMPTZ DEFAULT now(),
+  completed_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
-## Fluxo de Dados
+-- RLS policies
+ALTER TABLE transcriptions ENABLE ROW LEVEL SECURITY;
 
-```text
-1. Usuário cola/digita texto
-2. Clica "Validar Copy"
-3. Frontend envia POST para /functions/v1/validate-copy
-4. Edge Function:
-   a. Valida autenticação (opcional - JWT)
-   b. Envia prompt estruturado para Lovable AI
-   c. Recebe resposta JSON estruturada
-   d. Retorna resultado para frontend
-5. Frontend renderiza resultados interativos
+CREATE POLICY "Users can view own transcriptions"
+ON transcriptions FOR SELECT
+TO authenticated
+USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert own transcriptions"
+ON transcriptions FOR INSERT
+TO authenticated
+WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own transcriptions"
+ON transcriptions FOR UPDATE
+TO authenticated
+USING (user_id = auth.uid());
+
+CREATE POLICY "Users can delete own transcriptions"
+ON transcriptions FOR DELETE
+TO authenticated
+USING (user_id = auth.uid());
+
+-- Admins podem ver todas
+CREATE POLICY "Admins can view all transcriptions"
+ON transcriptions FOR SELECT
+TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM profiles
+    WHERE id = auth.uid() AND role = 'admin'
+  )
+);
 ```
 
 ---
 
-## Detalhes Técnicos
+## Fase 2: Edge Function para Transcricao
 
-### Estrutura do JSON de Resposta da IA
+### 2.1 Criar `transcribe-video/index.ts`
 
-```typescript
-interface ValidationResult {
-  pontuacao_geral: number; // 0-100
-  status: "Aprovado" | "Ajustes Recomendados" | "Necessita Revisão" | "Não Aprovado";
-  dimensoes: Array<{
-    nome: string;
-    pontuacao: number;
-    peso: number;
-    status: "Ótimo" | "Atenção" | "Crítico";
-    problemas: string[];
-    sugestoes: string[];
-    exemplo_bora?: string;
-  }>;
-  destaques_positivos: string[];
-  trechos_problematicos: Array<{
-    trecho_original: string;
-    problema: string;
-    sugestao_reescrita: string;
-  }>;
-  resumo_executivo: string;
+Edge function que:
+1. Recebe arquivo de audio (base64 ou URL do storage)
+2. Chama ElevenLabs Scribe v2 API com diarizacao
+3. Atualiza registro na tabela `transcriptions`
+4. Retorna transcricao estruturada
+
+Parametros:
+- `transcription_id`: ID do registro a atualizar
+- `file_url`: URL do arquivo no storage
+- `language`: Codigo do idioma (default: "pt")
+
+Resposta estruturada:
+```json
+{
+  "text": "Transcricao completa...",
+  "segments": [
+    {
+      "speaker": "Pessoa 1",
+      "start": 0.5,
+      "end": 5.2,
+      "text": "Fala da pessoa..."
+    }
+  ],
+  "speakers_count": 2,
+  "duration": 120.5
 }
 ```
 
-### Dimensões de Avaliação (conforme PRD)
+---
 
-| Dimensão | Peso |
-|----------|------|
-| Tom e Voz | 20% |
-| Emoções Trabalhadas | 15% |
-| Estrutura Invisível | 20% |
-| Restrições de Linguagem | 20% |
-| Prova Social | 10% |
-| Urgência | 10% |
-| Formato e Legibilidade | 5% |
+## Fase 3: Frontend - Pagina Principal
 
-### Classificação Visual
+### 3.1 Criar `src/pages/TranscricoesView.tsx`
 
-| Score | Status | Cor |
-|-------|--------|-----|
-| 90-100 | Aprovado | Verde |
-| 75-89 | Ajustes Recomendados | Amarelo |
-| 60-74 | Necessita Revisão | Laranja |
-| 0-59 | Não Aprovado | Vermelho |
+Pagina com duas abas:
+1. **Nova Transcricao**: Upload de arquivo
+2. **Historico**: Lista de transcricoes anteriores
+
+### 3.2 Componente de Upload
+
+Layout similar ao `ValidadorCopy.tsx`:
+- Card central com area de drag & drop
+- Selecao de idioma (default: Portugues Brasil)
+- Botao "Transcrever"
+- Progress bar durante processamento
+
+Formatos suportados:
+- Audio: MP3, M4A, AAC, WAV, OGG, OPUS, WMA
+- Video: MP4, MOV, MPEG, WMV
+
+### 3.3 Componente de Resultado
+
+Exibicao da transcricao:
+- Blocos por speaker com cores diferentes
+- Timestamps clicaveis
+- Acoes: Copiar texto, Download TXT/PDF
+
+### 3.4 Historico de Transcricoes
+
+Tabela com:
+- Nome do arquivo/video
+- Data
+- Duracao
+- Status (badge colorido)
+- Acoes (Ver, Baixar, Excluir)
 
 ---
 
-## Arquivos a Criar/Modificar
+## Fase 4: Integracao com Posts de Conteudo
 
-### Criar:
-1. `src/pages/ValidadorCopy.tsx` - Página principal
-2. `src/components/copy-validator/ScoreDisplay.tsx` - Gauge de score
-3. `src/components/copy-validator/DimensionCard.tsx` - Card de dimensão
-4. `src/components/copy-validator/ProblemHighlight.tsx` - Destaque de problemas
-5. `src/components/copy-validator/ValidationResults.tsx` - Container de resultados
-6. `supabase/functions/validate-copy/index.ts` - Edge function
+### 4.1 Modificar `PostDetailsModal.tsx`
 
-### Modificar:
-1. `src/App.tsx` - Adicionar rota `/validador-copy`
-2. `src/pages/AcessoRapido.tsx` - Adicionar card da ferramenta
-3. `src/pages/ConteudoView.tsx` - Adicionar aba "Validador"
-4. `supabase/config.toml` - Registrar nova function
+Adicionar botao "Transcrever Video" quando houver `video_url`:
+- Botao aparece ao lado do embed de video
+- Clique inicia processo de transcricao
+- Transcricao fica vinculada ao post
+
+### 4.2 Modificar `VideoEmbed.tsx`
+
+Adicionar prop opcional `onTranscribe`:
+- Se fornecido, mostra botao de transcricao
+- Callback dispara quando usuario solicita
 
 ---
 
-## UI/UX
+## Fase 5: Hook e Utilitarios
 
-### Página Principal
+### 5.1 Criar `src/hooks/useTranscriptions.ts`
+
+Hooks para:
+- `useTranscriptions()`: Lista transcricoes do usuario
+- `useCreateTranscription()`: Inicia nova transcricao
+- `useDeleteTranscription()`: Remove transcricao
+
+### 5.2 Criar `src/lib/transcriptionUtils.ts`
+
+Funcoes utilitarias:
+- `formatTimestamp(seconds)`: Converte para "00:00:00"
+- `generateTranscriptTXT(segments)`: Gera texto formatado
+- `generateTranscriptPDF(segments)`: Gera PDF com jsPDF (ja instalado)
+
+---
+
+## Fase 6: Rotas e Navegacao
+
+### 6.1 Adicionar Rota em `App.tsx`
+
+```tsx
+<Route path="/transcricoes" element={<TranscricoesView />} />
+```
+
+### 6.2 Adicionar ao Menu
+
+Incluir link na navegacao principal com icone apropriado (ex: `FileAudio` do Lucide).
+
+---
+
+## Estrutura de Arquivos
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│  📝 Validador de Copy BORAnaOBRA                        │
-│  Analise sua copy contra as diretrizes da marca         │
-├─────────────────────────────────────────────────────────┤
-│ ┌─────────────────────────────────────────────────────┐ │
-│ │                                                     │ │
-│ │  [Textarea: Cole sua copy aqui...]                  │ │
-│ │                                                     │ │
-│ │                                          3420/10000 │ │
-│ └─────────────────────────────────────────────────────┘ │
-│                                                         │
-│              [ 🔍 Validar Copy ]                        │
-│                                                         │
-├─────────────────────────────────────────────────────────┤
-│  RESULTADOS                                             │
-│ ┌───────────┐ ┌───────────────────────────────────────┐ │
-│ │           │ │ Tom e Voz         ████████░░  80/100  │ │
-│ │    85     │ │ Emoções           ██████████  95/100  │ │
-│ │   /100    │ │ Estrutura         ██████░░░░  60/100  │ │
-│ │           │ │ Linguagem         ████████░░  85/100  │ │
-│ │ Ajustes   │ │ Prova Social      ██████████  100/100 │ │
-│ │Recomendad│ │ Urgência          ████████░░  80/100  │ │
-│ └───────────┘ │ Formato           ██████████  90/100  │ │
-│               └───────────────────────────────────────┘ │
-│                                                         │
-│ ▼ Feedback Detalhado                                    │
-│ ┌─────────────────────────────────────────────────────┐ │
-│ │ ⚠️ Estrutura Invisível - 60/100                     │ │
-│ │ Problemas: [lista]                                   │ │
-│ │ Sugestões: [lista]                                   │ │
-│ └─────────────────────────────────────────────────────┘ │
-│                                                         │
-│ ▼ Trechos Problemáticos                                 │
-│ ┌─────────────────────────────────────────────────────┐ │
-│ │ ❌ "transformação digital garantida"                 │ │
-│ │ Problema: Jargão de marketing                        │ │
-│ │ Sugestão: "um caminho claro para estruturar..."     │ │
-│ └─────────────────────────────────────────────────────┘ │
-│                                                         │
-│ [ 📋 Copiar Feedback ] [ 🔄 Nova Validação ]           │
-└─────────────────────────────────────────────────────────┘
+src/
+├── pages/
+│   └── TranscricoesView.tsx          # Pagina principal
+├── components/
+│   └── transcricoes/
+│       ├── TranscriptionUpload.tsx   # Area de upload
+│       ├── TranscriptionResult.tsx   # Exibicao do resultado
+│       ├── TranscriptionHistory.tsx  # Historico/lista
+│       └── TranscriptionSegment.tsx  # Bloco de fala individual
+├── hooks/
+│   └── useTranscriptions.ts          # Hooks de dados
+└── lib/
+    └── transcriptionUtils.ts         # Utilitarios
+
+supabase/
+└── functions/
+    └── transcribe-video/
+        └── index.ts                  # Edge function
 ```
 
 ---
 
-## Edge Function: Prompt System
+## Detalhes Tecnicos
 
-O prompt completo do PRD será incorporado no `systemPrompt` da edge function, instruindo a IA a:
+### API ElevenLabs Scribe v2
 
-1. Avaliar as 7 dimensões com critérios específicos
-2. Aplicar penalizações conforme as regras
-3. Retornar JSON estruturado
-4. Incluir exemplos BORAnaOBRA quando apropriado
+Endpoint: `POST https://api.elevenlabs.io/v1/speech-to-text`
+
+Request:
+```
+Content-Type: multipart/form-data
+- file: arquivo de audio
+- model_id: "scribe_v2"
+- diarize: true
+- language_code: "por" (ISO 639-3 para Portugues)
+- tag_audio_events: true (opcional - detecta risadas, aplausos)
+```
+
+Response:
+```json
+{
+  "text": "Transcricao completa...",
+  "words": [
+    {
+      "text": "palavra",
+      "start": 0.5,
+      "end": 0.8,
+      "speaker": "speaker_1"
+    }
+  ]
+}
+```
+
+### Limitacoes Conhecidas
+
+- Tamanho maximo de arquivo: 100MB (storage bucket)
+- Tempo maximo de transcricao: depende do plano ElevenLabs
+- Diarizacao identifica "Pessoa 1", "Pessoa 2", etc. (nao nomes reais)
 
 ---
 
-## Considerações de Implementação
+## Ordem de Implementacao
 
-### Performance
-- Timeout de 30 segundos para a edge function
-- Loading state com mensagem animada durante processamento
-- Tratamento de erros 429 (rate limit) e 402 (payment required)
-
-### Acessibilidade
-- Cores com contraste adequado para status
-- Ícones com labels de acessibilidade
-- Feedback visual claro do estado de validação
-
-### Mobile
-- Layout responsivo
-- Textarea adaptativo
-- Cards de resultado empilhados em mobile
+1. **Conectar ElevenLabs** - Obter API key via conector
+2. **Migracoes SQL** - Bucket de storage + tabela de transcricoes
+3. **Edge Function** - `transcribe-video` com logica principal
+4. **Hook** - `useTranscriptions` para gerenciar estado
+5. **Componentes UI** - Upload, Resultado, Historico
+6. **Pagina Principal** - `TranscricoesView`
+7. **Integracao Posts** - Botao em videos existentes
+8. **Navegacao** - Adicionar ao menu e rotas
 
 ---
 
-## Ordem de Implementação
+## Metricas de Sucesso
 
-1. Criar edge function `validate-copy` com prompt do PRD
-2. Criar tipos TypeScript para a resposta
-3. Criar componentes de UI (ScoreDisplay, DimensionCard, etc)
-4. Criar página ValidadorCopy
-5. Adicionar rota no App.tsx
-6. Adicionar card no AcessoRapido
-7. Integrar como aba na ConteudoView
-8. Testar e ajustar prompt baseado nos resultados
+- Transcricoes geradas com sucesso
+- Tempo medio de processamento
+- Taxa de erro
+- Uso por tipo (upload vs video interno)
+
+Todas as metricas podem ser extraidas da tabela `transcriptions` via queries SQL.
