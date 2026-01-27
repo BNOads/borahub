@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -10,6 +10,8 @@ import {
   Clock,
   Eye,
   EyeOff,
+  Download,
+  Loader2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +31,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
 
 interface Task {
   id: string;
@@ -66,6 +70,8 @@ export function TasksByPersonView({
 }: TasksByPersonViewProps) {
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [showCompleted, setShowCompleted] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const { toast } = useToast();
 
   // Agrupa tarefas por responsável (assignee = full_name)
   const tasksByPerson = useMemo(() => {
@@ -147,6 +153,116 @@ export function TasksByPersonView({
     return new Date(date) < new Date();
   };
 
+  // Gera PDF com os dados atuais
+  const generatePdf = async () => {
+    setIsGeneratingPdf(true);
+    try {
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      let yPosition = margin;
+
+      // Título
+      pdf.setFontSize(18);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Relatório de Tarefas por Pessoa", margin, yPosition);
+      yPosition += 8;
+
+      // Data
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, margin, yPosition);
+      yPosition += 4;
+      pdf.text(`Exibindo: ${showCompleted ? "Todas as tarefas" : "Apenas pendentes"}`, margin, yPosition);
+      yPosition += 10;
+
+      // Para cada pessoa
+      tasksByPerson.forEach(([personName, personTasks]) => {
+        const filteredTasks = showCompleted 
+          ? personTasks 
+          : personTasks.filter(t => !t.completed);
+        
+        if (!showCompleted && filteredTasks.length === 0) return;
+
+        // Verifica se precisa nova página
+        if (yPosition > pageHeight - 40) {
+          pdf.addPage();
+          yPosition = margin;
+        }
+
+        // Nome da pessoa
+        const pendingCount = personTasks.filter(t => !t.completed).length;
+        const completedCount = personTasks.filter(t => t.completed).length;
+        
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(margin, yPosition - 4, pageWidth - margin * 2, 8, "F");
+        pdf.text(`${personName} (${pendingCount} pendentes, ${completedCount} concluídas)`, margin + 2, yPosition);
+        yPosition += 10;
+
+        // Cabeçalho da tabela
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Tarefa", margin, yPosition);
+        pdf.text("Prioridade", pageWidth - 80, yPosition);
+        pdf.text("Prazo", pageWidth - 45, yPosition);
+        pdf.text("Status", pageWidth - 25, yPosition);
+        yPosition += 5;
+
+        // Linha separadora
+        pdf.setDrawColor(200, 200, 200);
+        pdf.line(margin, yPosition - 2, pageWidth - margin, yPosition - 2);
+
+        // Tarefas
+        pdf.setFont("helvetica", "normal");
+        filteredTasks.forEach((task) => {
+          if (yPosition > pageHeight - 15) {
+            pdf.addPage();
+            yPosition = margin;
+          }
+
+          const overdue = isOverdue(task.due_date ?? null, task.completed);
+          
+          // Título truncado
+          const maxTitleWidth = pageWidth - 100;
+          let title = task.title;
+          while (pdf.getTextWidth(title) > maxTitleWidth && title.length > 3) {
+            title = title.slice(0, -4) + "...";
+          }
+          
+          pdf.text(title, margin, yPosition);
+          pdf.text(task.priority.charAt(0).toUpperCase() + task.priority.slice(1), pageWidth - 80, yPosition);
+          pdf.text(task.due_date ? format(parseISO(task.due_date), "dd/MM/yy") : "-", pageWidth - 45, yPosition);
+          
+          let status = task.completed ? "Concluída" : overdue ? "Atrasada" : "Pendente";
+          pdf.text(status, pageWidth - 25, yPosition);
+          
+          yPosition += 5;
+        });
+
+        yPosition += 5;
+      });
+
+      // Download
+      pdf.save(`tarefas-por-pessoa-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+      toast({
+        title: "PDF gerado com sucesso!",
+        description: "O download foi iniciado automaticamente.",
+      });
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      toast({
+        title: "Erro ao gerar PDF",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -168,8 +284,27 @@ export function TasksByPersonView({
 
   return (
     <div className="space-y-4">
-      {/* Botão para mostrar/ocultar concluídas */}
-      <div className="flex justify-end">
+      {/* Botões de ação */}
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={generatePdf}
+          disabled={isGeneratingPdf}
+          className="gap-2"
+        >
+          {isGeneratingPdf ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Gerando...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4" />
+              Baixar PDF
+            </>
+          )}
+        </Button>
         <Button
           variant="outline"
           size="sm"
