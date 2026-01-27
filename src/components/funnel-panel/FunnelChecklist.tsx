@@ -217,12 +217,58 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
 
   const [newItem, setNewItem] = useState("");
   const [isAddingDefaults, setIsAddingDefaults] = useState(false);
+  const [hasAutoAdded, setHasAutoAdded] = useState(false);
   
   // Expandir categorias padrão baseado no tipo de funil
   const defaultExpanded = funnelCategory === "Evento presencial" 
     ? new Set(["planejamento", "custom"]) 
     : new Set(["diario", "custom"]);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(defaultExpanded);
+
+  // Determina os itens padrão baseado na categoria
+  const getDefaultItemsForCategory = () => {
+    if (funnelCategory === "Evento presencial") {
+      return EVENTO_PRESENCIAL_ITEMS;
+    }
+    return DEFAULT_CHECKLIST_ITEMS;
+  };
+
+  // Auto-adicionar itens padrão quando o checklist estiver vazio (apenas uma vez)
+  useEffect(() => {
+    if (!isLoading && items.length === 0 && !hasAutoAdded && !isAddingDefaults) {
+      setHasAutoAdded(true);
+      // Pequeno delay para evitar race conditions
+      const timer = setTimeout(() => {
+        addDefaultItemsSilent();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, items.length, hasAutoAdded, isAddingDefaults]);
+
+  // Versão silenciosa sem toast de sucesso para auto-add
+  const addDefaultItemsSilent = async () => {
+    setIsAddingDefaults(true);
+    try {
+      const defaultItems = getDefaultItemsForCategory();
+      const { error } = await supabase
+        .from("funnel_checklist")
+        .insert(
+          defaultItems.map((item, index) => ({
+            funnel_id: funnelId,
+            title: item.title,
+            description: item.category,
+            order_index: index,
+          }))
+        );
+
+      if (error) throw error;
+      refetch();
+    } catch (error: any) {
+      console.error("Erro ao adicionar itens padrão:", error.message);
+    } finally {
+      setIsAddingDefaults(false);
+    }
+  };
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => {
@@ -269,14 +315,6 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
     } catch {
       toast.error("Erro ao remover item");
     }
-  };
-
-  // Determinar quais itens usar baseado na categoria do funil
-  const getDefaultItemsForCategory = () => {
-    if (funnelCategory === "Evento presencial") {
-      return EVENTO_PRESENCIAL_ITEMS;
-    }
-    return DEFAULT_CHECKLIST_ITEMS;
   };
 
   const addDefaultItems = async () => {
