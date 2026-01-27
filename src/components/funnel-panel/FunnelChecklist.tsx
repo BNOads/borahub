@@ -19,8 +19,10 @@ import { cn } from "@/lib/utils";
 
 interface FunnelChecklistProps {
   funnelId: string;
+  funnelCategory?: string;
 }
 
+// Itens padrão para lançamentos
 const DEFAULT_CHECKLIST_ITEMS = [
   // Atividades diárias do estrategista
   { title: "[Diário] Monitorar o Dashboard de Tráfego", category: "diario" },
@@ -63,15 +65,151 @@ const DEFAULT_CHECKLIST_ITEMS = [
   { title: "[Pontual] Conferir legendas dos criativos tráfego", category: "captacao" },
 ];
 
-const CATEGORIES = {
+// Itens específicos para Evento Presencial
+const EVENTO_PRESENCIAL_ITEMS = [
+  // 1. Planejamento estratégico do evento
+  { title: "Definir objetivo principal do evento (venda, relacionamento, autoridade, comunidade)", category: "planejamento" },
+  { title: "Definir produto principal e produtos secundários a serem vendidos", category: "planejamento" },
+  { title: "Definir meta de faturamento total", category: "planejamento" },
+  { title: "Definir meta de participantes presenciais", category: "planejamento" },
+  { title: "Definir ticket médio esperado", category: "planejamento" },
+  { title: "Definir data oficial e possíveis datas alternativas", category: "planejamento" },
+  { title: "Definir cidade e público prioritário", category: "planejamento" },
+  { title: "Definir orçamento macro do evento", category: "planejamento" },
+  { title: "Definir ROI mínimo aceitável", category: "planejamento" },
+  { title: "Criar cronograma macro do evento (D-90, D-60, D-30, D-15, D-7, D-day, D+1)", category: "planejamento" },
+  
+  // 2. Estrutura comercial e vendas
+  { title: "Criar oferta do evento (copy, promessa, bônus)", category: "comercial" },
+  { title: "Definir política de descontos e cortesias", category: "comercial" },
+  { title: "Configurar produto e checkout (Hotmart ou outro)", category: "comercial" },
+  { title: "Criar página de vendas ou página de inscrição", category: "comercial" },
+  { title: "Criar página de obrigado com próximos passos", category: "comercial" },
+  { title: "Criar planilha ou dashboard de vendas", category: "comercial" },
+  { title: "Definir metas semanais de vendas", category: "comercial" },
+  { title: "Criar rotina semanal de acompanhamento: vendas x meta", category: "comercial" },
+  { title: "Criar gatilhos de ação quando a meta semanal estiver abaixo do esperado", category: "comercial" },
+  { title: "Definir responsáveis pelo comercial", category: "comercial" },
+  { title: "Definir fluxo de cobrança, confirmação e pós-venda", category: "comercial" },
+  { title: "Criar lista de convidados estratégicos", category: "comercial" },
+  { title: "Criar processo de convite manual para convidados VIP", category: "comercial" },
+  
+  // 3. Captação e marketing
+  { title: "Definir estratégia de tráfego pago", category: "marketing" },
+  { title: "Definir orçamento de mídia", category: "marketing" },
+  { title: "Criar criativos de captação", category: "marketing" },
+  { title: "Criar criativos de remarketing", category: "marketing" },
+  { title: "Criar campanha para público quente", category: "marketing" },
+  { title: "Criar campanha para público frio", category: "marketing" },
+  { title: "Criar rotina semanal de análise de métricas (CPL, CPA, conversão)", category: "marketing" },
+  { title: "Criar calendário de conteúdos orgânicos", category: "marketing" },
+  { title: "Criar calendário de stories de aquecimento", category: "marketing" },
+  { title: "Criar mensagens de WhatsApp e e-mail marketing", category: "marketing" },
+  { title: "Criar contagem regressiva para o evento", category: "marketing" },
+  { title: "Criar comunicação de últimas vagas", category: "marketing" },
+  { title: "Criar comunicação de virada de lote", category: "marketing" },
+  
+  // 4. Confirmação e check-in de participantes
+  { title: "Criar formulário de confirmação de presença", category: "checkin" },
+  { title: "Criar lista oficial de inscritos confirmados", category: "checkin" },
+  { title: "Criar comunicação automática de confirmação", category: "checkin" },
+  { title: "Criar comunicação de reforço semanal", category: "checkin" },
+  { title: "Criar comunicação D-7, D-3 e D-1", category: "checkin" },
+  { title: "Criar grupo de WhatsApp do evento", category: "checkin" },
+  { title: "Definir responsável pelo check-in", category: "checkin" },
+  { title: "Criar lista de check-in (QR code ou nome)", category: "checkin" },
+  { title: "Definir política de atrasos e entradas", category: "checkin" },
+  { title: "Criar plano de contingência para no-show", category: "checkin" },
+  
+  // 5. Local e infraestrutura
+  { title: "Pesquisar locais possíveis", category: "local" },
+  { title: "Visitar locais pré-selecionados", category: "local" },
+  { title: "Analisar capacidade, acesso e estacionamento", category: "local" },
+  { title: "Definir layout do evento", category: "local" },
+  { title: "Definir necessidades de palco, cadeiras e mesas", category: "local" },
+  { title: "Definir necessidades de audiovisual", category: "local" },
+  { title: "Contratar fornecedor de audiovisual", category: "local" },
+  { title: "Contratar internet dedicada", category: "local" },
+  { title: "Definir iluminação", category: "local" },
+  { title: "Definir climatização", category: "local" },
+  { title: "Solicitar contrato do local", category: "local" },
+  { title: "Validar formas de pagamento", category: "local" },
+  { title: "Confirmar datas e horários de montagem", category: "local" },
+  { title: "Confirmar datas e horários de desmontagem", category: "local" },
+  
+  // 6. Fornecedores e parceiros
+  { title: "Definir fornecedores de A&B", category: "fornecedores" },
+  { title: "Definir cardápio e quantidades", category: "fornecedores" },
+  { title: "Definir horários de serviço", category: "fornecedores" },
+  { title: "Validar restrições alimentares", category: "fornecedores" },
+  { title: "Definir brindes do evento", category: "fornecedores" },
+  { title: "Cotar brindes", category: "fornecedores" },
+  { title: "Comprar brindes", category: "fornecedores" },
+  { title: "Organizar personalização dos brindes", category: "fornecedores" },
+  { title: "Definir fornecedores gráficos", category: "fornecedores" },
+  { title: "Criar e imprimir materiais físicos", category: "fornecedores" },
+  { title: "Criar crachás e sinalização", category: "fornecedores" },
+  { title: "Definir fotógrafo e videomaker", category: "fornecedores" },
+  { title: "Alinhar briefing com fornecedores", category: "fornecedores" },
+  { title: "Confirmar presença de todos os fornecedores D-3", category: "fornecedores" },
+  
+  // 7. Patrocinadores
+  { title: "Definir cotas de patrocínio", category: "patrocinadores" },
+  { title: "Criar proposta comercial de patrocínio", category: "patrocinadores" },
+  { title: "Criar lista de patrocinadores potenciais", category: "patrocinadores" },
+  { title: "Iniciar prospecção ativa", category: "patrocinadores" },
+  { title: "Criar formulário de indicação de patrocinadores", category: "patrocinadores" },
+  { title: "Fazer follow-up semanal com patrocinadores", category: "patrocinadores" },
+  { title: "Fechar contratos de patrocínio", category: "patrocinadores" },
+  { title: "Receber materiais dos patrocinadores", category: "patrocinadores" },
+  { title: "Garantir entregas prometidas (logo, fala, espaço)", category: "patrocinadores" },
+  { title: "Alinhar presença dos patrocinadores no evento", category: "patrocinadores" },
+  
+  // 8. Time e operação no dia
+  { title: "Definir líder geral do evento", category: "operacao" },
+  { title: "Definir responsáveis por área (check-in, palco, A&B, bastidores)", category: "operacao" },
+  { title: "Criar escala do time", category: "operacao" },
+  { title: "Criar grupo operacional interno", category: "operacao" },
+  { title: "Criar roteiro do evento minuto a minuto", category: "operacao" },
+  { title: "Definir horários de chegada do time", category: "operacao" },
+  { title: "Realizar reunião de alinhamento final", category: "operacao" },
+  { title: "Criar plano de contingência (energia, internet, atrasos)", category: "operacao" },
+  { title: "Definir ponto focal para resolução de problemas", category: "operacao" },
+  
+  // 9. Pós-evento
+  { title: "Fazer fechamento financeiro", category: "pos_evento" },
+  { title: "Analisar ROI do evento", category: "pos_evento" },
+  { title: "Consolidar lista de presença real", category: "pos_evento" },
+  { title: "Disparar pesquisa de satisfação", category: "pos_evento" },
+  { title: "Organizar materiais gravados", category: "pos_evento" },
+  { title: "Criar follow-up comercial pós-evento", category: "pos_evento" },
+  { title: "Criar oferta pós-evento", category: "pos_evento" },
+  { title: "Agradecer participantes", category: "pos_evento" },
+  { title: "Agradecer patrocinadores", category: "pos_evento" },
+  { title: "Registrar aprendizados e melhorias", category: "pos_evento" },
+  { title: "Atualizar checklist para próximos eventos", category: "pos_evento" },
+];
+
+const CATEGORIES: Record<string, { label: string; color: string }> = {
+  // Categorias padrão
   diario: { label: "Atividades Diárias", color: "bg-blue-500" },
   carrinho: { label: "Carrinho de Vendas", color: "bg-emerald-500" },
   evento: { label: "Evento / Ao Vivo", color: "bg-purple-500" },
   captacao: { label: "Captação", color: "bg-amber-500" },
   custom: { label: "Personalizados", color: "bg-gray-500" },
+  // Categorias de Evento Presencial
+  planejamento: { label: "1. Planejamento Estratégico", color: "bg-indigo-500" },
+  comercial: { label: "2. Estrutura Comercial e Vendas", color: "bg-emerald-500" },
+  marketing: { label: "3. Captação e Marketing", color: "bg-orange-500" },
+  checkin: { label: "4. Confirmação e Check-in", color: "bg-cyan-500" },
+  local: { label: "5. Local e Infraestrutura", color: "bg-violet-500" },
+  fornecedores: { label: "6. Fornecedores e Parceiros", color: "bg-pink-500" },
+  patrocinadores: { label: "7. Patrocinadores", color: "bg-yellow-500" },
+  operacao: { label: "8. Time e Operação no Dia", color: "bg-red-500" },
+  pos_evento: { label: "9. Pós-Evento", color: "bg-teal-500" },
 };
 
-export function FunnelChecklist({ funnelId }: FunnelChecklistProps) {
+export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistProps) {
   const { data: items = [], isLoading, refetch } = useFunnelChecklist(funnelId);
   const createItem = useCreateChecklistItem();
   const updateItem = useUpdateChecklistItem();
@@ -79,7 +217,12 @@ export function FunnelChecklist({ funnelId }: FunnelChecklistProps) {
 
   const [newItem, setNewItem] = useState("");
   const [isAddingDefaults, setIsAddingDefaults] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["diario", "custom"]));
+  
+  // Expandir categorias padrão baseado no tipo de funil
+  const defaultExpanded = funnelCategory === "Evento presencial" 
+    ? new Set(["planejamento", "custom"]) 
+    : new Set(["diario", "custom"]);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(defaultExpanded);
 
   const toggleCategory = (category: string) => {
     setExpandedCategories(prev => {
@@ -128,11 +271,20 @@ export function FunnelChecklist({ funnelId }: FunnelChecklistProps) {
     }
   };
 
+  // Determinar quais itens usar baseado na categoria do funil
+  const getDefaultItemsForCategory = () => {
+    if (funnelCategory === "Evento presencial") {
+      return EVENTO_PRESENCIAL_ITEMS;
+    }
+    return DEFAULT_CHECKLIST_ITEMS;
+  };
+
   const addDefaultItems = async () => {
     setIsAddingDefaults(true);
     try {
       const existingTitles = new Set(items.map(i => i.title));
-      const itemsToAdd = DEFAULT_CHECKLIST_ITEMS.filter(item => !existingTitles.has(item.title));
+      const defaultItems = getDefaultItemsForCategory();
+      const itemsToAdd = defaultItems.filter(item => !existingTitles.has(item.title));
 
       if (itemsToAdd.length === 0) {
         toast.info("Todos os itens padrão já foram adicionados!");
@@ -163,8 +315,12 @@ export function FunnelChecklist({ funnelId }: FunnelChecklistProps) {
 
   const getItemCategory = (title: string): string => {
     if (title.includes("[Diário]")) return "diario";
-    const item = DEFAULT_CHECKLIST_ITEMS.find(i => i.title === title);
-    return item?.category || "custom";
+    // Primeiro verifica nos itens de evento presencial
+    const eventoItem = EVENTO_PRESENCIAL_ITEMS.find(i => i.title === title);
+    if (eventoItem) return eventoItem.category;
+    // Depois nos itens padrão
+    const defaultItem = DEFAULT_CHECKLIST_ITEMS.find(i => i.title === title);
+    return defaultItem?.category || "custom";
   };
 
   const groupedItems = items.reduce((acc, item) => {

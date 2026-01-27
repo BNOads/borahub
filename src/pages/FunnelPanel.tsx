@@ -142,7 +142,7 @@ export default function FunnelPanel() {
         <TabsContent value="links" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <FunnelLinksList funnelId={funnel.id} />
-            <FunnelChecklist funnelId={funnel.id} />
+            <FunnelChecklist funnelId={funnel.id} funnelCategory={funnel.category || undefined} />
           </div>
         </TabsContent>
 
