@@ -3,7 +3,7 @@ import { ScoreDisplay } from "./ScoreDisplay";
 import { DimensionCard } from "./DimensionCard";
 import { ProblemHighlight } from "./ProblemHighlight";
 import { Button } from "@/components/ui/button";
-import { Copy, RotateCcw, CheckCircle, Sparkles } from "lucide-react";
+import { Copy, RotateCcw, CheckCircle, Sparkles, Wand2, Loader2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
   Collapsible,
@@ -12,20 +12,58 @@ import {
 } from "@/components/ui/collapsible";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ValidationResultsProps {
   result: ValidationResult;
+  originalText: string;
   onReset: () => void;
+  onNewCopy?: (newCopy: string) => void;
 }
 
-export function ValidationResults({ result, onReset }: ValidationResultsProps) {
-  const [showPositives, setShowPositives] = useState(true);
+export function ValidationResults({ result, originalText, onReset, onNewCopy }: ValidationResultsProps) {
+  const [showPositives, setShowPositives] = useState(false);
   const [showProblems, setShowProblems] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handleCopyFeedback = async () => {
     const feedback = generateFeedbackText(result);
     await navigator.clipboard.writeText(feedback);
     toast.success("Feedback copiado para a área de transferência!");
+  };
+
+  const handleGenerateNewCopy = async () => {
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rewrite-copy", {
+        body: { 
+          texto: originalText,
+          problemas: result.trechos_problematicos,
+          sugestoes: result.dimensoes.flatMap(d => d.sugestoes)
+        },
+      });
+
+      if (error) {
+        console.error("Rewrite error:", error);
+        toast.error(error.message || "Erro ao gerar nova copy");
+        return;
+      }
+
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      if (data.nova_copy && onNewCopy) {
+        onNewCopy(data.nova_copy);
+        toast.success("Nova copy gerada! Validando automaticamente...");
+      }
+    } catch (error) {
+      console.error("Error generating new copy:", error);
+      toast.error("Erro ao conectar com o serviço de IA");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -45,6 +83,24 @@ export function ValidationResults({ result, onReset }: ValidationResultsProps) {
               <Copy className="h-4 w-4" />
               Copiar Feedback
             </Button>
+            <Button 
+              onClick={handleGenerateNewCopy} 
+              variant="gold" 
+              className="gap-2"
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Gerando nova copy...
+                </>
+              ) : (
+                <>
+                  <Wand2 className="h-4 w-4" />
+                  Gerar Copy Corrigida
+                </>
+              )}
+            </Button>
             <Button onClick={onReset} variant="ghost" className="gap-2">
               <RotateCcw className="h-4 w-4" />
               Nova Validação
@@ -63,14 +119,34 @@ export function ValidationResults({ result, onReset }: ValidationResultsProps) {
         </div>
       </div>
 
-      {/* Positive Highlights */}
+      {/* Problematic Sections - Visible by default */}
+      {result.trechos_problematicos.length > 0 && (
+        <Collapsible open={showProblems} onOpenChange={setShowProblems}>
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 text-lg font-semibold hover:text-accent transition-colors w-full text-left">
+              <span className="text-destructive">⚠️</span>
+              Trechos que Precisam de Ajuste ({result.trechos_problematicos.length})
+              <ChevronDown className={cn("ml-auto h-4 w-4 transition-transform", showProblems && "rotate-180")} />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-4">
+            <div className="space-y-4">
+              {result.trechos_problematicos.map((problem, i) => (
+                <ProblemHighlight key={i} problem={problem} />
+              ))}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* Positive Highlights - Collapsed by default */}
       {result.destaques_positivos.length > 0 && (
         <Collapsible open={showPositives} onOpenChange={setShowPositives}>
           <CollapsibleTrigger asChild>
             <button className="flex items-center gap-2 text-lg font-semibold hover:text-accent transition-colors w-full text-left">
               <Sparkles className="h-5 w-5 text-emerald-500" />
-              Destaques Positivos ({result.destaques_positivos.length})
-              <span className={cn("ml-auto text-sm transition-transform", showPositives && "rotate-180")}>▼</span>
+              Pontos Positivos ({result.destaques_positivos.length})
+              <ChevronDown className={cn("ml-auto h-4 w-4 transition-transform", showPositives && "rotate-180")} />
             </button>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-4">
@@ -80,26 +156,6 @@ export function ValidationResults({ result, onReset }: ValidationResultsProps) {
                   <CheckCircle className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
                   <p className="text-sm">{destaque}</p>
                 </div>
-              ))}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      )}
-
-      {/* Problematic Sections */}
-      {result.trechos_problematicos.length > 0 && (
-        <Collapsible open={showProblems} onOpenChange={setShowProblems}>
-          <CollapsibleTrigger asChild>
-            <button className="flex items-center gap-2 text-lg font-semibold hover:text-accent transition-colors w-full text-left">
-              <span className="text-destructive">⚠️</span>
-              Trechos Problemáticos ({result.trechos_problematicos.length})
-              <span className={cn("ml-auto text-sm transition-transform", showProblems && "rotate-180")}>▼</span>
-            </button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-4">
-            <div className="space-y-4">
-              {result.trechos_problematicos.map((problem, i) => (
-                <ProblemHighlight key={i} problem={problem} />
               ))}
             </div>
           </CollapsibleContent>
