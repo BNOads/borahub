@@ -2580,6 +2580,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          assigned_to_id: string | null
           assignee: string | null
           category: string | null
           completed: boolean
@@ -2589,12 +2590,17 @@ export type Database = {
           due_date: string | null
           due_time: string | null
           id: string
+          is_recurring_instance: boolean | null
+          parent_task_id: string | null
           position: number | null
           priority: string
+          recurrence: string | null
+          recurrence_end_date: string | null
           title: string
           updated_at: string
         }
         Insert: {
+          assigned_to_id?: string | null
           assignee?: string | null
           category?: string | null
           completed?: boolean
@@ -2604,12 +2610,17 @@ export type Database = {
           due_date?: string | null
           due_time?: string | null
           id?: string
+          is_recurring_instance?: boolean | null
+          parent_task_id?: string | null
           position?: number | null
           priority?: string
+          recurrence?: string | null
+          recurrence_end_date?: string | null
           title: string
           updated_at?: string
         }
         Update: {
+          assigned_to_id?: string | null
           assignee?: string | null
           category?: string | null
           completed?: boolean
@@ -2619,12 +2630,24 @@ export type Database = {
           due_date?: string | null
           due_time?: string | null
           id?: string
+          is_recurring_instance?: boolean | null
+          parent_task_id?: string | null
           position?: number | null
           priority?: string
+          recurrence?: string | null
+          recurrence_end_date?: string | null
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_lesson_progress: {
         Row: {
