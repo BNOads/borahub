@@ -46,6 +46,23 @@ export default function FunnelPanel() {
     }
   };
 
+  // Buscar itens pendentes do checklist - hook deve estar antes dos early returns
+  const { data: pendingChecklistCount = 0 } = useQuery({
+    queryKey: ['funnel-checklist-pending', id],
+    queryFn: async () => {
+      if (!id) return 0;
+      const { data, error } = await supabase
+        .from("funnel_checklist")
+        .select("id")
+        .eq("funnel_id", id)
+        .eq("is_completed", false);
+      
+      if (error) throw error;
+      return data?.length || 0;
+    },
+    enabled: !!id,
+  });
+
   useEffect(() => {
     fetchFunnel();
   }, [id]);
@@ -76,22 +93,6 @@ export default function FunnelPanel() {
   const LAUNCH_CATEGORIES = ["Lançamento", "Meteórico", "Reabertura", "Evento presencial"];
   const isLaunchCategory = LAUNCH_CATEGORIES.includes(funnel.category || "");
   const isEventoPresencial = funnel.category === "Evento presencial";
-
-  // Buscar itens pendentes do checklist
-  const { data: pendingChecklistCount = 0 } = useQuery({
-    queryKey: ['funnel-checklist-pending', funnel.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("funnel_checklist")
-        .select("id")
-        .eq("funnel_id", funnel.id)
-        .eq("is_completed", false);
-      
-      if (error) throw error;
-      return data?.length || 0;
-    },
-    enabled: !!funnel.id,
-  });
 
   return (
     <div className="space-y-6 animate-fade-in">
