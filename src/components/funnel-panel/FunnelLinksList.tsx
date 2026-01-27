@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import {
   Link2,
   Copy,
   ExternalLink,
   Plus,
-  Save,
+  GripVertical,
   FileSpreadsheet,
   Globe,
   ShoppingCart,
@@ -15,10 +17,10 @@ import {
   FileQuestion,
   Images,
   FileText,
-  Pencil,
-  Trash2,
   CheckCircle2,
   AlertCircle,
+  Loader2,
+  Trash2,
 } from "lucide-react";
 import { FunnelLink } from "./types";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +48,10 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
   const [loading, setLoading] = useState(true);
   const [editingUrls, setEditingUrls] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [customLinkOpen, setCustomLinkOpen] = useState(false);
+  const [customLinkName, setCustomLinkName] = useState("");
+  const [customLinkUrl, setCustomLinkUrl] = useState("");
+  const [addingCustom, setAddingCustom] = useState(false);
 
   const ensureLinksExist = async () => {
     try {
@@ -106,24 +112,80 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
     setEditingUrls(prev => ({ ...prev, [linkId]: url }));
   };
 
-  const handleSaveUrl = async (linkId: string) => {
+  const handleAddUrl = async (linkId: string) => {
+    const url = editingUrls[linkId];
+    if (!url?.trim()) {
+      toast.error("Digite uma URL válida");
+      return;
+    }
+    
     setSavingId(linkId);
     try {
       const { error } = await supabase
         .from("funnel_links")
-        .update({ url: editingUrls[linkId] })
+        .update({ url: url.trim() })
         .eq("id", linkId);
 
       if (error) throw error;
-      toast.success("Link salvo!");
+      toast.success("Link adicionado!");
 
       setLinks(prev => prev.map(l =>
-        l.id === linkId ? { ...l, url: editingUrls[linkId] } : l
+        l.id === linkId ? { ...l, url: url.trim() } : l
       ));
     } catch (error: any) {
       toast.error("Erro: " + error.message);
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const handleAddCustomLink = async () => {
+    if (!customLinkName.trim()) {
+      toast.error("Digite um nome para o link");
+      return;
+    }
+    
+    setAddingCustom(true);
+    try {
+      const { data, error } = await supabase
+        .from("funnel_links")
+        .insert({
+          funnel_id: funnelId,
+          name: customLinkName.trim(),
+          link_type: "custom",
+          url: customLinkUrl.trim() || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      setLinks(prev => [...prev, data]);
+      setEditingUrls(prev => ({ ...prev, [data.id]: data.url || "" }));
+      setCustomLinkName("");
+      setCustomLinkUrl("");
+      setCustomLinkOpen(false);
+      toast.success("Link personalizado adicionado!");
+    } catch (error: any) {
+      toast.error("Erro: " + error.message);
+    } finally {
+      setAddingCustom(false);
+    }
+  };
+
+  const handleDeleteLink = async (linkId: string) => {
+    try {
+      const { error } = await supabase
+        .from("funnel_links")
+        .delete()
+        .eq("id", linkId);
+
+      if (error) throw error;
+      
+      setLinks(prev => prev.filter(l => l.id !== linkId));
+      toast.success("Link removido!");
+    } catch (error: any) {
+      toast.error("Erro: " + error.message);
     }
   };
 
@@ -133,7 +195,10 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
   };
 
   const filledCount = links.filter(l => l.url).length;
-  const totalCount = LINK_CATEGORIES.length;
+  const totalCount = links.length;
+
+  // Get custom links
+  const customLinks = links.filter(l => l.link_type === "custom");
 
   // Compact mode for overview
   if (compact) {
@@ -199,101 +264,242 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
     );
   }
 
-  // Full mode for Links tab
+  // Full mode for Links tab - NEW LAYOUT matching reference
   return (
-    <div className="rounded-2xl border bg-card">
-      <div className="p-4 border-b flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Link2 className="h-4 w-4 text-muted-foreground" />
-          <span className="font-semibold">Links Úteis do Lançamento</span>
+    <div className="rounded-2xl border bg-amber-50/30 dark:bg-amber-900/5">
+      <div className="p-5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Link2 className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-bold">Links Úteis do Lançamento</h2>
         </div>
-        <Badge variant="outline" className="gap-1">
-          {filledCount}/{totalCount} configurados
-        </Badge>
+        <Dialog open={customLinkOpen} onOpenChange={setCustomLinkOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="gap-2 bg-background">
+              <Plus className="h-4 w-4" />
+              Link Personalizado
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar Link Personalizado</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label>Nome do Link</Label>
+                <Input
+                  value={customLinkName}
+                  onChange={(e) => setCustomLinkName(e.target.value)}
+                  placeholder="Ex: Dashboard de Métricas"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>URL (opcional)</Label>
+                <Input
+                  value={customLinkUrl}
+                  onChange={(e) => setCustomLinkUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+              <Button 
+                onClick={handleAddCustomLink} 
+                disabled={addingCustom || !customLinkName.trim()}
+                className="w-full"
+              >
+                {addingCustom ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Plus className="h-4 w-4 mr-2" />
+                )}
+                Adicionar Link
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      <div className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
+      <div className="px-5 pb-5 space-y-3 max-h-[600px] overflow-y-auto">
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-16 bg-muted animate-pulse rounded-lg" />
+              <div key={i} className="h-20 bg-muted animate-pulse rounded-xl" />
             ))}
           </div>
         ) : (
-          LINK_CATEGORIES.map((category) => {
-            const link = getLinkByType(category.type);
-            const hasUrl = link?.url;
-            const currentUrl = link ? (editingUrls[link.id] || "") : "";
-            const urlChanged = link && currentUrl !== (link.url || "");
+          <>
+            {/* Standard Links */}
+            {LINK_CATEGORIES.map((category) => {
+              const link = getLinkByType(category.type);
+              const hasUrl = link?.url;
+              const currentUrl = link ? (editingUrls[link.id] || "") : "";
 
-            return (
-              <div
-                key={category.type}
-                className={cn(
-                  "p-3 rounded-xl border transition-all",
-                  hasUrl ? "bg-background" : "bg-amber-50/50 dark:bg-amber-900/10 border-dashed border-amber-300 dark:border-amber-700"
-                )}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{category.label}</span>
-                    {hasUrl ? (
-                      <Badge className="bg-emerald-500 text-white text-[10px] px-1.5 py-0">
-                        OK
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-amber-500 text-white text-[10px] px-1.5 py-0">
-                        Pendente
-                      </Badge>
-                    )}
+              return (
+                <div
+                  key={category.type}
+                  className="p-4 rounded-xl border bg-background transition-all"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center pt-2">
+                      <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{category.label}</span>
+                        {hasUrl ? (
+                          <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-[10px] px-2 py-0.5 gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Configurado
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[10px] px-2 py-0.5 gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            Pendente
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      {link && (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={currentUrl}
+                            onChange={(e) => handleUrlChange(link.id, e.target.value)}
+                            placeholder="Cole a URL aqui..."
+                            className="h-9 text-sm bg-muted/50 border-muted"
+                          />
+                          {hasUrl ? (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9"
+                                onClick={() => copyLink(link.url!)}
+                                title="Copiar link"
+                              >
+                                <Copy className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9"
+                                onClick={() => window.open(link.url!, "_blank")}
+                                title="Abrir link"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              onClick={() => handleAddUrl(link.id)}
+                              disabled={savingId === link.id || !currentUrl.trim()}
+                              className="h-9 px-4 bg-primary hover:bg-primary/90 gap-2"
+                            >
+                              {savingId === link.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Plus className="h-4 w-4" />
+                              )}
+                              Add
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
+              );
+            })}
 
-                {link && (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={currentUrl}
-                      onChange={(e) => handleUrlChange(link.id, e.target.value)}
-                      placeholder="Cole a URL aqui..."
-                      className="h-8 text-xs"
-                      onBlur={() => urlChanged && handleSaveUrl(link.id)}
-                      onKeyDown={(e) => e.key === "Enter" && urlChanged && handleSaveUrl(link.id)}
-                    />
-                    {hasUrl && (
-                      <div className="flex items-center gap-1">
+            {/* Custom Links */}
+            {customLinks.map((link) => {
+              const hasUrl = link.url;
+              const currentUrl = editingUrls[link.id] || "";
+
+              return (
+                <div
+                  key={link.id}
+                  className="p-4 rounded-xl border bg-background transition-all border-primary/20"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center pt-2">
+                      <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{link.name}</span>
+                          <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
+                            Personalizado
+                          </Badge>
+                          {hasUrl ? (
+                            <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-[10px] px-2 py-0.5 gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Configurado
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[10px] px-2 py-0.5 gap-1">
+                              <AlertCircle className="h-3 w-3" />
+                              Pendente
+                            </Badge>
+                          )}
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7"
-                          onClick={() => copyLink(link.url!)}
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => handleDeleteLink(link.id)}
                         >
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          onClick={() => window.open(link.url!, "_blank")}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
-                    )}
-                    {urlChanged && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleSaveUrl(link.id)}
-                        disabled={savingId === link.id}
-                        className="h-8 px-3 bg-emerald-500 hover:bg-emerald-600"
-                      >
-                        <Save className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
+                      
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={currentUrl}
+                          onChange={(e) => handleUrlChange(link.id, e.target.value)}
+                          placeholder="Cole a URL aqui..."
+                          className="h-9 text-sm bg-muted/50 border-muted"
+                        />
+                        {hasUrl ? (
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9"
+                              onClick={() => copyLink(link.url!)}
+                              title="Copiar link"
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9"
+                              onClick={() => window.open(link.url!, "_blank")}
+                              title="Abrir link"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            onClick={() => handleAddUrl(link.id)}
+                            disabled={savingId === link.id || !currentUrl.trim()}
+                            className="h-9 px-4 bg-primary hover:bg-primary/90 gap-2"
+                          >
+                            {savingId === link.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Plus className="h-4 w-4" />
+                            )}
+                            Add
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
-            );
-          })
+                </div>
+              );
+            })}
+          </>
         )}
       </div>
     </div>
