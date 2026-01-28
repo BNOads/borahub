@@ -5,79 +5,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Base64 URL encode
-function base64UrlEncode(data: Uint8Array): string {
-  const base64 = btoa(String.fromCharCode(...data));
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
+// Get access token using OAuth refresh token
+async function getAccessToken(): Promise<string> {
+  const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
+  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
+  const refreshToken = Deno.env.get("GOOGLE_REFRESH_TOKEN");
 
-// Create JWT for Google Service Account authentication
-async function createServiceAccountJWT(serviceAccount: any): Promise<string> {
-  const header = {
-    alg: "RS256",
-    typ: "JWT",
-  };
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error("Google OAuth credentials not configured (CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN)");
+  }
 
-  const now = Math.floor(Date.now() / 1000);
-  const claims = {
-    iss: serviceAccount.client_email,
-    scope: "https://www.googleapis.com/auth/drive.readonly",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600, // 1 hour
-  };
-
-  const headerEncoded = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
-  const claimsEncoded = base64UrlEncode(new TextEncoder().encode(JSON.stringify(claims)));
-  const signatureInput = `${headerEncoded}.${claimsEncoded}`;
-
-  // Import the private key
-  const pemContents = serviceAccount.private_key
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\s/g, "");
-
-  const binaryKey = Uint8Array.from(atob(pemContents), (c) => c.charCodeAt(0));
-
-  const cryptoKey = await crypto.subtle.importKey(
-    "pkcs8",
-    binaryKey,
-    {
-      name: "RSASSA-PKCS1-v1_5",
-      hash: "SHA-256",
-    },
-    false,
-    ["sign"]
-  );
-
-  // Sign the JWT
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    cryptoKey,
-    new TextEncoder().encode(signatureInput)
-  );
-
-  const signatureEncoded = base64UrlEncode(new Uint8Array(signature));
-  return `${signatureInput}.${signatureEncoded}`;
-}
-
-// Exchange JWT for access token
-async function getAccessToken(jwt: string): Promise<string> {
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams({
-      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion: jwt,
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
     }),
   });
 
   if (!response.ok) {
     const error = await response.text();
-    console.error("Token exchange error:", error);
-    throw new Error(`Failed to get access token: ${error}`);
+    console.error("Token refresh error:", error);
+    throw new Error(`Failed to refresh access token: ${error}`);
   }
 
   const data = await response.json();
@@ -142,73 +96,10 @@ serve(async (req) => {
 
     console.log(`Processing download for file: ${fileId}`);
 
-    // Get service account credentials
-    const serviceAccountKeyRaw = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY");
-    if (!serviceAccountKeyRaw) {
-      return new Response(
-        JSON.stringify({ error: "Google Service Account not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    let serviceAccount;
-    const raw = serviceAccountKeyRaw.replace(/^\uFEFF/, "").trim();
-
-    const tryParseServiceAccount = (input: string) => {
-      // Common cleanups: fix double-escaped newlines and remove surrounding whitespace
-      const cleaned = input.replace(/\\\\n/g, "\\n").trim();
-      return JSON.parse(cleaned);
-    };
-
-    try {
-      // 1) JSON object directly
-      serviceAccount = tryParseServiceAccount(raw);
-    } catch (e1) {
-      try {
-        // 2) JSON stored as a quoted string ("{...}")
-        //    e.g. secret value is a JSON string literal that itself contains JSON
-        const maybeString = JSON.parse(raw);
-        if (typeof maybeString === "string") {
-          serviceAccount = tryParseServiceAccount(maybeString);
-        } else {
-          serviceAccount = maybeString;
-        }
-      } catch (e2) {
-        try {
-          // 3) Base64 encoded JSON
-          const decoded = atob(raw);
-          serviceAccount = tryParseServiceAccount(decoded);
-        } catch (e3) {
-          console.error("JSON parse error (service account)", { e1, e2, e3 });
-          console.error("Raw key preview:", raw.substring(0, 120) + "...");
-          return new Response(
-            JSON.stringify({
-              error: "Invalid service account JSON format",
-              hint: "Cole o conteúdo EXATO do arquivo .json da Service Account (sem aspas). Alternativamente, você pode colar o JSON em base64."
-            }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-      }
-    }
-
-    // Validate required fields
-    if (!serviceAccount.client_email || !serviceAccount.private_key) {
-      console.error("Missing required fields. Has client_email:", !!serviceAccount.client_email, "Has private_key:", !!serviceAccount.private_key);
-      return new Response(
-        JSON.stringify({ 
-          error: "Service account JSON missing required fields",
-          hint: "O JSON deve conter 'client_email' e 'private_key'"
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Create JWT and get access token
-    console.log("Creating JWT for authentication...");
-    const jwt = await createServiceAccountJWT(serviceAccount);
-    const accessToken = await getAccessToken(jwt);
-    console.log("Successfully authenticated with Google");
+    // Get access token using OAuth refresh flow
+    console.log("Getting access token via OAuth refresh...");
+    const accessToken = await getAccessToken();
+    console.log("Successfully authenticated with Google OAuth");
 
     // Get file metadata
     console.log("Fetching file metadata...");
@@ -257,7 +148,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error instanceof Error ? error.message : "Unknown error",
-        details: "Verifique se o arquivo está compartilhado com a Service Account"
+        details: "Verifique se as credenciais OAuth estão corretas e se o refresh token é válido"
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
