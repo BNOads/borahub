@@ -2,7 +2,24 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Search, Plus, X, ExternalLink, BookOpen, Trash2 } from "lucide-react";
+import { Search, Plus, X, ExternalLink, BookOpen, Trash2, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +61,7 @@ const formSchema = z.object({
 type FormValues = z.infer<typeof formSchema>;
 
 interface AulaItem {
+  id: string; // Para identificar no drag and drop
   titulo: string;
   origem: "interna" | "externa";
   curso_origem: string | null;
@@ -53,6 +71,70 @@ interface AulaItem {
   duracao_minutos: number | null;
   status: "nao_iniciada";
   ordem: number;
+}
+
+// Componente sortable para cada aula
+function SortableAulaItem({ 
+  aula, 
+  index, 
+  onRemove 
+}: { 
+  aula: AulaItem; 
+  index: number; 
+  onRemove: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: aula.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 p-3 rounded-lg border bg-background"
+    >
+      <button
+        type="button"
+        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-xs font-medium text-accent">
+        {index + 1}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm truncate">{aula.titulo}</p>
+        <p className="text-xs text-muted-foreground flex items-center gap-2">
+          <Badge variant="outline" className="text-[10px]">
+            {aula.origem === "interna" ? "Interno" : "Externo"}
+          </Badge>
+          {aula.curso_origem}
+        </p>
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={onRemove}
+        className="text-destructive hover:text-destructive"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
 }
 
 interface AcessoItem {
@@ -86,6 +168,28 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
 
   const createPDI = useCreatePDI();
   const { data: lessonsData = [] } = useLessonsForPDI(lessonSearch);
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setAulas((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        // Atualizar ordem
+        return newItems.map((item, index) => ({ ...item, ordem: index }));
+      });
+    }
+  };
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -132,6 +236,7 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
     const courseTitle = (lesson.course as any)?.title || "Curso Interno";
     const courseId = (lesson.course as any)?.id || null;
     const novaAula: AulaItem = {
+      id: `internal-${lesson.id}-${Date.now()}`,
       titulo: lesson.title,
       origem: "interna",
       curso_origem: courseTitle,
@@ -160,6 +265,7 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
     }
     
     const novaAula: AulaItem = {
+      id: `external-${Date.now()}`,
       titulo: externalAula.titulo.trim(),
       origem: "externa",
       curso_origem: "Conteúdo Externo",
@@ -444,36 +550,27 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
 
                 {/* Lista de Aulas Adicionadas */}
                 {aulas.length > 0 && (
-                  <div className="space-y-2">
-                    {aulas.map((aula, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-3 p-3 rounded-lg border bg-background"
-                      >
-                        <div className="flex-shrink-0 w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-xs font-medium text-accent">
-                          {index + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{aula.titulo}</p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-2">
-                            <Badge variant="outline" className="text-[10px]">
-                              {aula.origem === "interna" ? "Interno" : "Externo"}
-                            </Badge>
-                            {aula.curso_origem}
-                          </p>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveAula(index)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={aulas.map((a) => a.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-2">
+                        {aulas.map((aula, index) => (
+                          <SortableAulaItem
+                            key={aula.id}
+                            aula={aula}
+                            index={index}
+                            onRemove={() => handleRemoveAula(index)}
+                          />
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    </SortableContext>
+                  </DndContext>
                 )}
 
                 {aulas.length === 0 && !showLessonPicker && !showExternalForm && (
