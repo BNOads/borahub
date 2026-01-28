@@ -858,6 +858,7 @@ export default function Tarefas() {
               onToggleComplete={handleToggleComplete}
               onViewDetail={handleOpenDetail}
               onToggleDoing={handleToggleDoing}
+              onDeleteTask={handleDeleteTask}
             />
           ) : (
             <div className="space-y-6">

@@ -28,12 +28,22 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from "recharts";
-import { Flag, Users, AlertTriangle, CheckCircle2, Clock, ListTodo, Plus, Eye } from "lucide-react";
+import { Flag, Users, AlertTriangle, CheckCircle2, Clock, ListTodo, Plus, Eye, Trash2 } from "lucide-react";
 import type { TaskWithSubtasks, TaskPriority, RecurrenceType, TaskFormData } from "@/types/tasks";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { RECURRENCE_LABELS } from "@/types/tasks";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
-import { useCreateTask, useToggleTaskComplete } from "@/hooks/useTasks";
+import { useCreateTask, useToggleTaskComplete, useDeleteTask } from "@/hooks/useTasks";
 import { useToast } from "@/hooks/use-toast";
 import { UserTasksModal } from "@/components/admin/UserTasksModal";
 import type { Profile } from "@/contexts/AuthContext";
@@ -79,10 +89,15 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
   const { toast } = useToast();
   const createTask = useCreateTask();
   const toggleComplete = useToggleTaskComplete();
+  const deleteTask = useDeleteTask();
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<string>("");
   const [formData, setFormData] = useState<TaskFormData>(emptyFormData);
+  
+  // State for delete confirmation
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<{ id: string; title: string } | null>(null);
   
   // State for UserTasksModal
   const [isUserTasksModalOpen, setIsUserTasksModalOpen] = useState(false);
@@ -172,6 +187,30 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
         title: "Erro ao atualizar tarefa",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleDeleteClick = (task: { id: string; title: string }) => {
+    setTaskToDelete(task);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!taskToDelete) return;
+    try {
+      await deleteTask.mutateAsync(taskToDelete.id);
+      toast({
+        title: "Tarefa excluída",
+        description: "A tarefa foi removida com sucesso.",
+      });
+    } catch {
+      toast({
+        title: "Erro ao excluir tarefa",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteConfirmOpen(false);
+      setTaskToDelete(null);
     }
   };
 
@@ -537,6 +576,17 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
                                 {formatDate(task.due_date)}
                               </span>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteClick({ id: task.id, title: task.title });
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -701,6 +751,28 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
         onOpenChange={setIsUserTasksModalOpen}
         user={selectedUserForModal}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir tarefa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a tarefa "{taskToDelete?.title}"? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

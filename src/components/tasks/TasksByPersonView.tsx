@@ -14,6 +14,7 @@ import {
   Loader2,
   Play,
   Pause,
+  Trash2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import jsPDF from "jspdf";
 
 interface Task {
@@ -69,6 +80,7 @@ interface TasksByPersonViewProps {
   onToggleComplete: (id: string, currentCompleted: boolean) => void;
   onViewDetail: (id: string) => void;
   onToggleDoing?: (id: string, isDoing: boolean) => void;
+  onDeleteTask?: (id: string) => Promise<void>;
 }
 
 export function TasksByPersonView({
@@ -78,10 +90,13 @@ export function TasksByPersonView({
   onToggleComplete,
   onViewDetail,
   onToggleDoing,
+  onDeleteTask,
 }: TasksByPersonViewProps) {
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [showCompleted, setShowCompleted] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<{ id: string; title: string } | null>(null);
   const { toast } = useToast();
 
   // Agrupa tarefas por responsável (assignee = full_name)
@@ -198,6 +213,30 @@ export function TasksByPersonView({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return dueDate < today;
+  };
+
+  const handleDeleteClick = (task: { id: string; title: string }) => {
+    setTaskToDelete(task);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!taskToDelete || !onDeleteTask) return;
+    try {
+      await onDeleteTask(taskToDelete.id);
+      toast({
+        title: "Tarefa excluída",
+        description: "A tarefa foi removida com sucesso.",
+      });
+    } catch {
+      toast({
+        title: "Erro ao excluir tarefa",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteConfirmOpen(false);
+      setTaskToDelete(null);
+    }
   };
 
   // Gera PDF com os dados atuais
@@ -455,6 +494,7 @@ export function TasksByPersonView({
                         <TableHead className="w-[140px]">Categoria</TableHead>
                         <TableHead className="w-[100px]">Prazo</TableHead>
                         <TableHead className="w-[100px]">Status</TableHead>
+                        {onDeleteTask && <TableHead className="w-12"></TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -572,6 +612,21 @@ export function TasksByPersonView({
                                 <Badge variant="outline">Pendente</Badge>
                               )}
                             </TableCell>
+                            {onDeleteTask && (
+                              <TableCell
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-center"
+                              >
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  onClick={() => handleDeleteClick({ id: task.id, title: task.title })}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
@@ -583,6 +638,28 @@ export function TasksByPersonView({
           </Collapsible>
         );
       })}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir tarefa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a tarefa "{taskToDelete?.title}"? 
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
