@@ -150,7 +150,10 @@ export function TasksByPersonView({
 
   const isOverdue = (date: string | null, completed: boolean) => {
     if (!date || completed) return false;
-    return new Date(date) < new Date();
+    const dueDate = new Date(date + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return dueDate < today;
   };
 
   // Gera PDF com os dados atuais

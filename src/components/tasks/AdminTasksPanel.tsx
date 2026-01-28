@@ -209,7 +209,7 @@ export function AdminTasksPanel({ tasks, users, isLoading }: AdminTasksPanelProp
         concluidas: userTasks.filter((t) => t.completed).length,
         atrasadas: userTasks.filter((t) => {
           if (!t.due_date || t.completed) return false;
-          const dueDate = new Date(t.due_date);
+          const dueDate = new Date(t.due_date + "T00:00:00");
           const today = new Date();
           today.setHours(0, 0, 0, 0);
           return dueDate < today;
