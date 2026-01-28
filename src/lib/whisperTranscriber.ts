@@ -49,11 +49,11 @@ export async function initWhisper(
 
     onProgress?.(5, "Usando processamento CPU (WASM)...");
 
-    // Use whisper-tiny for better compatibility and faster loading
+    // Use whisper-base for better accuracy with Portuguese
     // Force device to 'wasm' explicitly to avoid WebGPU issues
     transcriber = await pipeline(
       "automatic-speech-recognition",
-      "onnx-community/whisper-tiny",
+      "onnx-community/whisper-base",
       {
         device: "wasm",
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -103,6 +103,7 @@ export async function transcribeAudio(
   const result = (await pipe(audioUrl, {
     return_timestamps: true,
     language: langMap[language] || langMap.pt,
+    task: "transcribe", // Force transcription mode (not translation)
     chunk_length_s: 30,
     stride_length_s: 5,
   })) as WhisperResult;
