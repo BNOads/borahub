@@ -108,27 +108,35 @@ export function TranscriptionUpload({ onTranscriptionCreated }: TranscriptionUpl
     setProgress(0);
     setProgressStatus("Iniciando...");
 
-    const result = await createTranscription.mutateAsync({
-      title: title.trim(),
-      file,
-      language,
-      onProgress: (prog, status) => {
-        setProgress(prog);
-        setProgressStatus(status);
-      },
-    });
+    try {
+      const result = await createTranscription.mutateAsync({
+        title: title.trim(),
+        file,
+        language,
+        onProgress: (prog, status) => {
+          setProgress(prog);
+          setProgressStatus(status);
+        },
+      });
 
-    if (result?.id) {
-      onTranscriptionCreated?.(result.id);
-      // Reset form
-      setFile(null);
-      setTitle("");
-      setLanguage("pt");
+      if (result?.id) {
+        onTranscriptionCreated?.(result.id);
+        // Reset form
+        setFile(null);
+        setTitle("");
+        setLanguage("pt");
+        setProgress(0);
+        setProgressStatus("");
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
+    } catch (error) {
+      // Error is already handled by the mutation's onError
+      // Just reset progress state
       setProgress(0);
       setProgressStatus("");
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      console.error("Transcription error:", error);
     }
   };
 
