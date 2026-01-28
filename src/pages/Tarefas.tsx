@@ -43,6 +43,8 @@ import {
   LayoutList,
   LayoutGrid,
   ExternalLink,
+  Play,
+  Pause,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -880,6 +882,7 @@ export default function Tarefas() {
                             onEdit={handleEditTask}
                             onDelete={handleDeleteTask}
                             onViewDetail={handleOpenDetail}
+                            onToggleDoing={handleToggleDoing}
                             getPriorityColor={getPriorityColor}
                             formatDate={formatDate}
                             isOverdue={isOverdue}
@@ -904,6 +907,7 @@ export default function Tarefas() {
                             onEdit={handleEditTask}
                             onDelete={handleDeleteTask}
                             onViewDetail={handleOpenDetail}
+                            onToggleDoing={handleToggleDoing}
                             getPriorityColor={getPriorityColor}
                             formatDate={formatDate}
                             isOverdue={isOverdue}
@@ -941,6 +945,7 @@ interface TaskItemProps {
   onEdit: (task: TaskWithSubtasks) => void;
   onDelete: (id: string) => void;
   onViewDetail: (id: string) => void;
+  onToggleDoing?: (id: string, isDoing: boolean) => void;
   getPriorityColor: (priority: string) => string;
   formatDate: (date: string | null) => string;
   isOverdue: (date: string | null, completed: boolean) => boolean;
@@ -952,6 +957,7 @@ function TaskItem({
   onEdit,
   onDelete,
   onViewDetail,
+  onToggleDoing,
   getPriorityColor,
   formatDate,
   isOverdue,
@@ -959,19 +965,38 @@ function TaskItem({
   const subtaskCount = task.subtasks?.length || 0;
   const completedSubtasks = task.subtasks?.filter((s) => s.completed).length || 0;
   const subtaskProgress = subtaskCount > 0 ? (completedSubtasks / subtaskCount) * 100 : 0;
+  const isDoing = !!(task as any).doing_since;
 
   return (
     <div
       className={cn(
-        "flex items-start gap-4 p-4 rounded-lg border border-border bg-card transition-all hover:shadow-sm",
+        "flex items-start gap-4 p-4 rounded-lg border transition-all hover:shadow-sm",
+        isDoing 
+          ? "bg-primary/5 border-primary/50 border-l-4 border-l-primary" 
+          : "border-border bg-card",
         task.completed && "opacity-60"
       )}
     >
-      <Checkbox
-        checked={task.completed}
-        onCheckedChange={() => onToggle(task.id, task.completed)}
-        className="mt-1"
-      />
+      <div className="flex items-center gap-2 mt-1">
+        <Checkbox
+          checked={task.completed}
+          onCheckedChange={() => onToggle(task.id, task.completed)}
+        />
+        {!task.completed && onToggleDoing && (
+          <Button
+            variant={isDoing ? "default" : "ghost"}
+            size="icon"
+            className={cn("h-7 w-7", isDoing && "bg-primary text-primary-foreground")}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleDoing(task.id, !isDoing);
+            }}
+            title={isDoing ? "Pausar tarefa" : "Iniciar tarefa"}
+          >
+            {isDoing ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+          </Button>
+        )}
+      </div>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
@@ -1068,6 +1093,16 @@ function TaskItem({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mt-3">
+          {isDoing && (
+            <Badge className="bg-primary/90 hover:bg-primary text-primary-foreground animate-pulse gap-1">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary-foreground opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-primary-foreground"></span>
+              </span>
+              Fazendo
+            </Badge>
+          )}
+          
           <Badge variant="outline" className={getPriorityColor(task.priority)}>
             {task.priority === "alta"
               ? "Alta"
