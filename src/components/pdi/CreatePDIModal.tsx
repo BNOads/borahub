@@ -48,6 +48,7 @@ interface AulaItem {
   origem: "interna" | "externa";
   curso_origem: string | null;
   lesson_id: string | null;
+  course_id: string | null;
   link_externo: string | null;
   duracao_minutos: number | null;
   status: "nao_iniciada";
@@ -129,11 +130,13 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
 
   const handleAddInternalLesson = (lesson: any) => {
     const courseTitle = (lesson.course as any)?.title || "Curso Interno";
+    const courseId = (lesson.course as any)?.id || null;
     const novaAula: AulaItem = {
       titulo: lesson.title,
       origem: "interna",
       curso_origem: courseTitle,
       lesson_id: lesson.id,
+      course_id: courseId,
       link_externo: null,
       duracao_minutos: lesson.duration || null,
       status: "nao_iniciada",
@@ -161,6 +164,7 @@ export function CreatePDIModal({ open, onOpenChange }: CreatePDIModalProps) {
       origem: "externa",
       curso_origem: "Conteúdo Externo",
       lesson_id: null,
+      course_id: null,
       link_externo: linkFinal || null,
       duracao_minutos: externalAula.duracao ? parseInt(externalAula.duracao) : null,
       status: "nao_iniciada",

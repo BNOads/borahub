@@ -461,9 +461,9 @@ export default function PDIDetalhe() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {aula.origem === "interna" && aula.lesson_id ? (
+                      {aula.origem === "interna" && aula.lesson_id && aula.course_id ? (
                         <Button variant="outline" size="sm" asChild>
-                          <Link to={`/treinamentos/aula/${aula.lesson_id}`}>
+                          <Link to={`/treinamentos/${aula.course_id}/aula/${aula.lesson_id}`}>
                             <Play className="h-4 w-4 mr-1" />
                             Ver Aula
                           </Link>
