@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, History, Send, CheckCircle2, Clock, User, AlertTriangle, FileText, Calendar, Check, Trash2, Edit3, Monitor, Video, Layers, Smartphone, Image as ImageIcon, Lightbulb, Link as LinkIcon, Plus, X, Save, Film } from "lucide-react";
+import { MessageSquare, History, Send, CheckCircle2, Clock, User, AlertTriangle, FileText, Calendar, Check, Trash2, Edit3, Monitor, Video, Layers, Smartphone, Image as ImageIcon, Lightbulb, Link as LinkIcon, Plus, X, Save, Film, Mic } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { VideoEmbed } from "./VideoEmbed";
-
+import { TranscribeFromPostModal } from "./TranscribeFromPostModal";
 // Youtube Icon Component
 const YoutubeIcon = ({
   className
@@ -91,6 +91,7 @@ export function PostDetailsModal({
   const [camposExtras, setCamposExtras] = useState<CampoExtra[]>([]);
   const [novoCampoLabel, setNovoCampoLabel] = useState("");
   const [savingContent, setSavingContent] = useState(false);
+  const [showTranscribeModal, setShowTranscribeModal] = useState(false);
 
   // Fetch team members from profiles
   useEffect(() => {
@@ -318,8 +319,17 @@ export function PostDetailsModal({
     newCampos[index].value = value;
     setCamposExtras(newCampos);
   }
+
+  function handleTranscriptionComplete(text: string) {
+    setRoteiro(prevRoteiro => 
+      prevRoteiro ? `${prevRoteiro}\n\n--- Transcrição ---\n${text}` : text
+    );
+    setShowTranscribeModal(false);
+    toast.success("Transcrição adicionada ao roteiro!");
+  }
   if (!post) return null;
-  return <Dialog open={isOpen} onOpenChange={onClose}>
+  return <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
             <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0 overflow-hidden rounded-[2.5rem] border-accent/10 border-8 bg-background shadow-2xl">
                 <div className="flex flex-1 overflow-hidden">
                     {/* Main Info */}
@@ -434,9 +444,22 @@ export function PostDetailsModal({
 
                             {/* Vídeo do Post */}
                             <div className="bg-background/80 p-4 rounded-2xl border border-border">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Film className="h-4 w-4 text-purple-500" />
-                                    <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">MIDIA DO POST</span>
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <Film className="h-4 w-4 text-purple-500" />
+                                        <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">MIDIA DO POST</span>
+                                    </div>
+                                    {videoUrl && !videoUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-7 rounded-lg text-[10px] font-bold gap-1.5"
+                                            onClick={() => setShowTranscribeModal(true)}
+                                        >
+                                            <Mic className="h-3 w-3" />
+                                            Transcrever
+                                        </Button>
+                                    )}
                                 </div>
                                 <Input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="Cole o link do Google Drive, YouTube ou Vimeo..." className="h-10 bg-muted/30 border-none rounded-xl text-sm mb-3" />
                                 {videoUrl && <VideoEmbed url={videoUrl} className="mt-2" />}
@@ -554,7 +577,15 @@ export function PostDetailsModal({
                     </div>
                 </div>
             </DialogContent>
-        </Dialog>;
+        </Dialog>
+
+        <TranscribeFromPostModal
+            isOpen={showTranscribeModal}
+            onClose={() => setShowTranscribeModal(false)}
+            onTranscriptionComplete={handleTranscriptionComplete}
+            postId={post?.id}
+        />
+    </>;
 }
 const ArrowRight = ({
   className
