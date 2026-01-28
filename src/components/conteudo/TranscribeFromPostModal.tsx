@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,16 +16,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { Upload, Mic, FileAudio, X, Loader2 } from "lucide-react";
+import { Upload, Mic, FileAudio, X, Loader2, CloudDownload } from "lucide-react";
 import { transcribeFile } from "@/lib/whisperTranscriber";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { getMediaInfo } from "@/lib/videoUtils";
 
 interface TranscribeFromPostModalProps {
   isOpen: boolean;
   onClose: () => void;
   onTranscriptionComplete: (text: string) => void;
   postId?: string;
+  videoUrl?: string; // URL do vídeo do post (para detectar Google Drive)
 }
 
 const LANGUAGES = [
@@ -53,14 +56,20 @@ export function TranscribeFromPostModal({
   onClose,
   onTranscriptionComplete,
   postId,
+  videoUrl,
 }: TranscribeFromPostModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [language, setLanguage] = useState("pt");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDownloadingFromDrive, setIsDownloadingFromDrive] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Detectar se é um link do Google Drive
+  const driveInfo = videoUrl ? getMediaInfo(videoUrl) : null;
+  const isGoogleDrive = driveInfo?.type === "google-drive" && driveInfo?.id;
 
   function handleFileSelect(selectedFile: File) {
     // Validate file type
@@ -96,6 +105,47 @@ export function TranscribeFromPostModal({
   function handleDragLeave(e: React.DragEvent) {
     e.preventDefault();
     setIsDragging(false);
+  }
+
+  // Baixar arquivo do Google Drive via Edge Function
+  async function handleDownloadFromDrive() {
+    if (!driveInfo?.id) return;
+    
+    setIsDownloadingFromDrive(true);
+    setStatusMessage("Baixando arquivo do Google Drive...");
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("google-drive-download", {
+        body: { fileId: driveInfo.id },
+      });
+      
+      if (error) {
+        throw new Error(error.message || "Erro ao baixar arquivo");
+      }
+      
+      if (!data.success) {
+        throw new Error(data.error || "Falha no download");
+      }
+      
+      // Converter base64 para Blob
+      const binaryString = atob(data.data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      const blob = new Blob([bytes], { type: data.metadata.mimeType });
+      const downloadedFile = new File([blob], data.metadata.name, { type: data.metadata.mimeType });
+      
+      setFile(downloadedFile);
+      toast.success(`Arquivo "${data.metadata.name}" baixado com sucesso!`);
+    } catch (error) {
+      console.error("Drive download error:", error);
+      toast.error(`Erro ao baixar do Drive: ${error instanceof Error ? error.message : "Erro desconhecido"}`);
+    } finally {
+      setIsDownloadingFromDrive(false);
+      setStatusMessage("");
+    }
   }
 
   async function handleTranscribe() {
@@ -149,6 +199,58 @@ export function TranscribeFromPostModal({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Botão para baixar do Google Drive */}
+          {isGoogleDrive && !file && !isProcessing && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <CloudDownload className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">
+                    Vídeo do Google Drive detectado
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Clique para baixar automaticamente
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={handleDownloadFromDrive}
+                disabled={isDownloadingFromDrive}
+                variant="outline"
+                className="w-full"
+              >
+                {isDownloadingFromDrive ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Baixando do Drive...
+                  </>
+                ) : (
+                  <>
+                    <CloudDownload className="h-4 w-4 mr-2" />
+                    Baixar do Google Drive
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground/70 mt-2 text-center">
+                O arquivo deve estar compartilhado com a Service Account
+              </p>
+            </div>
+          )}
+
+          {/* Separador "ou" quando há opção do Drive */}
+          {isGoogleDrive && !file && !isProcessing && (
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">ou</span>
+              </div>
+            </div>
+          )}
+
           {/* Drop zone / File display */}
           {!file ? (
             <div
