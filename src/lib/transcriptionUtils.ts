@@ -98,20 +98,20 @@ export function generateTranscriptPDF(
       y = 20;
     }
 
-    // Speaker header
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(59, 130, 246); // Blue color
-    doc.text(`${segment.speaker}`, margin, y);
-    
+    // Speaker header - only show if timestamps are included
     if (includeTimestamps) {
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(59, 130, 246); // Blue color
+      doc.text(`${segment.speaker}`, margin, y);
+      
       const startTime = formatTimestamp(segment.start);
       const endTime = formatTimestamp(segment.end);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(128, 128, 128);
       doc.text(`[${startTime} - ${endTime}]`, margin + 40, y);
+      y += 6;
     }
-    y += 6;
 
     // Text content
     doc.setFontSize(10);
