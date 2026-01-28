@@ -231,7 +231,7 @@ export function TranscriptionUpload({ onTranscriptionCreated }: TranscriptionUpl
             </div>
             <Progress value={progress} className="h-2" />
             <p className="text-xs text-muted-foreground text-center">
-              O modelo Whisper está processando seu áudio localmente. Isso pode levar alguns minutos na primeira vez (download do modelo).
+              O modelo Whisper (~75MB) está processando seu áudio localmente. O primeiro uso pode demorar mais devido ao download do modelo.
             </p>
           </div>
         </Card>
