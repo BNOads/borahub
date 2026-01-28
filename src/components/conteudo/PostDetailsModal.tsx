@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, History, Send, CheckCircle2, Clock, User, AlertTriangle, FileText, Calendar, Check, Trash2, Edit3, Monitor, Video, Layers, Smartphone, Image as ImageIcon, Lightbulb, Link as LinkIcon, Plus, X, Save, Film, Mic } from "lucide-react";
+import { MessageSquare, History, Send, CheckCircle2, Clock, User, AlertTriangle, FileText, Calendar, Check, Trash2, Edit3, Monitor, Video, Layers, Smartphone, Image as ImageIcon, Lightbulb, Link as LinkIcon, Plus, X, Save, Film, Mic, Upload, Loader2 } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -92,6 +92,8 @@ export function PostDetailsModal({
   const [novoCampoLabel, setNovoCampoLabel] = useState("");
   const [savingContent, setSavingContent] = useState(false);
   const [showTranscribeModal, setShowTranscribeModal] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch team members from profiles
   useEffect(() => {
@@ -372,6 +374,56 @@ export function PostDetailsModal({
     setCamposExtras(newCampos);
   }
 
+  async function handleVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (100MB max)
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error("Arquivo muito grande. Máximo permitido: 100MB");
+      return;
+    }
+
+    setUploadingVideo(true);
+    
+    try {
+      // Sanitize filename
+      const sanitizedName = file.name
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^\w\s.-]/g, "")
+        .replace(/\s+/g, "_")
+        .replace(/_+/g, "_")
+        .trim() || "video";
+      
+      const filePath = `posts/${post.id}/${Date.now()}-${sanitizedName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("video-uploads")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from("video-uploads")
+        .getPublicUrl(filePath);
+
+      setVideoUrl(publicUrl);
+      toast.success("Vídeo enviado com sucesso!");
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast.error("Erro ao enviar vídeo: " + error.message);
+    } finally {
+      setUploadingVideo(false);
+      if (videoInputRef.current) {
+        videoInputRef.current.value = "";
+      }
+    }
+  }
+
   async function handleTranscriptionComplete(text: string) {
     // Adicionar a transcrição como campo extra
     const transcriptionField: CampoExtra = {
@@ -529,19 +581,51 @@ export function PostDetailsModal({
                                         <Film className="h-4 w-4 text-purple-500" />
                                         <span className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">MIDIA DO POST</span>
                                     </div>
-                                    {videoUrl && !videoUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-7 rounded-lg text-[10px] font-bold gap-1.5"
+                                        onClick={() => setShowTranscribeModal(true)}
+                                    >
+                                        <Mic className="h-3 w-3" />
+                                        Transcrever
+                                    </Button>
+                                </div>
+                                
+                                {/* Upload de vídeo */}
+                                <div className="mb-3">
+                                    <input
+                                        ref={videoInputRef}
+                                        type="file"
+                                        accept="video/*,audio/*"
+                                        onChange={handleVideoUpload}
+                                        className="hidden"
+                                    />
+                                    <div className="flex gap-2">
+                                        <Input 
+                                            value={videoUrl} 
+                                            onChange={e => setVideoUrl(e.target.value)} 
+                                            placeholder="Cole o link do Google Drive, YouTube ou Vimeo..." 
+                                            className="h-10 bg-muted/30 border-none rounded-xl text-sm flex-1" 
+                                        />
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            className="h-7 rounded-lg text-[10px] font-bold gap-1.5"
-                                            onClick={() => setShowTranscribeModal(true)}
+                                            className="h-10 px-3 rounded-xl"
+                                            onClick={() => videoInputRef.current?.click()}
+                                            disabled={uploadingVideo}
                                         >
-                                            <Mic className="h-3 w-3" />
-                                            Transcrever
+                                            {uploadingVideo ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <Upload className="h-4 w-4" />
+                                            )}
                                         </Button>
+                                    </div>
+                                    {uploadingVideo && (
+                                        <p className="text-xs text-muted-foreground mt-2">Enviando vídeo...</p>
                                     )}
                                 </div>
-                                <Input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} placeholder="Cole o link do Google Drive, YouTube ou Vimeo..." className="h-10 bg-muted/30 border-none rounded-xl text-sm mb-3" />
                                 {videoUrl && <VideoEmbed url={videoUrl} className="mt-2" />}
                             </div>
 
