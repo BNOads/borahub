@@ -23,7 +23,8 @@ import {
   ClipboardList,
   FileCheck,
   CheckSquare,
-  FileBarChart
+  FileBarChart,
+  FileAudio
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -132,6 +133,13 @@ const tools = [
     href: "/validador-copy",
     icon: FileCheck,
     color: "bg-lime-500/10 text-lime-500",
+  },
+  {
+    name: "Transcrições",
+    description: "Transcreva vídeos e áudios com identificação automática",
+    href: "/transcricoes",
+    icon: FileAudio,
+    color: "bg-fuchsia-500/10 text-fuchsia-500",
   },
 ];
 
