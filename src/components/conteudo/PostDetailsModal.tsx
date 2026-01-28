@@ -584,6 +584,7 @@ export function PostDetailsModal({
             onClose={() => setShowTranscribeModal(false)}
             onTranscriptionComplete={handleTranscriptionComplete}
             postId={post?.id}
+            videoUrl={videoUrl}
         />
     </>;
 }
