@@ -85,6 +85,39 @@ export function TasksByPersonView({
       grouped[assignee].push(task);
     });
 
+    // Função para obter prioridade de ordenação por data
+    const getDateSortPriority = (task: Task): number => {
+      if (!task.due_date) return 4; // Sem data = última prioridade
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dueDate = new Date(task.due_date + "T00:00:00");
+      
+      if (dueDate < today) return 1; // Atrasada
+      if (dueDate.getTime() === today.getTime()) return 2; // Hoje
+      return 3; // Futura
+    };
+
+    // Ordena tarefas dentro de cada grupo por data
+    Object.keys(grouped).forEach((assignee) => {
+      grouped[assignee].sort((a, b) => {
+        const priorityA = getDateSortPriority(a);
+        const priorityB = getDateSortPriority(b);
+        
+        // Primeiro ordena por prioridade (atrasadas > hoje > futuras > sem data)
+        if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+        }
+        
+        // Dentro da mesma prioridade, ordena por data
+        if (a.due_date && b.due_date) {
+          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+        }
+        
+        return 0;
+      });
+    });
+
     // Ordena por nome
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b));
   }, [tasks]);
