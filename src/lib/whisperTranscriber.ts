@@ -42,31 +42,20 @@ export async function initWhisper(
     // Configure environment for better compatibility
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-
-    // Try WebGPU first, then fall back to WASM
-    let device: "webgpu" | "wasm" = "wasm";
     
-    // Check if WebGPU is available
-    if (typeof navigator !== "undefined" && "gpu" in navigator) {
-      try {
-        const adapter = await (navigator as Navigator & { gpu?: { requestAdapter: () => Promise<unknown> } }).gpu?.requestAdapter();
-        if (adapter) {
-          device = "webgpu";
-          console.log("Using WebGPU for transcription");
-        }
-      } catch {
-        console.log("WebGPU not available, using WASM");
-      }
-    }
+    // Disable WebGPU completely - force WASM backend only
+    // This prevents the "no available backend found" error
+    env.backends.onnx.wasm.proxy = false;
 
-    onProgress?.(5, device === "webgpu" ? "Usando aceleração GPU..." : "Usando processamento CPU...");
+    onProgress?.(5, "Usando processamento CPU (WASM)...");
 
+    // Use whisper-tiny for better compatibility and faster loading
+    // Force device to 'wasm' explicitly to avoid WebGPU issues
     transcriber = await pipeline(
       "automatic-speech-recognition",
-      "onnx-community/whisper-small",
+      "onnx-community/whisper-tiny",
       {
-        device,
-        dtype: "q8", // Use quantized model for better performance
+        device: "wasm",
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         progress_callback: (data: any) => {
           if (data.progress !== undefined) {
@@ -81,8 +70,9 @@ export async function initWhisper(
     return transcriber;
   } catch (error) {
     isLoading = false;
+    transcriber = null;
     console.error("Failed to initialize Whisper:", error);
-    throw new Error("Não foi possível inicializar o modelo de transcrição. Por favor, tente novamente.");
+    throw new Error(`Erro ao inicializar transcrição: ${error instanceof Error ? error.message : "Erro desconhecido"}`);
   } finally {
     isLoading = false;
   }
