@@ -10,6 +10,7 @@ export interface PDIAula {
   origem: "interna" | "externa";
   curso_origem: string | null;
   lesson_id: string | null;
+  course_id: string | null;
   link_externo: string | null;
   duracao_minutos: number | null;
   status: "nao_iniciada" | "concluida";
@@ -153,7 +154,7 @@ export function usePDI(id: string) {
         .select(`
           *,
           colaborador:profiles!colaborador_id(id, full_name, display_name, avatar_url, job_title),
-          aulas:pdi_aulas(*),
+          aulas:pdi_aulas(*, lesson:lessons(course_id)),
           acessos:pdi_acessos(*)
         `)
         .eq("id", id)
@@ -161,15 +162,20 @@ export function usePDI(id: string) {
 
       if (error) throw error;
 
-      // Ordenar aulas por ordem
-      if (data.aulas) {
-        data.aulas.sort((a: any, b: any) => a.ordem - b.ordem);
-      }
+      // Ordenar aulas por ordem e extrair course_id do lesson aninhado
+      let processedAulas = data.aulas || [];
+      processedAulas = processedAulas
+        .map((aula: any) => ({
+          ...aula,
+          course_id: aula.lesson?.course_id || null,
+        }))
+        .sort((a: any, b: any) => a.ordem - b.ordem);
 
       return {
         ...data,
+        aulas: processedAulas,
         status: calculateStatus(data),
-      } as PDI;
+      } as unknown as PDI;
     },
     enabled: authReady && !!user && !!id,
   });
