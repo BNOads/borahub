@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -286,13 +286,64 @@ export function PostDetailsModal({
       toast.error("Erro ao comentar: " + error.message);
     }
   }
+  const autoSaveContent = useCallback(async (fields: { video_url?: string; roteiro?: string; big_idea?: string; arquivos_link?: string }) => {
+    if (!post?.id) return;
+    try {
+      setSavingContent(true);
+      const { error } = await supabase.from("social_posts").update(fields).eq("id", post.id);
+      if (error) throw error;
+      onUpdate();
+    } catch (error: any) {
+      console.error("Auto-save error:", error.message);
+    } finally {
+      setSavingContent(false);
+    }
+  }, [post?.id, onUpdate]);
+
+  // Auto-save with debounce for content fields
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initialLoadRef = useRef(true);
+
+  useEffect(() => {
+    // Skip auto-save on initial load
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      return;
+    }
+
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      autoSaveContent({
+        video_url: videoUrl,
+        roteiro: roteiro,
+        big_idea: bigIdea,
+        arquivos_link: arquivosLink
+      });
+    }, 1000); // 1 second debounce
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, [videoUrl, roteiro, bigIdea, arquivosLink, autoSaveContent]);
+
+  // Reset initial load flag when post changes
+  useEffect(() => {
+    initialLoadRef.current = true;
+  }, [post?.id]);
+
   async function handleSaveContentFields() {
     try {
       setSavingContent(true);
-      const {
-        error
-      } = await supabase.from("social_posts").update({
-        video_url: videoUrl
+      const { error } = await supabase.from("social_posts").update({
+        video_url: videoUrl,
+        roteiro: roteiro,
+        big_idea: bigIdea,
+        arquivos_link: arquivosLink
       }).eq("id", post.id);
       if (error) throw error;
       toast.success("Conteúdo salvo com sucesso!");
