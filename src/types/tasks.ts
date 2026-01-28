@@ -38,6 +38,7 @@ export interface Task {
   recurrence_end_date?: string | null;
   parent_task_id?: string | null;
   is_recurring_instance?: boolean | null;
+  doing_since?: string | null;
 }
 
 export interface Subtask {

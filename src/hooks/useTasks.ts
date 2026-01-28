@@ -31,7 +31,7 @@ export function useTasks(filters?: Partial<TaskFilters>) {
       let query = supabase
           .from("tasks")
           .select(`
-            id, title, description, priority, category, assignee, assigned_to_id, due_date, due_time, completed, position, created_at, updated_at, completed_at, recurrence, recurrence_end_date, parent_task_id, is_recurring_instance,
+            id, title, description, priority, category, assignee, assigned_to_id, due_date, due_time, completed, position, created_at, updated_at, completed_at, recurrence, recurrence_end_date, parent_task_id, is_recurring_instance, doing_since,
             subtasks (id, title, completed)
           `)
           .order("position", { ascending: true })
@@ -80,7 +80,7 @@ export function useTodaysTasks() {
         const { data, error } = await supabase
           .from("tasks")
           .select(`
-            id, title, description, priority, category, assignee, assigned_to_id, due_date, due_time, completed, position, created_at, updated_at, completed_at, recurrence, recurrence_end_date, parent_task_id, is_recurring_instance,
+            id, title, description, priority, category, assignee, assigned_to_id, due_date, due_time, completed, position, created_at, updated_at, completed_at, recurrence, recurrence_end_date, parent_task_id, is_recurring_instance, doing_since,
             subtasks (id, title, completed)
           `)
           .lte("due_date", new Date().toISOString().split("T")[0])
@@ -393,7 +393,7 @@ export function useUserTasks(userFullName: string | null) {
         const { data, error } = await supabase
           .from("tasks")
           .select(`
-            id, title, description, priority, category, assignee, assigned_to_id, due_date, due_time, completed, position, created_at, updated_at, completed_at, recurrence, recurrence_end_date, parent_task_id, is_recurring_instance,
+            id, title, description, priority, category, assignee, assigned_to_id, due_date, due_time, completed, position, created_at, updated_at, completed_at, recurrence, recurrence_end_date, parent_task_id, is_recurring_instance, doing_since,
             subtasks (id, title, completed)
           `)
           .eq("assignee", userFullName)
@@ -437,6 +437,65 @@ export function useCreateTaskForUser() {
       if (variables.assignee) {
         queryClient.invalidateQueries({ queryKey: taskKeys.byUser(variables.assignee) });
       }
+    },
+  });
+}
+
+export function useToggleTaskDoing() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, isDoing }: { id: string; isDoing: boolean }) => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .update({
+          doing_since: isDoing ? new Date().toISOString() : null,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Task;
+    },
+    onMutate: async ({ id, isDoing }) => {
+      await queryClient.cancelQueries({ queryKey: taskKeys.all });
+
+      // Atualização otimística
+      queryClient.setQueriesData(
+        { queryKey: taskKeys.lists() },
+        (old: TaskWithSubtasks[] | undefined) =>
+          old?.map((task) =>
+            task.id === id 
+              ? { ...task, doing_since: isDoing ? new Date().toISOString() : null } 
+              : task
+          )
+      );
+
+      queryClient.setQueriesData(
+        { queryKey: taskKeys.today() },
+        (old: TaskWithSubtasks[] | undefined) =>
+          old?.map((task) =>
+            task.id === id 
+              ? { ...task, doing_since: isDoing ? new Date().toISOString() : null } 
+              : task
+          )
+      );
+
+      queryClient.setQueriesData(
+        { queryKey: ["tasks", "user"], exact: false },
+        (old: TaskWithSubtasks[] | undefined) =>
+          old?.map((task) =>
+            task.id === id 
+              ? { ...task, doing_since: isDoing ? new Date().toISOString() : null } 
+              : task
+          )
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.today() });
+      queryClient.invalidateQueries({ queryKey: ["tasks", "user"] });
     },
   });
 }
