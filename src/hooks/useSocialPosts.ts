@@ -76,6 +76,10 @@ export function useSocialPosts(weekStart: string, weekEnd: string) {
                     created_at,
                     updated_at,
                     video_url,
+                    roteiro,
+                    big_idea,
+                    arquivos_link,
+                    campos_extras,
                     profiles:social_profiles(id, name, icon, color),
                     post_comments(count),
                     post_history(count)
