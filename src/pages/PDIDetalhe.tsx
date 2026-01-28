@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   Target,
   ArrowLeft,
@@ -18,6 +19,7 @@ import {
   Plus,
   X,
   Search,
+  Database,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +77,7 @@ export default function PDIDetalhe() {
   const [lessonSearch, setLessonSearch] = useState("");
   const [showLessonPicker, setShowLessonPicker] = useState(false);
   const [acessoSearch, setAcessoSearch] = useState("");
+  const [showAcessoExistente, setShowAcessoExistente] = useState(true);
 
   const { data: pdi, isLoading, refetch } = usePDI(id || "");
   const finalizePDI = useFinalizePDI();
@@ -82,6 +85,27 @@ export default function PDIDetalhe() {
   const markAulaConcluida = useMarkAulaConcluida();
   const updatePDI = useUpdatePDI();
   const { data: lessonsData = [] } = useLessonsForPDI(lessonSearch);
+
+  // Buscar acessos existentes (senhas úteis)
+  const { data: acessosExistentes = [] } = useQuery({
+    queryKey: ["acessos-logins", acessoSearch],
+    queryFn: async () => {
+      let query = supabase
+        .from("acessos_logins")
+        .select("id, nome_acesso, categoria, link_acesso")
+        .eq("ativo", true)
+        .order("nome_acesso");
+
+      if (acessoSearch) {
+        query = query.ilike("nome_acesso", `%${acessoSearch}%`);
+      }
+
+      const { data, error } = await query.limit(50);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: addAcessoModalOpen && showAcessoExistente,
+  });
 
   if (isLoading) {
     return (
@@ -278,6 +302,34 @@ export default function PDIDetalhe() {
 
       toast.success("Acesso adicionado!");
       setNewAcesso({ nome: "", categoria: "outros", link: "" });
+      setAddAcessoModalOpen(false);
+      refetch();
+    } catch (error) {
+      console.error("Erro ao adicionar acesso:", error);
+      toast.error("Erro ao adicionar acesso");
+    }
+  };
+
+  const handleAddAcessoExistente = async (acesso: any) => {
+    // Verificar se já existe no PDI
+    const jaExiste = pdi.acessos?.some(a => a.nome === acesso.nome_acesso);
+    if (jaExiste) {
+      toast.error("Este acesso já foi adicionado ao PDI");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from("pdi_acessos").insert({
+        pdi_id: pdi.id,
+        nome: acesso.nome_acesso,
+        categoria: acesso.categoria || "outros",
+        link: acesso.link_acesso || null,
+      });
+
+      if (error) throw error;
+
+      toast.success("Acesso adicionado!");
+      setAcessoSearch("");
       setAddAcessoModalOpen(false);
       refetch();
     } catch (error) {
@@ -841,6 +893,7 @@ export default function PDIDetalhe() {
         if (!open) {
           setNewAcesso({ nome: "", categoria: "outros", link: "" });
           setAcessoSearch("");
+          setShowAcessoExistente(true);
         }
       }}>
         <DialogContent className="max-w-md">
@@ -848,43 +901,104 @@ export default function PDIDetalhe() {
             <DialogTitle>Adicionar Acesso</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <Label>Nome do Acesso *</Label>
-              <Input
-                placeholder="Ex: Facebook Ads Manager"
-                value={newAcesso.nome}
-                onChange={(e) => setNewAcesso({ ...newAcesso, nome: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Categoria</Label>
-              <select
-                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                value={newAcesso.categoria}
-                onChange={(e) => setNewAcesso({ ...newAcesso, categoria: e.target.value })}
+            <div className="flex gap-2">
+              <Button
+                variant={showAcessoExistente ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowAcessoExistente(true)}
+                className="flex-1 gap-1.5"
               >
-                {Object.entries(categoriasAcesso).map(([key, label]) => (
-                  <option key={key} value={key}>{label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Link (opcional)</Label>
-              <Input
-                placeholder="https://..."
-                value={newAcesso.link}
-                onChange={(e) => setNewAcesso({ ...newAcesso, link: e.target.value })}
-              />
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setAddAcessoModalOpen(false)}>
-                Cancelar
+                <Database className="h-4 w-4" />
+                Senhas Úteis
               </Button>
-              <Button onClick={handleAddAcesso} className="bg-accent hover:bg-accent/90">
-                <Plus className="h-4 w-4 mr-2" />
-                Adicionar
+              <Button
+                variant={!showAcessoExistente ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowAcessoExistente(false)}
+                className="flex-1 gap-1.5"
+              >
+                <Plus className="h-4 w-4" />
+                Novo Acesso
               </Button>
             </div>
+
+            {showAcessoExistente ? (
+              <div className="space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar em Senhas Úteis..."
+                    className="pl-10"
+                    value={acessoSearch}
+                    onChange={(e) => setAcessoSearch(e.target.value)}
+                  />
+                </div>
+                <ScrollArea className="h-52">
+                  <div className="space-y-1">
+                    {acessosExistentes
+                      .filter((acesso: any) => !pdi.acessos?.some(a => a.nome === acesso.nome_acesso))
+                      .map((acesso: any) => (
+                        <button
+                          key={acesso.id}
+                          type="button"
+                          onClick={() => handleAddAcessoExistente(acesso)}
+                          className="w-full text-left p-3 rounded-lg hover:bg-accent/10 transition-colors border"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Key className="h-4 w-4 text-accent" />
+                            <div>
+                              <p className="font-medium text-sm">{acesso.nome_acesso}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {categoriasAcesso[acesso.categoria] || acesso.categoria}
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    {acessosExistentes.filter((acesso: any) => !pdi.acessos?.some(a => a.nome === acesso.nome_acesso)).length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        {acessoSearch ? "Nenhum acesso encontrado" : "Digite para buscar ou selecione abaixo"}
+                      </p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Nome do Acesso *</Label>
+                  <Input
+                    placeholder="Ex: Facebook Ads Manager"
+                    value={newAcesso.nome}
+                    onChange={(e) => setNewAcesso({ ...newAcesso, nome: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Categoria</Label>
+                  <select
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                    value={newAcesso.categoria}
+                    onChange={(e) => setNewAcesso({ ...newAcesso, categoria: e.target.value })}
+                  >
+                    {Object.entries(categoriasAcesso).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Link (opcional)</Label>
+                  <Input
+                    placeholder="https://..."
+                    value={newAcesso.link}
+                    onChange={(e) => setNewAcesso({ ...newAcesso, link: e.target.value })}
+                  />
+                </div>
+                <Button onClick={handleAddAcesso} className="w-full bg-accent hover:bg-accent/90">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Acesso
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
