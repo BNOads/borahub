@@ -322,7 +322,8 @@ export function TasksByPersonView({
           pdf.text(task.priority.charAt(0).toUpperCase() + task.priority.slice(1), pageWidth - 80, yPosition);
           pdf.text(task.due_date ? format(parseISO(task.due_date), "dd/MM/yy") : "-", pageWidth - 45, yPosition);
           
-          let status = task.completed ? "Concluída" : overdue ? "Atrasada" : "Pendente";
+          const isDoing = !!task.doing_since;
+          let status = task.completed ? "Concluída" : isDoing ? "Fazendo" : overdue ? "Atrasada" : "Pendente";
           pdf.text(status, pageWidth - 25, yPosition);
           
           yPosition += 5;
