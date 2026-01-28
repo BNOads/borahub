@@ -208,40 +208,53 @@ export function TranscribeFromPostModal({
             </div>
           )}
 
-          {/* Language selection */}
-          <div className="space-y-2">
-            <Label htmlFor="language">Idioma do áudio</Label>
-            <Select
-              value={language}
-              onValueChange={setLanguage}
-              disabled={isProcessing}
-            >
-              <SelectTrigger id="language">
-                <SelectValue placeholder="Selecione o idioma" />
-              </SelectTrigger>
-              <SelectContent>
-                {LANGUAGES.map((lang) => (
-                  <SelectItem key={lang.value} value={lang.value}>
-                    {lang.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Progress display */}
-          {isProcessing && (
+          {/* Language selection - hidden during processing */}
+          {!isProcessing && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{statusMessage}</span>
-                <span className="font-medium">{Math.round(progress)}%</span>
+              <Label htmlFor="language">Idioma do áudio</Label>
+              <Select
+                value={language}
+                onValueChange={setLanguage}
+              >
+                <SelectTrigger id="language">
+                  <SelectValue placeholder="Selecione o idioma" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.value} value={lang.value}>
+                      {lang.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Enhanced Progress display */}
+          {isProcessing && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 text-center space-y-4">
+              {/* Large animated icon */}
+              <div className="h-16 w-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 text-primary animate-spin" />
               </div>
-              <Progress value={progress} className="h-2" />
-              <p className="text-xs text-muted-foreground text-center">
-                {progress < 20
-                  ? "Na primeira vez, o modelo (~75MB) será baixado e ficará em cache."
-                  : "Processando localmente no seu navegador..."}
-              </p>
+              
+              {/* Large percentage */}
+              <div className="text-4xl font-bold text-primary">
+                {Math.round(progress)}%
+              </div>
+              
+              {/* Thicker progress bar */}
+              <Progress value={progress} className="h-3" />
+              
+              {/* Status messages */}
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">{statusMessage}</p>
+                <p className="text-xs text-muted-foreground">
+                  {progress < 20
+                    ? "Na primeira vez, o modelo (~75MB) será baixado e ficará em cache."
+                    : "Processando localmente no seu navegador..."}
+                </p>
+              </div>
             </div>
           )}
         </div>
