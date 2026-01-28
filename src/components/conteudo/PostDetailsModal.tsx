@@ -343,7 +343,8 @@ export function PostDetailsModal({
         video_url: videoUrl,
         roteiro: roteiro,
         big_idea: bigIdea,
-        arquivos_link: arquivosLink
+        arquivos_link: arquivosLink,
+        campos_extras: camposExtras as unknown as null
       }).eq("id", post.id);
       if (error) throw error;
       toast.success("Conteúdo salvo com sucesso!");
@@ -371,12 +372,40 @@ export function PostDetailsModal({
     setCamposExtras(newCampos);
   }
 
-  function handleTranscriptionComplete(text: string) {
-    setRoteiro(prevRoteiro => 
-      prevRoteiro ? `${prevRoteiro}\n\n--- Transcrição ---\n${text}` : text
-    );
+  async function handleTranscriptionComplete(text: string) {
+    // Adicionar a transcrição como campo extra
+    const transcriptionField: CampoExtra = {
+      label: "Transcrição",
+      value: text
+    };
+    
+    // Verificar se já existe um campo de transcrição e atualizar, senão adicionar
+    const existingIndex = camposExtras.findIndex(c => c.label === "Transcrição");
+    let newCamposExtras: CampoExtra[];
+    
+    if (existingIndex >= 0) {
+      newCamposExtras = [...camposExtras];
+      newCamposExtras[existingIndex] = transcriptionField;
+    } else {
+      newCamposExtras = [...camposExtras, transcriptionField];
+    }
+    
+    setCamposExtras(newCamposExtras);
+    
+    // Salvar no banco de dados imediatamente
+    try {
+      const { error } = await supabase.from("social_posts").update({
+        campos_extras: newCamposExtras as unknown as null
+      }).eq("id", post.id);
+      
+      if (error) throw error;
+      onUpdate();
+    } catch (error: any) {
+      console.error("Error saving transcription:", error.message);
+    }
+    
     setShowTranscribeModal(false);
-    toast.success("Transcrição adicionada ao roteiro!");
+    toast.success("Transcrição salva no campo personalizado!");
   }
   if (!post) return null;
   return <>
