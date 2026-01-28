@@ -57,11 +57,12 @@ export function generateTranscriptTXT(
 }
 
 /**
- * Gera PDF da transcrição
+ * Gera PDF da transcrição com timestamps
  */
 export function generateTranscriptPDF(
   segments: TranscriptSegment[],
-  title?: string
+  title?: string,
+  includeTimestamps: boolean = true
 ): jsPDF {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -97,18 +98,19 @@ export function generateTranscriptPDF(
       y = 20;
     }
 
-    const startTime = formatTimestamp(segment.start);
-    const endTime = formatTimestamp(segment.end);
-
     // Speaker header
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(59, 130, 246); // Blue color
     doc.text(`${segment.speaker}`, margin, y);
     
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(128, 128, 128);
-    doc.text(`[${startTime} - ${endTime}]`, margin + 40, y);
+    if (includeTimestamps) {
+      const startTime = formatTimestamp(segment.start);
+      const endTime = formatTimestamp(segment.end);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(128, 128, 128);
+      doc.text(`[${startTime} - ${endTime}]`, margin + 40, y);
+    }
     y += 6;
 
     // Text content

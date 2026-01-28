@@ -63,9 +63,10 @@ export function TranscriptionResult({
     toast({ title: "Arquivo TXT baixado!" });
   };
 
-  const handleDownloadPDF = () => {
-    const doc = generateTranscriptPDF(segments, transcription.title);
-    const filename = `${transcription.title.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+  const handleDownloadPDF = (includeTimestamps: boolean = true) => {
+    const doc = generateTranscriptPDF(segments, transcription.title, includeTimestamps);
+    const suffix = includeTimestamps ? "" : "_sem_timestamps";
+    const filename = `${transcription.title.replace(/[^a-zA-Z0-9]/g, "_")}${suffix}.pdf`;
     doc.save(filename);
     toast({ title: "Arquivo PDF baixado!" });
   };
@@ -122,9 +123,13 @@ export function TranscriptionResult({
                     <FileText className="h-4 w-4" />
                     Baixar TXT
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleDownloadPDF} className="gap-2">
+                  <DropdownMenuItem onClick={() => handleDownloadPDF(true)} className="gap-2">
                     <FileType className="h-4 w-4" />
-                    Baixar PDF
+                    PDF com timestamps
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleDownloadPDF(false)} className="gap-2">
+                    <FileType className="h-4 w-4" />
+                    PDF sem timestamps
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
