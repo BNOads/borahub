@@ -37,41 +37,52 @@ export async function initWhisper(
 
   try {
     // Dynamic import to avoid type complexity issues
-    const { pipeline } = await import("@huggingface/transformers");
+    const { pipeline, env } = await import("@huggingface/transformers");
     
-    try {
-      transcriber = await pipeline(
-        "automatic-speech-recognition",
-        "onnx-community/whisper-small",
-        {
-          device: "webgpu" as const,
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          progress_callback: (data: any) => {
-            if (data.progress !== undefined) {
-              onProgress?.(data.progress, data.status || "Baixando modelo...");
-            }
-          },
+    // Configure environment for better compatibility
+    env.allowLocalModels = false;
+    env.useBrowserCache = true;
+
+    // Try WebGPU first, then fall back to WASM
+    let device: "webgpu" | "wasm" = "wasm";
+    
+    // Check if WebGPU is available
+    if (typeof navigator !== "undefined" && "gpu" in navigator) {
+      try {
+        const adapter = await (navigator as Navigator & { gpu?: { requestAdapter: () => Promise<unknown> } }).gpu?.requestAdapter();
+        if (adapter) {
+          device = "webgpu";
+          console.log("Using WebGPU for transcription");
         }
-      );
-    } catch {
-      // Fallback to CPU if WebGPU not available
-      console.warn("WebGPU not available, falling back to CPU");
-      transcriber = await pipeline(
-        "automatic-speech-recognition",
-        "onnx-community/whisper-small",
-        {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          progress_callback: (data: any) => {
-            if (data.progress !== undefined) {
-              onProgress?.(data.progress, data.status || "Baixando modelo...");
-            }
-          },
-        }
-      );
+      } catch {
+        console.log("WebGPU not available, using WASM");
+      }
     }
+
+    onProgress?.(5, device === "webgpu" ? "Usando aceleração GPU..." : "Usando processamento CPU...");
+
+    transcriber = await pipeline(
+      "automatic-speech-recognition",
+      "onnx-community/whisper-small",
+      {
+        device,
+        dtype: "q8", // Use quantized model for better performance
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        progress_callback: (data: any) => {
+          if (data.progress !== undefined) {
+            const progress = Math.min(data.progress, 95);
+            onProgress?.(progress, data.status || "Baixando modelo...");
+          }
+        },
+      }
+    );
     
     onProgress?.(100, "Modelo carregado!");
     return transcriber;
+  } catch (error) {
+    isLoading = false;
+    console.error("Failed to initialize Whisper:", error);
+    throw new Error("Não foi possível inicializar o modelo de transcrição. Por favor, tente novamente.");
   } finally {
     isLoading = false;
   }
