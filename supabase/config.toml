@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.rewrite-copy]
 verify_jwt = false
+
+[functions.google-drive-download]
+verify_jwt = false
