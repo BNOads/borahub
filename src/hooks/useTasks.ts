@@ -272,12 +272,13 @@ export function useToggleTaskComplete() {
 
       if (fetchError) throw fetchError;
 
-      // Atualizar a tarefa como concluída
+      // Atualizar a tarefa como concluída (e limpar doing_since se estiver concluindo)
       const { data, error } = await supabase
         .from("tasks")
         .update({
           completed,
           completed_at: completed ? new Date().toISOString() : null,
+          doing_since: completed ? null : taskData.doing_since, // Limpar "fazendo" ao concluir
         })
         .eq("id", id)
         .select()
@@ -342,7 +343,7 @@ export function useToggleTaskComplete() {
         { queryKey: taskKeys.lists() },
         (old: TaskWithSubtasks[] | undefined) =>
           old?.map((task) =>
-            task.id === id ? { ...task, completed } : task
+            task.id === id ? { ...task, completed, doing_since: completed ? null : task.doing_since } : task
           )
       );
 
@@ -350,7 +351,7 @@ export function useToggleTaskComplete() {
         { queryKey: taskKeys.today() },
         (old: TaskWithSubtasks[] | undefined) =>
           old?.map((task) =>
-            task.id === id ? { ...task, completed } : task
+            task.id === id ? { ...task, completed, doing_since: completed ? null : task.doing_since } : task
           )
       );
 
@@ -359,7 +360,7 @@ export function useToggleTaskComplete() {
         { queryKey: ["tasks", "user"], exact: false },
         (old: TaskWithSubtasks[] | undefined) =>
           old?.map((task) =>
-            task.id === id ? { ...task, completed } : task
+            task.id === id ? { ...task, completed, doing_since: completed ? null : task.doing_since } : task
           )
       );
 
