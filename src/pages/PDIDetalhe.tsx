@@ -426,12 +426,15 @@ export default function PDIDetalhe() {
             <CardContent className="space-y-2">
               {pdi.aulas?.map((aula, index) => {
                 const concluida = aula.status === "concluida";
+                const isExterno = aula.origem === "externa";
                 return (
                   <div
                     key={aula.id}
                     className={`flex items-center gap-4 p-4 rounded-xl border transition-all ${
                       concluida
                         ? "bg-emerald-500/5 border-emerald-500/20"
+                        : isExterno
+                        ? "bg-amber-500/5 border-amber-500/20 hover:border-amber-500/40"
                         : "bg-muted/30 border-transparent hover:border-accent/20"
                     }`}
                   >
@@ -439,6 +442,8 @@ export default function PDIDetalhe() {
                       className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                         concluida
                           ? "bg-emerald-500 text-white"
+                          : isExterno
+                          ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
                           : "bg-accent/10 text-accent"
                       }`}
                     >
@@ -450,7 +455,14 @@ export default function PDIDetalhe() {
                         <p className={`font-medium ${concluida ? "line-through text-muted-foreground" : ""}`}>
                           {aula.titulo}
                         </p>
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge 
+                          variant="outline" 
+                          className={`text-[10px] ${
+                            isExterno 
+                              ? "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400" 
+                              : ""
+                          }`}
+                        >
                           {aula.origem === "interna" ? "Interno" : "Externo"}
                         </Badge>
                       </div>
