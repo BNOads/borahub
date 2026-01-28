@@ -152,27 +152,43 @@ serve(async (req) => {
     }
 
     let serviceAccount;
+    const raw = serviceAccountKeyRaw.replace(/^\uFEFF/, "").trim();
+
+    const tryParseServiceAccount = (input: string) => {
+      // Common cleanups: fix double-escaped newlines and remove surrounding whitespace
+      const cleaned = input.replace(/\\\\n/g, "\\n").trim();
+      return JSON.parse(cleaned);
+    };
+
     try {
-      // Try parsing directly first
-      serviceAccount = JSON.parse(serviceAccountKeyRaw);
+      // 1) JSON object directly
+      serviceAccount = tryParseServiceAccount(raw);
     } catch (e1) {
-      // If it fails, try cleaning up the string (handle escaped newlines, etc.)
       try {
-        // Replace escaped newlines with actual newlines in the private_key field
-        const cleaned = serviceAccountKeyRaw
-          .replace(/\\\\n/g, "\\n") // Fix double-escaped newlines
-          .trim();
-        serviceAccount = JSON.parse(cleaned);
+        // 2) JSON stored as a quoted string ("{...}")
+        //    e.g. secret value is a JSON string literal that itself contains JSON
+        const maybeString = JSON.parse(raw);
+        if (typeof maybeString === "string") {
+          serviceAccount = tryParseServiceAccount(maybeString);
+        } else {
+          serviceAccount = maybeString;
+        }
       } catch (e2) {
-        console.error("JSON parse error:", e1, e2);
-        console.error("Raw key preview:", serviceAccountKeyRaw.substring(0, 100) + "...");
-        return new Response(
-          JSON.stringify({ 
-            error: "Invalid service account JSON format",
-            hint: "Certifique-se de colar o JSON completo da Service Account (arquivo .json baixado do Google Cloud)"
-          }),
-          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+        try {
+          // 3) Base64 encoded JSON
+          const decoded = atob(raw);
+          serviceAccount = tryParseServiceAccount(decoded);
+        } catch (e3) {
+          console.error("JSON parse error (service account)", { e1, e2, e3 });
+          console.error("Raw key preview:", raw.substring(0, 120) + "...");
+          return new Response(
+            JSON.stringify({
+              error: "Invalid service account JSON format",
+              hint: "Cole o conteúdo EXATO do arquivo .json da Service Account (sem aspas). Alternativamente, você pode colar o JSON em base64."
+            }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
     }
 
