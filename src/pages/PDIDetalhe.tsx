@@ -68,10 +68,13 @@ export default function PDIDetalhe() {
   const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [addAulaModalOpen, setAddAulaModalOpen] = useState(false);
+  const [addAcessoModalOpen, setAddAcessoModalOpen] = useState(false);
   const [editForm, setEditForm] = useState({ titulo: "", descricao: "", data_limite: "" });
   const [externalAula, setExternalAula] = useState({ titulo: "", link: "", duracao: "" });
+  const [newAcesso, setNewAcesso] = useState({ nome: "", categoria: "outros", link: "" });
   const [lessonSearch, setLessonSearch] = useState("");
   const [showLessonPicker, setShowLessonPicker] = useState(false);
+  const [acessoSearch, setAcessoSearch] = useState("");
 
   const { data: pdi, isLoading, refetch } = usePDI(id || "");
   const finalizePDI = useFinalizePDI();
@@ -252,6 +255,49 @@ export default function PDIDetalhe() {
     }
   };
 
+  const handleAddAcesso = async () => {
+    if (!newAcesso.nome.trim()) {
+      toast.error("Informe o nome do acesso");
+      return;
+    }
+
+    let linkFinal = newAcesso.link.trim();
+    if (linkFinal && !linkFinal.startsWith("http://") && !linkFinal.startsWith("https://")) {
+      linkFinal = "https://" + linkFinal;
+    }
+
+    try {
+      const { error } = await supabase.from("pdi_acessos").insert({
+        pdi_id: pdi.id,
+        nome: newAcesso.nome.trim(),
+        categoria: newAcesso.categoria || "outros",
+        link: linkFinal || null,
+      });
+
+      if (error) throw error;
+
+      toast.success("Acesso adicionado!");
+      setNewAcesso({ nome: "", categoria: "outros", link: "" });
+      setAddAcessoModalOpen(false);
+      refetch();
+    } catch (error) {
+      console.error("Erro ao adicionar acesso:", error);
+      toast.error("Erro ao adicionar acesso");
+    }
+  };
+
+  const handleDeleteAcesso = async (acessoId: string) => {
+    try {
+      const { error } = await supabase.from("pdi_acessos").delete().eq("id", acessoId);
+      if (error) throw error;
+      toast.success("Acesso removido!");
+      refetch();
+    } catch (error) {
+      console.error("Erro ao remover acesso:", error);
+      toast.error("Erro ao remover acesso");
+    }
+  };
+
   const categoriasAcesso: Record<string, string> = {
     ferramentas_ads: "Ferramentas de Ads",
     plataforma_cursos: "Plataforma de Cursos",
@@ -406,12 +452,10 @@ export default function PDIDetalhe() {
             <BookOpen className="h-4 w-4" />
             Conteúdo
           </TabsTrigger>
-          {(pdi.acessos?.length || 0) > 0 && (
-            <TabsTrigger value="acessos" className="rounded-lg gap-2">
-              <Key className="h-4 w-4" />
-              Acessos ({pdi.acessos?.length})
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="acessos" className="rounded-lg gap-2">
+            <Key className="h-4 w-4" />
+            Acessos {(pdi.acessos?.length || 0) > 0 && `(${pdi.acessos?.length})`}
+          </TabsTrigger>
         </TabsList>
 
         {/* Tab Conteúdo */}
@@ -522,35 +566,75 @@ export default function PDIDetalhe() {
         {/* Tab Acessos */}
         <TabsContent value="acessos" className="space-y-4">
           <Card className="rounded-2xl border-accent/10">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Key className="h-5 w-5 text-accent" />
                 Acessos Necessários
               </CardTitle>
+              {canEdit && !estaFinalizado && (
+                <Button
+                  size="sm"
+                  onClick={() => setAddAcessoModalOpen(true)}
+                  className="bg-accent hover:bg-accent/90"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Adicionar
+                </Button>
+              )}
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {pdi.acessos?.map((acesso) => (
-                  <div
-                    key={acesso.id}
-                    className="flex items-center justify-between p-4 rounded-xl border bg-muted/30"
-                  >
-                    <div>
-                      <p className="font-medium">{acesso.nome}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {categoriasAcesso[acesso.categoria || "outros"]}
-                      </p>
+              {(pdi.acessos?.length || 0) === 0 ? (
+                <div className="text-center py-8">
+                  <Key className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
+                  <p className="text-muted-foreground">Nenhum acesso cadastrado</p>
+                  {canEdit && !estaFinalizado && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAddAcessoModalOpen(true)}
+                      className="mt-3"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Adicionar primeiro acesso
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {pdi.acessos?.map((acesso) => (
+                    <div
+                      key={acesso.id}
+                      className="flex items-center justify-between p-4 rounded-xl border bg-muted/30 group"
+                    >
+                      <div>
+                        <p className="font-medium">{acesso.nome}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {categoriasAcesso[acesso.categoria || "outros"]}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {acesso.link && (
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={acesso.link} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        )}
+                        {canEdit && !estaFinalizado && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteAcesso(acesso.id)}
+                            className="h-8 w-8 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    {acesso.link && (
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={acesso.link} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -747,6 +831,60 @@ export default function PDIDetalhe() {
                 </Button>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Adicionar Acesso */}
+      <Dialog open={addAcessoModalOpen} onOpenChange={(open) => {
+        setAddAcessoModalOpen(open);
+        if (!open) {
+          setNewAcesso({ nome: "", categoria: "outros", link: "" });
+          setAcessoSearch("");
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Adicionar Acesso</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Nome do Acesso *</Label>
+              <Input
+                placeholder="Ex: Facebook Ads Manager"
+                value={newAcesso.nome}
+                onChange={(e) => setNewAcesso({ ...newAcesso, nome: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Categoria</Label>
+              <select
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                value={newAcesso.categoria}
+                onChange={(e) => setNewAcesso({ ...newAcesso, categoria: e.target.value })}
+              >
+                {Object.entries(categoriasAcesso).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Link (opcional)</Label>
+              <Input
+                placeholder="https://..."
+                value={newAcesso.link}
+                onChange={(e) => setNewAcesso({ ...newAcesso, link: e.target.value })}
+              />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setAddAcessoModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleAddAcesso} className="bg-accent hover:bg-accent/90">
+                <Plus className="h-4 w-4 mr-2" />
+                Adicionar
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
