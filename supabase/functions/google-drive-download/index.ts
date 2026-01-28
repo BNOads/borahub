@@ -153,10 +153,37 @@ serve(async (req) => {
 
     let serviceAccount;
     try {
+      // Try parsing directly first
       serviceAccount = JSON.parse(serviceAccountKeyRaw);
-    } catch {
+    } catch (e1) {
+      // If it fails, try cleaning up the string (handle escaped newlines, etc.)
+      try {
+        // Replace escaped newlines with actual newlines in the private_key field
+        const cleaned = serviceAccountKeyRaw
+          .replace(/\\\\n/g, "\\n") // Fix double-escaped newlines
+          .trim();
+        serviceAccount = JSON.parse(cleaned);
+      } catch (e2) {
+        console.error("JSON parse error:", e1, e2);
+        console.error("Raw key preview:", serviceAccountKeyRaw.substring(0, 100) + "...");
+        return new Response(
+          JSON.stringify({ 
+            error: "Invalid service account JSON format",
+            hint: "Certifique-se de colar o JSON completo da Service Account (arquivo .json baixado do Google Cloud)"
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Validate required fields
+    if (!serviceAccount.client_email || !serviceAccount.private_key) {
+      console.error("Missing required fields. Has client_email:", !!serviceAccount.client_email, "Has private_key:", !!serviceAccount.private_key);
       return new Response(
-        JSON.stringify({ error: "Invalid service account JSON format" }),
+        JSON.stringify({ 
+          error: "Service account JSON missing required fields",
+          hint: "O JSON deve conter 'client_email' e 'private_key'"
+        }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
