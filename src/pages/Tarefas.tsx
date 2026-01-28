@@ -59,6 +59,7 @@ import {
   useUpdateTask,
   useDeleteTask,
   useToggleTaskComplete,
+  useToggleTaskDoing,
 } from "@/hooks/useTasks";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { AdminTasksPanel } from "@/components/tasks/AdminTasksPanel";
@@ -192,6 +193,7 @@ export default function Tarefas() {
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const toggleComplete = useToggleTaskComplete();
+  const toggleDoing = useToggleTaskDoing();
 
   // Buscar usuarios reais do banco
   const { data: users = [] } = useQuery({
@@ -219,6 +221,21 @@ export default function Tarefas() {
     } catch {
       toast({
         title: "Erro ao atualizar tarefa",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleDoing = async (id: string, isDoing: boolean) => {
+    try {
+      await toggleDoing.mutateAsync({ id, isDoing });
+      toast({
+        title: isDoing ? "Tarefa iniciada" : "Tarefa pausada",
+        description: isDoing ? "Agora todos podem ver que você está trabalhando nela" : "Tarefa marcada como não sendo executada no momento",
+      });
+    } catch {
+      toast({
+        title: "Erro ao atualizar status",
         variant: "destructive",
       });
     }
@@ -838,6 +855,7 @@ export default function Tarefas() {
               isLoading={isLoading}
               onToggleComplete={handleToggleComplete}
               onViewDetail={handleOpenDetail}
+              onToggleDoing={handleToggleDoing}
             />
           ) : (
             <div className="space-y-6">

@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from "react";
-import { format, parseISO } from "date-fns";
+import { useState, useMemo, useEffect } from "react";
+import { format, parseISO, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   ChevronDown,
@@ -12,6 +12,8 @@ import {
   EyeOff,
   Download,
   Loader2,
+  Play,
+  Pause,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +34,12 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import jsPDF from "jspdf";
 
 interface Task {
@@ -44,6 +52,7 @@ interface Task {
   due_date?: string | null;
   completed: boolean;
   recurrence?: string | null;
+  doing_since?: string | null;
 }
 
 interface UserProfile {
@@ -59,6 +68,7 @@ interface TasksByPersonViewProps {
   isLoading: boolean;
   onToggleComplete: (id: string, currentCompleted: boolean) => void;
   onViewDetail: (id: string) => void;
+  onToggleDoing?: (id: string, isDoing: boolean) => void;
 }
 
 export function TasksByPersonView({
@@ -67,6 +77,7 @@ export function TasksByPersonView({
   isLoading,
   onToggleComplete,
   onViewDetail,
+  onToggleDoing,
 }: TasksByPersonViewProps) {
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [showCompleted, setShowCompleted] = useState(false);
@@ -438,6 +449,7 @@ export function TasksByPersonView({
                     <TableHeader>
                       <TableRow className="bg-muted/30">
                         <TableHead className="w-12"></TableHead>
+                        <TableHead className="w-12"></TableHead>
                         <TableHead>Tarefa</TableHead>
                         <TableHead className="w-[100px]">Prioridade</TableHead>
                         <TableHead className="w-[140px]">Categoria</TableHead>
@@ -448,10 +460,15 @@ export function TasksByPersonView({
                     <TableBody>
                       {filteredTasks.map((task) => {
                         const overdue = isOverdue(task.due_date ?? null, task.completed);
+                        const isDoing = !!task.doing_since;
                         return (
                           <TableRow
                             key={task.id}
-                            className="cursor-pointer hover:bg-muted/50"
+                            className={`cursor-pointer transition-all ${
+                              isDoing 
+                                ? "bg-primary/10 hover:bg-primary/15 border-l-4 border-l-primary" 
+                                : "hover:bg-muted/50"
+                            }`}
                             onClick={() => onViewDetail(task.id)}
                           >
                             <TableCell
@@ -465,14 +482,56 @@ export function TasksByPersonView({
                                 }
                               />
                             </TableCell>
+                            <TableCell
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-center px-1"
+                            >
+                              {!task.completed && onToggleDoing && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant={isDoing ? "default" : "ghost"}
+                                        size="icon"
+                                        className={`h-7 w-7 ${isDoing ? "bg-primary text-primary-foreground" : ""}`}
+                                        onClick={() => onToggleDoing(task.id, !isDoing)}
+                                      >
+                                        {isDoing ? (
+                                          <Pause className="h-3.5 w-3.5" />
+                                        ) : (
+                                          <Play className="h-3.5 w-3.5" />
+                                        )}
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {isDoing ? (
+                                        <span>
+                                          Fazendo há {formatDistanceToNow(new Date(task.doing_since!), { locale: ptBR })}
+                                          <br />Clique para pausar
+                                        </span>
+                                      ) : (
+                                        "Iniciar tarefa"
+                                      )}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-2">
-                                <User className="h-4 w-4 text-muted-foreground shrink-0" />
+                                {isDoing && (
+                                  <span className="relative flex h-2.5 w-2.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                                  </span>
+                                )}
                                 <span
                                   className={`truncate ${
                                     task.completed
                                       ? "line-through text-muted-foreground"
-                                      : ""
+                                      : isDoing
+                                        ? "font-medium text-primary"
+                                        : ""
                                   }`}
                                 >
                                   {task.title}
@@ -502,6 +561,10 @@ export function TasksByPersonView({
                                   className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                                 >
                                   Concluída
+                                </Badge>
+                              ) : isDoing ? (
+                                <Badge className="bg-primary/90 hover:bg-primary text-primary-foreground animate-pulse">
+                                  Fazendo
                                 </Badge>
                               ) : overdue ? (
                                 <Badge variant="destructive">Atrasada</Badge>
