@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { Calendar, Clock } from "lucide-react";
+import { Calendar } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +25,6 @@ interface CreateMeetingModalProps {
 export function CreateMeetingModal({ open, onOpenChange, onMeetingCreated }: CreateMeetingModalProps) {
   const [title, setTitle] = useState("");
   const [meetingDate, setMeetingDate] = useState<Date>(new Date());
-  const [meetingTime, setMeetingTime] = useState("");
 
   const createMeeting = useCreateMeeting();
 
@@ -38,7 +37,6 @@ export function CreateMeetingModal({ open, onOpenChange, onMeetingCreated }: Cre
       {
         title: title.trim(),
         meeting_date: format(meetingDate, "yyyy-MM-dd"),
-        meeting_time: meetingTime || undefined,
       },
       {
         onSuccess: (meeting) => {
@@ -46,7 +44,6 @@ export function CreateMeetingModal({ open, onOpenChange, onMeetingCreated }: Cre
           onMeetingCreated(meeting.id);
           setTitle("");
           setMeetingDate(new Date());
-          setMeetingTime("");
         },
       }
     );
@@ -71,47 +68,31 @@ export function CreateMeetingModal({ open, onOpenChange, onMeetingCreated }: Cre
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Data</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !meetingDate && "text-muted-foreground"
-                    )}
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {meetingDate ? format(meetingDate, "dd/MM/yyyy") : "Selecionar"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={meetingDate}
-                    onSelect={(date) => date && setMeetingDate(date)}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="time">Horário (opcional)</Label>
-              <div className="relative">
-                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="time"
-                  type="time"
-                  value={meetingTime}
-                  onChange={(e) => setMeetingTime(e.target.value)}
-                  className="pl-9"
+          <div className="space-y-2">
+            <Label>Data</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !meetingDate && "text-muted-foreground"
+                  )}
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {meetingDate ? format(meetingDate, "dd/MM/yyyy") : "Selecionar"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={meetingDate}
+                  onSelect={(date) => date && setMeetingDate(date)}
+                  initialFocus
+                  className="pointer-events-auto"
                 />
-              </div>
-            </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <DialogFooter>

@@ -16,7 +16,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Calendar, Clock, Plus, Trash2 } from "lucide-react";
+import { Calendar, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -37,7 +37,6 @@ export function MeetingEditor({ meeting, onMeetingDeleted }: MeetingEditorProps)
   const [title, setTitle] = useState(meeting.title);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [meetingDate, setMeetingDate] = useState<Date>(new Date(meeting.meeting_date + "T00:00:00"));
-  const [meetingTime, setMeetingTime] = useState(meeting.meeting_time || "");
   const [blocks, setBlocks] = useState<MeetingBlockType[]>(meeting.meeting_blocks || []);
   const [blockToConvert, setBlockToConvert] = useState<MeetingBlockType | null>(null);
 
@@ -59,7 +58,6 @@ export function MeetingEditor({ meeting, onMeetingDeleted }: MeetingEditorProps)
   useEffect(() => {
     setTitle(meeting.title);
     setMeetingDate(new Date(meeting.meeting_date + "T00:00:00"));
-    setMeetingTime(meeting.meeting_time || "");
     setBlocks(meeting.meeting_blocks || []);
   }, [meeting]);
 
@@ -88,14 +86,6 @@ export function MeetingEditor({ meeting, onMeetingDeleted }: MeetingEditorProps)
         meeting_date: format(date, "yyyy-MM-dd"),
       });
     }
-  };
-
-  const handleTimeChange = (time: string) => {
-    setMeetingTime(time);
-    updateMeeting.mutate({
-      id: meeting.id,
-      meeting_time: time || null,
-    });
   };
 
   const handleAddBlock = () => {
@@ -178,16 +168,6 @@ export function MeetingEditor({ meeting, onMeetingDeleted }: MeetingEditorProps)
                   />
                 </PopoverContent>
               </Popover>
-
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                <Input
-                  type="time"
-                  value={meetingTime}
-                  onChange={(e) => handleTimeChange(e.target.value)}
-                  className="h-8 w-auto"
-                />
-              </div>
             </div>
           </div>
 
