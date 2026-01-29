@@ -448,35 +448,55 @@ export function useCreateBulkTasks() {
 
   return useMutation({
     mutationFn: async ({ tasks, assignee }: { tasks: TaskInsert[]; assignee: string }) => {
+      // Sanitiza títulos - remove caracteres invisíveis e espaços extras
+      const sanitizedTasks = tasks.map(task => ({
+        ...task,
+        title: task.title.replace(/[\u200B-\u200D\uFEFF]/g, '').trim(),
+      }));
+
+      // Valida que todos os títulos são válidos
+      const invalidTasks = sanitizedTasks.filter(t => !t.title || t.title.length === 0);
+      if (invalidTasks.length > 0) {
+        throw new Error("Alguns títulos estão vazios após limpeza");
+      }
+
       const { data, error } = await supabase
         .from("tasks")
-        .insert(tasks)
+        .insert(sanitizedTasks)
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao inserir tarefas:", error);
+        throw error;
+      }
 
-      // Enviar notificação única para o responsável
+      // Enviar notificação única para o responsável (não bloqueia em caso de erro)
       if (data && data.length > 0) {
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("full_name", assignee)
-          .single();
+        try {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("full_name", assignee)
+            .single();
 
-        if (profileData?.id) {
-          const taskTitles = data.slice(0, 3).map(t => t.title);
-          const remaining = data.length - 3;
-          let message = taskTitles.map(t => `• ${t}`).join("\n");
-          if (remaining > 0) {
-            message += `\n... e mais ${remaining}`;
+          if (profileData?.id) {
+            const taskTitles = data.slice(0, 3).map(t => t.title);
+            const remaining = data.length - 3;
+            let message = taskTitles.map(t => `• ${t}`).join("\n");
+            if (remaining > 0) {
+              message += `\n... e mais ${remaining}`;
+            }
+
+            await supabase.from("notifications").insert({
+              title: `${data.length} nova${data.length > 1 ? "s" : ""} tarefa${data.length > 1 ? "s" : ""} atribuída${data.length > 1 ? "s" : ""}`,
+              message,
+              type: "info",
+              recipient_id: profileData.id,
+            });
           }
-
-          await supabase.from("notifications").insert({
-            title: `${data.length} nova${data.length > 1 ? "s" : ""} tarefa${data.length > 1 ? "s" : ""} atribuída${data.length > 1 ? "s" : ""}`,
-            message,
-            type: "info",
-            recipient_id: profileData.id,
-          });
+        } catch (notifError) {
+          // Notificação é secundária - não falha a operação principal
+          console.error("Erro ao enviar notificação (não crítico):", notifError);
         }
       }
 
