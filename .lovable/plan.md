@@ -1,48 +1,60 @@
 
-# Bloco de Notas Flutuante
+# Pagina de Reunioes - Sistema Google Docs-like
 
-Funcionalidade que permite aos usuarios salvar notas rapidas com 1 clique, persistindo no banco de dados e acessiveis via botao flutuante e na pagina de Acesso Rapido.
+Criacao de uma pagina completa de reunioes que funciona como um editor de documentos colaborativo, permitindo anotar assuntos por blocos e converter topicos em tarefas atribuidas.
 
 ---
 
 ## Visao Geral
 
-O usuario tera um botao flutuante (como na imagem de referencia) no canto inferior direito da tela. Ao clicar, abre um painel para escrever/editar sua nota pessoal. A nota e salva automaticamente e fica disponivel em toda a plataforma.
+A pagina de Reunioes sera uma central para documentar reunioes da equipe. Cada reuniao tera blocos de anotacoes (como um Google Docs) e a partir de qualquer bloco sera possivel criar tarefas para membros da equipe, mantendo o vinculo com a reuniao de origem.
 
 ```text
-+----------------------------------+
-|           Header                 |
-+----------------------------------+
-|                                  |
-|         Conteudo                 |
-|                                  |
-|                          [Nota]  | <-- Botao flutuante
-+----------------------------------+
-|         BottomNav (mobile)       |
-+----------------------------------+
++-----------------------------------------------+
+|  Header: Arquivo de Reunioes             [+]  |
++-----------------------------------------------+
+|  Lista de Reunioes    |   Editor da Reuniao   |
+|  - Reuniao 1          |   Titulo: Weekly      |
+|  - Reuniao 2 (nova)   |   Data: 29/01/2026    |
+|  - Reuniao 3          |                       |
+|                       |   [Bloco 1] + [Tarefa]|
+|                       |   Texto do assunto... |
+|                       |                       |
+|                       |   [Bloco 2] + [Tarefa]|
+|                       |   Outro topico...     |
+|                       |                       |
+|                       |   [+ Novo Bloco]      |
++-----------------------------------------------+
 ```
 
 ---
 
-## Componentes a Criar
+## Funcionalidades Principais
 
-### 1. Botao Flutuante de Notas
-- Posicao fixa no canto inferior direito
-- Icone de lapis/nota (similar a imagem)
-- Animacao de hover/pulse
-- No mobile: acima do BottomNav
+### 1. Listagem de Reunioes
+- Lista lateral com todas as reunioes ordenadas por data
+- Busca por titulo
+- Filtro por data (mes/ano)
+- Botao para criar nova reuniao
 
-### 2. Painel de Notas
-- Abre ao clicar no botao flutuante
-- Textarea expansivel
-- Salvamento automatico (debounce 1s)
-- Indicador de status (salvando/salvo)
-- Botao de fechar
+### 2. Editor de Reuniao
+- Titulo editavel inline
+- Data e hora da reuniao
+- Participantes (opcional)
+- Blocos de conteudo draggable
 
-### 3. Widget no Acesso Rapido
-- Card destacado mostrando a nota atual
-- Acesso rapido para editar
-- Preview do conteudo truncado
+### 3. Blocos de Notas
+- Cada bloco e um topico/assunto
+- Texto livre com formatacao basica
+- Drag and drop para reordenar
+- Botao de converter em tarefa em cada bloco
+
+### 4. Conversao para Tarefa
+- Ao clicar em "+" no bloco, abre modal
+- Seleciona responsavel
+- Define data de vencimento
+- Define recorrencia (opcional)
+- Titulo da tarefa vem do bloco com prefixo da reuniao
 
 ---
 
@@ -50,108 +62,136 @@ O usuario tera um botao flutuante (como na imagem de referencia) no canto inferi
 
 | Arquivo | Descricao |
 |---------|-----------|
-| `src/components/notes/FloatingNoteButton.tsx` | Botao flutuante global |
-| `src/components/notes/NotePanel.tsx` | Painel de edicao da nota |
-| `src/hooks/useUserNotes.ts` | Hook para CRUD das notas |
+| `src/pages/ReunioesView.tsx` | Pagina principal com lista e editor |
+| `src/components/reunioes/MeetingList.tsx` | Lista lateral de reunioes |
+| `src/components/reunioes/MeetingEditor.tsx` | Editor principal da reuniao |
+| `src/components/reunioes/MeetingBlock.tsx` | Bloco individual de anotacao |
+| `src/components/reunioes/CreateMeetingModal.tsx` | Modal para criar reuniao |
+| `src/components/reunioes/ConvertBlockToTaskModal.tsx` | Modal para converter bloco em tarefa |
+| `src/hooks/useMeetings.ts` | Hook para CRUD de reunioes |
+| `src/hooks/useMeetingBlocks.ts` | Hook para CRUD de blocos |
 
 ## Arquivos a Modificar
 
 | Arquivo | Modificacao |
 |---------|-------------|
-| `src/components/layout/MainLayout.tsx` | Adicionar FloatingNoteButton |
-| `src/pages/AcessoRapido.tsx` | Adicionar widget de nota |
+| `src/App.tsx` | Trocar Placeholder por ReunioesView na rota |
+
+---
+
+## Estrutura do Banco de Dados
+
+### Tabela `meetings`
+
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | UUID | Identificador unico |
+| title | TEXT | Titulo da reuniao |
+| meeting_date | DATE | Data da reuniao |
+| meeting_time | TIME | Hora da reuniao (opcional) |
+| participants | TEXT[] | Lista de participantes |
+| created_by | UUID | Usuario que criou |
+| created_at | TIMESTAMPTZ | Data de criacao |
+| updated_at | TIMESTAMPTZ | Ultima atualizacao |
+
+### Tabela `meeting_blocks`
+
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | UUID | Identificador unico |
+| meeting_id | UUID | FK para meetings |
+| content | TEXT | Conteudo do bloco |
+| order_index | INTEGER | Ordem do bloco |
+| linked_task_id | UUID | FK para tasks (se convertido) |
+| created_at | TIMESTAMPTZ | Data de criacao |
+| updated_at | TIMESTAMPTZ | Ultima atualizacao |
+
+### RLS Policies
+
+Usuarios autenticados podem ler todas as reunioes (transparencia de equipe) e gerenciar as proprias. Admins podem gerenciar todas.
 
 ---
 
 ## Detalhes Tecnicos
 
-### Tabela no Banco de Dados
-
-```sql
-CREATE TABLE user_notes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  content TEXT NOT NULL DEFAULT '',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Cada usuario tem apenas 1 nota (bloco de notas unico)
-CREATE UNIQUE INDEX user_notes_user_id_unique ON user_notes(user_id);
-
--- RLS: usuario so ve/edita sua propria nota
-ALTER TABLE user_notes ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can manage own notes"
-  ON user_notes FOR ALL
-  USING (user_id = auth.uid());
-
--- Trigger para updated_at
-CREATE TRIGGER update_user_notes_updated_at
-  BEFORE UPDATE ON user_notes
-  FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
-```
-
-### Hook useUserNotes
+### Hook useMeetings
 
 ```typescript
 // Funcionalidades:
-// - useUserNote(): busca a nota do usuario atual
-// - useSaveNote(): salva/atualiza a nota com upsert
-// - Debounce de 1 segundo no salvamento
+// - useMeetings(filters?): lista reunioes com filtros
+// - useMeeting(id): busca reuniao especifica com blocos
+// - useCreateMeeting(): cria nova reuniao
+// - useUpdateMeeting(): atualiza reuniao
+// - useDeleteMeeting(): remove reuniao
 ```
 
-### FloatingNoteButton
+### Hook useMeetingBlocks
+
+```typescript
+// Funcionalidades:
+// - useCreateBlock(): adiciona bloco
+// - useUpdateBlock(): atualiza conteudo
+// - useDeleteBlock(): remove bloco
+// - useReorderBlocks(): reordena blocos via drag and drop
+```
+
+### Componente MeetingBlock
 
 ```typescript
 // Caracteristicas:
-// - Posicao: fixed bottom-20 right-4 (mobile) / bottom-8 right-8 (desktop)
-// - Z-index alto (z-40)
-// - Animacao de pulse quando ha conteudo
-// - Abre Sheet lateral (mobile) ou Popover (desktop)
+// - Textarea auto-expandivel
+// - Salvamento automatico com debounce (1.5s)
+// - Indicador de tarefa vinculada
+// - Botao de converter em tarefa
+// - Handle para drag and drop (@dnd-kit ja instalado)
 ```
 
-### Estrutura do Componente
+### Componente MeetingEditor
 
-```text
-FloatingNoteButton
-└── Collapsible/Sheet
-    └── NotePanel
-        ├── Header (titulo + status + fechar)
-        ├── Textarea (auto-resize)
-        └── Footer (contador de caracteres)
+```typescript
+// Caracteristicas:
+// - Titulo editavel inline (click para editar)
+// - Seletor de data/hora
+// - Lista de blocos com DnD
+// - Botao "Novo bloco" no final
+// - Auto-save de todos os campos
 ```
 
 ---
 
 ## Fluxo de Uso
 
-1. Usuario clica no botao flutuante azul
-2. Painel abre com a nota atual (ou vazia)
-3. Usuario digita/edita o conteudo
-4. Apos 1s sem digitar, salva automaticamente
-5. Indicador mostra "Salvando..." / "Salvo"
-6. Ao fechar, conteudo persiste
-7. Na pagina Ferramentas, ve preview da nota
+1. Usuario acessa /reunioes
+2. Ve lista de reunioes existentes (ou vazia)
+3. Clica em "+ Nova Reuniao"
+4. Define titulo e data
+5. Comeca a adicionar blocos de notas
+6. A cada topico discutido, pode converter em tarefa
+7. Tarefas criadas aparecem para os responsaveis
+8. Reuniao fica arquivada para consulta futura
 
 ---
 
 ## UX/UI
 
-- **Cor do botao**: Azul primario (como na imagem)
-- **Icone**: Pencil ou StickyNote do lucide-react
-- **Animacao**: Scale no hover, pulse sutil quando tem conteudo
-- **Responsivo**: Sheet no mobile, Popover no desktop
-- **Dark mode**: Funciona com tema atual
+- Layout em 2 colunas (desktop) / empilhado (mobile)
+- Lista lateral colapsavel no mobile
+- Blocos com visual de cards
+- Animacao suave ao adicionar/reordenar blocos
+- Indicador visual quando bloco tem tarefa vinculada
+- Cores consistentes com o restante do sistema
 
 ---
 
 ## Ordem de Implementacao
 
-1. Criar tabela `user_notes` no banco
-2. Criar hook `useUserNotes.ts`
-3. Criar componente `NotePanel.tsx`
-4. Criar componente `FloatingNoteButton.tsx`
-5. Adicionar FloatingNoteButton no `MainLayout.tsx`
-6. Adicionar widget de nota no `AcessoRapido.tsx`
-7. Testar fluxo completo
+1. Criar tabelas `meetings` e `meeting_blocks` no banco
+2. Criar hooks `useMeetings.ts` e `useMeetingBlocks.ts`
+3. Criar componente `MeetingBlock.tsx`
+4. Criar componente `MeetingEditor.tsx`
+5. Criar componente `MeetingList.tsx`
+6. Criar modal `CreateMeetingModal.tsx`
+7. Criar modal `ConvertBlockToTaskModal.tsx`
+8. Criar pagina `ReunioesView.tsx`
+9. Atualizar rota no `App.tsx`
+10. Testar fluxo completo
