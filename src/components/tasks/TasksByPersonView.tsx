@@ -55,6 +55,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { BulkEditModal } from "./BulkEditModal";
+import { useBulkDeleteTasks } from "@/hooks/useTasks";
 import jsPDF from "jspdf";
 
 interface Task {
@@ -106,6 +107,9 @@ export function TasksByPersonView({
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  
+  const bulkDelete = useBulkDeleteTasks();
   
   const { toast } = useToast();
 
@@ -480,14 +484,25 @@ export function TasksByPersonView({
                 Selecionar tudo
               </Button>
               {selectedTasks.size > 0 && (
-                <Button
-                  size="sm"
-                  onClick={() => setBulkEditOpen(true)}
-                  className="gap-2"
-                >
-                  <Edit3 className="h-4 w-4" />
-                  Editar {selectedTasks.size} tarefa{selectedTasks.size > 1 ? "s" : ""}
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    onClick={() => setBulkEditOpen(true)}
+                    className="gap-2"
+                  >
+                    <Edit3 className="h-4 w-4" />
+                    Editar {selectedTasks.size}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setBulkDeleteConfirmOpen(true)}
+                    className="gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Excluir {selectedTasks.size}
+                  </Button>
+                </>
               )}
             </>
           ) : (
@@ -843,6 +858,45 @@ export function TasksByPersonView({
         selectedTaskIds={Array.from(selectedTasks)}
         onSuccess={clearSelection}
       />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={bulkDeleteConfirmOpen} onOpenChange={setBulkDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir {selectedTasks.size} tarefa{selectedTasks.size > 1 ? "s" : ""}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir {selectedTasks.size} tarefa{selectedTasks.size > 1 ? "s" : ""} selecionada{selectedTasks.size > 1 ? "s" : ""}? 
+              Esta ação não pode ser desfeita e também removerá todas as subtarefas associadas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                try {
+                  await bulkDelete.mutateAsync(Array.from(selectedTasks));
+                  toast({
+                    title: `${selectedTasks.size} tarefa${selectedTasks.size > 1 ? "s" : ""} excluída${selectedTasks.size > 1 ? "s" : ""}`,
+                  });
+                  clearSelection();
+                } catch (error) {
+                  console.error("Erro ao excluir tarefas:", error);
+                  toast({
+                    title: "Erro ao excluir tarefas",
+                    description: "Tente novamente",
+                    variant: "destructive",
+                  });
+                }
+                setBulkDeleteConfirmOpen(false);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={bulkDelete.isPending}
+            >
+              {bulkDelete.isPending ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
