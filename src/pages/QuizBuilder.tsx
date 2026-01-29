@@ -35,6 +35,7 @@ import {
   Play,
   Share2,
   Check,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -541,6 +542,8 @@ export default function QuizBuilder() {
                     onAddOption={() => handleAddOption(question.id)}
                     onUpdateOption={(optionId, data) => updateOption.mutate({ ...data, id: optionId, quiz_id: id! })}
                     onDeleteOption={(optionId) => deleteOption.mutate({ id: optionId, quiz_id: id! })}
+                    allQuestions={quiz.questions || []}
+                    allDiagnoses={quiz.diagnoses || []}
                   />
                 ))}
               </SortableContext>
@@ -862,6 +865,8 @@ function SortableQuestionItem(props: {
   onAddOption: () => void;
   onUpdateOption: (optionId: string, data: Partial<QuizOption>) => void;
   onDeleteOption: (optionId: string) => void;
+  allQuestions: QuizQuestion[];
+  allDiagnoses: QuizDiagnosis[];
 }) {
   const {
     attributes,
@@ -899,6 +904,8 @@ function QuestionEditor({
   onUpdateOption,
   onDeleteOption,
   dragHandleProps,
+  allQuestions,
+  allDiagnoses,
 }: {
   question: QuizQuestion;
   index: number;
@@ -912,6 +919,8 @@ function QuestionEditor({
   onUpdateOption: (optionId: string, data: Partial<QuizOption>) => void;
   onDeleteOption: (optionId: string) => void;
   dragHandleProps?: Record<string, any>;
+  allQuestions: QuizQuestion[];
+  allDiagnoses: QuizDiagnosis[];
 }) {
   const isContentBlock = ["content", "testimonial", "divider"].includes(question.question_type);
   
@@ -1167,7 +1176,14 @@ function QuestionEditor({
                 {/* Options for choice-based questions */}
                 {["single_choice", "multiple_choice", "yes_no"].includes(question.question_type) && (
                   <div className="space-y-3">
-                    <Label>Opções de resposta</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Opções de resposta</Label>
+                      {question.question_type === "single_choice" && (
+                        <Badge variant="outline" className="text-xs">
+                          💡 Lógica de salto disponível
+                        </Badge>
+                      )}
+                    </div>
                     {question.options?.map((option, optIndex) => (
                       <OptionEditor
                         key={option.id}
@@ -1175,6 +1191,10 @@ function QuestionEditor({
                         optIndex={optIndex}
                         onUpdateOption={onUpdateOption}
                         onDeleteOption={onDeleteOption}
+                        showJumpLogic={question.question_type === "single_choice"}
+                        allQuestions={allQuestions}
+                        allDiagnoses={allDiagnoses}
+                        currentQuestionId={question.id}
                       />
                     ))}
                     <Button variant="outline" size="sm" onClick={onAddOption}>
@@ -1230,23 +1250,35 @@ function QuestionEditor({
   );
 }
 
-// Option Editor with local state
+// Option Editor with local state and jump logic
 function OptionEditor({
   option,
   optIndex,
   onUpdateOption,
   onDeleteOption,
+  showJumpLogic = false,
+  allQuestions = [],
+  allDiagnoses = [],
+  currentQuestionId,
 }: {
   option: QuizOption;
   optIndex: number;
   onUpdateOption: (optionId: string, data: Partial<QuizOption>) => void;
   onDeleteOption: (optionId: string) => void;
+  showJumpLogic?: boolean;
+  allQuestions?: QuizQuestion[];
+  allDiagnoses?: QuizDiagnosis[];
+  currentQuestionId?: string;
 }) {
   const [localText, setLocalText] = useState(option.option_text);
+  const [showAdvanced, setShowAdvanced] = useState(
+    !!(option as any).jump_to_question_id || !!(option as any).jump_to_diagnosis_id
+  );
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setLocalText(option.option_text);
+    setShowAdvanced(!!(option as any).jump_to_question_id || !!(option as any).jump_to_diagnosis_id);
   }, [option.id]);
 
   const handleTextChange = (value: string) => {
@@ -1257,28 +1289,113 @@ function OptionEditor({
     }, 800);
   };
 
+  // Filter questions that come after the current question
+  const currentQuestionIndex = allQuestions.findIndex(q => q.id === currentQuestionId);
+  const availableQuestionsForJump = allQuestions.filter((q, idx) => 
+    idx > currentQuestionIndex && !["content", "testimonial", "divider"].includes(q.question_type)
+  );
+
+  const jumpToQuestionId = (option as any).jump_to_question_id;
+  const jumpToDiagnosisId = (option as any).jump_to_diagnosis_id;
+
   return (
-    <div className="flex items-center gap-2">
-      <Input
-        value={localText}
-        onChange={(e) => handleTextChange(e.target.value)}
-        placeholder={`Opção ${optIndex + 1}`}
-        className="flex-1"
-      />
-      <Input
-        type="number"
-        value={option.points}
-        onChange={(e) => onUpdateOption(option.id, { points: parseInt(e.target.value) || 0 })}
-        className="w-20"
-        placeholder="Pts"
-      />
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => onDeleteOption(option.id)}
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Input
+          value={localText}
+          onChange={(e) => handleTextChange(e.target.value)}
+          placeholder={`Opção ${optIndex + 1}`}
+          className="flex-1"
+        />
+        <Input
+          type="number"
+          value={option.points}
+          onChange={(e) => onUpdateOption(option.id, { points: parseInt(e.target.value) || 0 })}
+          className="w-20"
+          placeholder="Pts"
+        />
+        {showJumpLogic && (
+          <Button
+            variant={showAdvanced ? "secondary" : "ghost"}
+            size="icon"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            title="Lógica de salto"
+          >
+            <ArrowRight className={cn("h-4 w-4", showAdvanced && "text-primary")} />
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onDeleteOption(option.id)}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      {/* Jump Logic UI */}
+      {showJumpLogic && showAdvanced && (
+        <div className="ml-4 p-3 bg-muted/50 rounded-lg border border-dashed space-y-3">
+          <p className="text-xs text-muted-foreground font-medium">
+            Se esta opção for selecionada:
+          </p>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Pular para pergunta</Label>
+              <Select
+                value={jumpToQuestionId || "next"}
+                onValueChange={(value) => onUpdateOption(option.id, { 
+                  jump_to_question_id: value === "next" ? null : value,
+                  jump_to_diagnosis_id: null // Clear diagnosis if question selected
+                } as any)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Próxima (padrão)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="next">Próxima (padrão)</SelectItem>
+                  {availableQuestionsForJump.map((q, idx) => (
+                    <SelectItem key={q.id} value={q.id}>
+                      Q{allQuestions.findIndex(aq => aq.id === q.id) + 1}: {q.question_text.substring(0, 30)}...
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Ou ir direto ao diagnóstico</Label>
+              <Select
+                value={jumpToDiagnosisId || "none"}
+                onValueChange={(value) => onUpdateOption(option.id, { 
+                  jump_to_diagnosis_id: value === "none" ? null : value,
+                  jump_to_question_id: null // Clear question if diagnosis selected
+                } as any)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Continuar quiz" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Continuar quiz</SelectItem>
+                  {allDiagnoses.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      🎯 {d.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          {(jumpToQuestionId || jumpToDiagnosisId) && (
+            <p className="text-xs text-primary flex items-center gap-1">
+              <ArrowRight className="h-3 w-3" />
+              {jumpToDiagnosisId 
+                ? `Finaliza quiz e mostra: "${allDiagnoses.find(d => d.id === jumpToDiagnosisId)?.title}"`
+                : `Pula para: Q${allQuestions.findIndex(q => q.id === jumpToQuestionId) + 1}`
+              }
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

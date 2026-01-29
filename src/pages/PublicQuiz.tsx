@@ -73,7 +73,7 @@ export default function PublicQuiz() {
     setQuestionStartTime(Date.now());
   };
 
-  // Submit answer and move to next question
+  // Submit answer and move to next question (with jump logic support)
   const handleAnswer = async (answer: any) => {
     if (!sessionId || !currentQuestion) return;
 
@@ -96,9 +96,10 @@ export default function PublicQuiz() {
     let pointsEarned = 0;
     let tagsCollected: string[] = [];
     let answerText = "";
+    let selectedOption: any = null;
 
     if (["single_choice", "yes_no"].includes(currentQuestion.question_type)) {
-      const selectedOption = currentQuestion.options?.find((o) => o.id === answer);
+      selectedOption = currentQuestion.options?.find((o) => o.id === answer);
       if (selectedOption) {
         pointsEarned = selectedOption.points || 0;
         tagsCollected = (selectedOption.tags as string[]) || [];
@@ -141,7 +142,52 @@ export default function PublicQuiz() {
     setAnswers((prev) => ({ ...prev, [currentQuestion.id]: answer }));
     setAnswersDetails((prev) => [...prev, { question: currentQuestion.question_text, answer: answerText }]);
 
-    // Move to next or finish
+    // Check for jump logic (only for single_choice)
+    if (selectedOption && currentQuestion.question_type === "single_choice") {
+      const jumpToDiagnosisId = (selectedOption as any).jump_to_diagnosis_id;
+      const jumpToQuestionId = (selectedOption as any).jump_to_question_id;
+
+      // Jump to specific diagnosis - end quiz immediately
+      if (jumpToDiagnosisId) {
+        const targetDiagnosis = quiz?.diagnoses?.find(d => d.id === jumpToDiagnosisId);
+        if (targetDiagnosis) {
+          setMatchedDiagnosis(targetDiagnosis);
+          
+          // Complete session with the specified diagnosis
+          await completeSession.mutateAsync({
+            session_id: sessionId,
+            quiz_id: quiz!.id,
+            total_score: totalScore + pointsEarned,
+            scores_by_axis: { default: totalScore + pointsEarned },
+            collected_tags: [...collectedTags, ...tagsCollected],
+            diagnosis_id: targetDiagnosis.id,
+          });
+
+          // Go to result page
+          if (quiz?.lead_capture_enabled && quiz?.lead_capture_position === "before_result") {
+            setStep("lead");
+          } else {
+            setStep("result");
+            if (quiz?.diagnosis_type === "ai") {
+              await generateAIDiagnosis();
+            }
+          }
+          return;
+        }
+      }
+
+      // Jump to specific question
+      if (jumpToQuestionId) {
+        const targetIndex = quiz?.questions?.findIndex(q => q.id === jumpToQuestionId);
+        if (targetIndex !== undefined && targetIndex !== -1) {
+          setCurrentQuestionIndex(targetIndex);
+          setQuestionStartTime(Date.now());
+          return;
+        }
+      }
+    }
+
+    // Default behavior: Move to next or finish
     if (currentQuestionIndex < (quiz?.questions?.length || 0) - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
       setQuestionStartTime(Date.now());
