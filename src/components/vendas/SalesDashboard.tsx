@@ -45,8 +45,13 @@ export function SalesDashboard() {
   const [productPage, setProductPage] = useState(1);
   const PRODUCTS_PER_PAGE = 5;
   
+  // Finance department ID
+  const FINANCE_DEPARTMENT_ID = 'eab14b88-c7d9-4aeb-99a4-3ce6fe193630';
+  
   // For admin/manager/financeiro, show all data; for sellers, show only their own
+  const isFinanceDepartment = profile?.department_id === FINANCE_DEPARTMENT_ID;
   const isAdminOrManager = isAdmin || 
+                           isFinanceDepartment ||
                            profile?.job_title?.toLowerCase().includes('gerente') ||
                            profile?.job_title?.toLowerCase().includes('financeiro');
   
