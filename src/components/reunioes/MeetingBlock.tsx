@@ -20,8 +20,26 @@ interface MeetingBlockProps {
   onConvertToTask: (block: MeetingBlockType) => void;
 }
 
+// Helper to strip HTML tags from content
+function stripHtml(html: string): string {
+  if (!html) return "";
+  // Replace <br> and </div> with newlines, then strip all other tags
+  const withLineBreaks = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/p>/gi, "\n");
+  // Remove all remaining HTML tags
+  const textOnly = withLineBreaks.replace(/<[^>]*>/g, "");
+  // Decode HTML entities
+  const textarea = document.createElement("textarea");
+  textarea.innerHTML = textOnly;
+  return textarea.value.trim();
+}
+
 export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlockProps) {
-  const [content, setContent] = useState(block.content);
+  // Clean HTML on initial load
+  const cleanContent = stripHtml(block.content);
+  const [content, setContent] = useState(cleanContent);
   const [isSaving, setIsSaving] = useState(false);
   const [showToolbar, setShowToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
@@ -48,9 +66,9 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
     transition,
   };
 
-  // Sync content from props
+  // Sync content from props (clean HTML)
   useEffect(() => {
-    setContent(block.content);
+    setContent(stripHtml(block.content));
   }, [block.content]);
 
   // Auto-resize textarea
