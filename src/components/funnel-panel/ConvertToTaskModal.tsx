@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +36,21 @@ export function ConvertToTaskModal({
   const [assignee, setAssignee] = useState("");
   const [recurrence, setRecurrence] = useState<RecurrenceType>("none");
 
+  // Buscar dados do funil para incluir nome na tarefa
+  const { data: funnel } = useQuery({
+    queryKey: ["funnel-name", funnelId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("funnels")
+        .select("name, code")
+        .eq("id", funnelId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!funnelId,
+  });
+
   // Buscar usuários ativos para atribuição
   const { data: users = [] } = useQuery({
     queryKey: ["profiles-active"],
@@ -50,37 +65,68 @@ export function ConvertToTaskModal({
     },
   });
 
+  // Reset form quando abre
+  useEffect(() => {
+    if (open) {
+      resetForm();
+    }
+  }, [open]);
+
   const handleSubmit = async () => {
     if (!checklistItem) return;
 
+    if (!assignee) {
+      toast.error("Selecione um responsável");
+      return;
+    }
+
+    if (!dueDate) {
+      toast.error("Selecione uma data de vencimento");
+      return;
+    }
+
     setSaving(true);
     try {
+      // Criar título com código/nome do funil
+      const funnelPrefix = funnel?.code || funnel?.name || "";
+      const cleanTitle = checklistItem.title.replace(/^\[(Diário|Pontual)\]\s*/i, "");
+      const taskTitle = funnelPrefix ? `${funnelPrefix} | ${cleanTitle}` : cleanTitle;
+
       // Criar a tarefa
-      const { error: taskError } = await supabase.from("tasks").insert({
-        title: checklistItem.title.replace(/^\[(Diário|Pontual)\]\s*/i, ""),
-        assignee: assignee || null,
-        due_date: dueDate ? format(dueDate, "yyyy-MM-dd") : null,
-        recurrence: recurrence !== "none" ? recurrence : null,
-        priority: "media",
-        category: "Funil",
-      });
+      const { data: taskData, error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          title: taskTitle,
+          description: `Tarefa originada do checklist do funil: ${funnel?.name || ""}`,
+          assignee: assignee,
+          due_date: format(dueDate, "yyyy-MM-dd"),
+          recurrence: recurrence !== "none" ? recurrence : null,
+          priority: "media",
+          category: "Funil",
+        })
+        .select("id")
+        .single();
 
       if (taskError) throw taskError;
 
-      // Marcar item do checklist como concluído
+      // Atualizar item do checklist com dados da tarefa (NÃO marcar como concluído)
       await supabase
         .from("funnel_checklist")
-        .update({ is_completed: true })
+        .update({
+          linked_task_id: taskData.id,
+          assigned_to: assignee,
+          task_due_date: format(dueDate, "yyyy-MM-dd"),
+        })
         .eq("id", checklistItem.id);
 
       // Invalidar queries
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
       queryClient.invalidateQueries({ queryKey: taskKeys.today() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.byUser(assignee) });
       queryClient.invalidateQueries({ queryKey: ["funnel-checklist", funnelId] });
 
-      toast.success("Tarefa criada com sucesso!");
+      toast.success("Tarefa criada e atribuída!");
       onOpenChange(false);
-      resetForm();
       onSuccess?.();
     } catch (error: any) {
       toast.error("Erro ao criar tarefa: " + error.message);
@@ -99,21 +145,21 @@ export function ConvertToTaskModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Converter em Tarefa</DialogTitle>
+          <DialogTitle>Atribuir Tarefa</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Título da Tarefa</Label>
             <Input
-              value={checklistItem?.title.replace(/^\[(Diário|Pontual)\]\s*/i, "") || ""}
+              value={`${funnel?.code || funnel?.name || ""} | ${checklistItem?.title.replace(/^\[(Diário|Pontual)\]\s*/i, "") || ""}`}
               disabled
               className="bg-muted"
             />
           </div>
 
           <div className="space-y-2">
-            <Label>Responsável</Label>
+            <Label>Responsável *</Label>
             <Select value={assignee} onValueChange={setAssignee}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione um responsável" />
@@ -129,7 +175,7 @@ export function ConvertToTaskModal({
           </div>
 
           <div className="space-y-2">
-            <Label>Data de Vencimento</Label>
+            <Label>Data de Vencimento *</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button

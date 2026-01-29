@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser, RefreshCcw } from "lucide-react";
+import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser, RefreshCcw, User, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { 
   useFunnelChecklist, 
   useCreateChecklistItem, 
@@ -540,47 +542,72 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
                     </span>
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-1 mt-1 ml-4">
-                    {categoryItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-start gap-3 p-2 rounded-lg hover:bg-accent/5 transition-colors group border border-transparent hover:border-border"
-                      >
-                        <Checkbox
-                          checked={item.is_completed || false}
-                          onCheckedChange={() => toggleItem(item)}
-                          className="mt-0.5"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <span className={cn(
-                            "text-sm",
-                            item.is_completed && "line-through text-muted-foreground"
-                          )}>
-                            {item.title.replace(/^\[(Diário|Pontual)\]\s*/i, "")}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <button
-                            onClick={() => openConvertModal({ id: item.id, title: item.title })}
-                            title="Converter em tarefa"
-                            className="relative flex items-center justify-center h-8 w-8 rounded-full border-2 border-primary/30 hover:border-primary bg-background hover:bg-primary/5 transition-all"
-                          >
-                            <RefreshCcw className="h-4 w-4 text-primary" />
-                            <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-3.5 w-3.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
-                              +
+                    {categoryItems.map((item) => {
+                      const hasTask = !!item.assigned_to || !!item.task_due_date;
+                      
+                      return (
+                        <div
+                          key={item.id}
+                          className={cn(
+                            "flex items-start gap-3 p-2 rounded-lg hover:bg-accent/5 transition-colors group border border-transparent hover:border-border",
+                            hasTask && "bg-primary/5 border-primary/20"
+                          )}
+                        >
+                          <Checkbox
+                            checked={item.is_completed || false}
+                            onCheckedChange={() => toggleItem(item)}
+                            className="mt-0.5"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className={cn(
+                              "text-sm",
+                              item.is_completed && "line-through text-muted-foreground"
+                            )}>
+                              {item.title.replace(/^\[(Diário|Pontual)\]\s*/i, "")}
                             </span>
-                          </button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => handleDeleteItem(item.id)}
-                            title="Excluir item"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                            {hasTask && (
+                              <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                                {item.assigned_to && (
+                                  <span className="flex items-center gap-1">
+                                    <User className="h-3 w-3" />
+                                    {item.assigned_to}
+                                  </span>
+                                )}
+                                {item.task_due_date && (
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    {format(parseISO(item.task_due_date), "dd/MM", { locale: ptBR })}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {!hasTask && (
+                              <button
+                                onClick={() => openConvertModal({ id: item.id, title: item.title })}
+                                title="Atribuir tarefa"
+                                className="relative flex items-center justify-center h-8 w-8 rounded-full border-2 border-primary/30 hover:border-primary bg-background hover:bg-primary/5 transition-all"
+                              >
+                                <RefreshCcw className="h-4 w-4 text-primary" />
+                                <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-3.5 w-3.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">
+                                  +
+                                </span>
+                              </button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleDeleteItem(item.id)}
+                              title="Excluir item"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </CollapsibleContent>
                 </Collapsible>
               );
