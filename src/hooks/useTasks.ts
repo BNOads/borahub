@@ -34,7 +34,8 @@ export function useTasks(filters?: Partial<TaskFilters>) {
             id, title, description, priority, category, assignee, assigned_to_id, due_date, due_time, completed, position, created_at, updated_at, completed_at, recurrence, recurrence_end_date, parent_task_id, is_recurring_instance, doing_since,
             subtasks (id, title, completed)
           `)
-          .order("position", { ascending: true })
+          .order("completed", { ascending: true }) // Pendentes primeiro
+          .order("due_date", { ascending: true, nullsFirst: false })
           .order("created_at", { ascending: false });
 
         if (filters?.priority && filters.priority !== "all") {
@@ -50,7 +51,7 @@ export function useTasks(filters?: Partial<TaskFilters>) {
           query = query.ilike("title", `%${filters.search}%`);
         }
 
-        query = query.limit(100);
+        query = query.limit(500); // Aumentar limite para incluir mais tarefas da equipe
 
         const { data, error } = await query;
         if (error) {
