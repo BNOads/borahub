@@ -6,12 +6,10 @@ import {
   Plus, 
   CheckCircle2, 
   Trash2,
-  Bold,
-  Italic,
-  Underline,
   ListTodo
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { MeetingBlock as MeetingBlockType } from "@/hooks/useMeetings";
 import { useUpdateBlock, useDeleteBlock } from "@/hooks/useMeetingBlocks";
@@ -28,8 +26,9 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
   const [showToolbar, setShowToolbar] = useState(false);
   const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
   const [selectedText, setSelectedText] = useState("");
-  const contentRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const updateBlock = useUpdateBlock();
@@ -49,6 +48,19 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
     transition,
   };
 
+  // Sync content from props
+  useEffect(() => {
+    setContent(block.content);
+  }, [block.content]);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.max(60, textareaRef.current.scrollHeight)}px`;
+    }
+  }, [content]);
+
   // Debounced save
   const saveContent = useCallback((value: string) => {
     if (saveTimeoutRef.current) {
@@ -67,33 +79,35 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
     }, 1500);
   }, [block.id, meetingId, updateBlock]);
 
-  const handleInput = () => {
-    if (contentRef.current) {
-      const newContent = contentRef.current.innerHTML;
-      setContent(newContent);
-      saveContent(newContent);
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newContent = e.target.value;
+    setContent(newContent);
+    saveContent(newContent);
   };
 
   // Handle text selection for toolbar
-  const handleMouseUp = () => {
-    const selection = window.getSelection();
-    if (selection && selection.toString().trim().length > 0) {
-      const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      const containerRect = contentRef.current?.getBoundingClientRect();
+  const handleSelect = () => {
+    if (textareaRef.current) {
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      const selected = content.substring(start, end).trim();
       
-      if (containerRect) {
-        setToolbarPosition({
-          top: rect.top - containerRect.top - 45,
-          left: rect.left - containerRect.left + (rect.width / 2) - 100,
-        });
-        setSelectedText(selection.toString());
-        setShowToolbar(true);
+      if (selected.length > 0) {
+        const containerRect = containerRef.current?.getBoundingClientRect();
+        const textareaRect = textareaRef.current.getBoundingClientRect();
+        
+        if (containerRect) {
+          setToolbarPosition({
+            top: textareaRect.top - containerRect.top - 45,
+            left: (textareaRect.width / 2) - 75,
+          });
+          setSelectedText(selected);
+          setShowToolbar(true);
+        }
+      } else {
+        setShowToolbar(false);
+        setSelectedText("");
       }
-    } else {
-      setShowToolbar(false);
-      setSelectedText("");
     }
   };
 
@@ -103,8 +117,8 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
       if (
         toolbarRef.current && 
         !toolbarRef.current.contains(e.target as Node) &&
-        contentRef.current &&
-        !contentRef.current.contains(e.target as Node)
+        textareaRef.current &&
+        !textareaRef.current.contains(e.target as Node)
       ) {
         setShowToolbar(false);
       }
@@ -122,14 +136,8 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
     };
   }, []);
 
-  const applyFormat = (command: string) => {
-    document.execCommand(command, false);
-    handleInput();
-  };
-
   const handleCreateTaskFromSelection = () => {
     if (selectedText) {
-      // Create a temporary block with selected text for task conversion
       const tempBlock = { ...block, content: selectedText };
       onConvertToTask(tempBlock);
       setShowToolbar(false);
@@ -163,7 +171,7 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
       </div>
 
       {/* Content */}
-      <div className="ml-6 relative">
+      <div ref={containerRef} className="ml-6 relative">
         {/* Floating Toolbar */}
         {showToolbar && (
           <div
@@ -177,31 +185,6 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => applyFormat("bold")}
-            >
-              <Bold className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => applyFormat("italic")}
-            >
-              <Italic className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0"
-              onClick={() => applyFormat("underline")}
-            >
-              <Underline className="h-4 w-4" />
-            </Button>
-            <div className="w-px h-6 bg-border mx-1" />
-            <Button
-              variant="ghost"
-              size="sm"
               className="h-8 px-2 gap-1 text-primary"
               onClick={handleCreateTaskFromSelection}
             >
@@ -212,15 +195,14 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
         )}
 
         {/* Editable Content */}
-        <div
-          ref={contentRef}
-          contentEditable
-          suppressContentEditableWarning
-          onInput={handleInput}
-          onMouseUp={handleMouseUp}
-          dangerouslySetInnerHTML={{ __html: content }}
-          className="min-h-[60px] outline-none text-base prose prose-sm max-w-none dark:prose-invert [&>*]:my-1"
-          data-placeholder="Digite o assunto aqui..."
+        <Textarea
+          ref={textareaRef}
+          value={content}
+          onChange={handleChange}
+          onSelect={handleSelect}
+          onMouseUp={handleSelect}
+          placeholder="Digite o assunto aqui..."
+          className="min-h-[60px] resize-none border-0 p-0 focus-visible:ring-0 text-base bg-transparent"
         />
 
         {/* Footer */}
@@ -264,14 +246,6 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
           </div>
         </div>
       </div>
-
-      <style>{`
-        [data-placeholder]:empty:before {
-          content: attr(data-placeholder);
-          color: hsl(var(--muted-foreground));
-          opacity: 0.5;
-        }
-      `}</style>
     </div>
   );
 }
