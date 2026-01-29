@@ -1700,6 +1700,8 @@ export type Database = {
           created_at: string | null
           id: string
           image_url: string | null
+          jump_to_diagnosis_id: string | null
+          jump_to_question_id: string | null
           option_text: string
           points: number | null
           position: number
@@ -1711,6 +1713,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           image_url?: string | null
+          jump_to_diagnosis_id?: string | null
+          jump_to_question_id?: string | null
           option_text: string
           points?: number | null
           position?: number
@@ -1722,6 +1726,8 @@ export type Database = {
           created_at?: string | null
           id?: string
           image_url?: string | null
+          jump_to_diagnosis_id?: string | null
+          jump_to_question_id?: string | null
           option_text?: string
           points?: number | null
           position?: number
@@ -1730,6 +1736,20 @@ export type Database = {
           tags?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "quiz_options_jump_to_diagnosis_id_fkey"
+            columns: ["jump_to_diagnosis_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_diagnoses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_options_jump_to_question_id_fkey"
+            columns: ["jump_to_question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "quiz_options_question_id_fkey"
             columns: ["question_id"]

@@ -72,6 +72,8 @@ export interface QuizOption {
   points: number;
   tags: string[];
   scoring_values: Record<string, number>;
+  jump_to_question_id: string | null;
+  jump_to_diagnosis_id: string | null;
   created_at: string;
 }
 
