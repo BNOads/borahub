@@ -1,7 +1,7 @@
 {
-  "name": "BORAnaOBRA hub",
+  "name": "BORAnaOBRA app",
   "short_name": "BORAnaOBRA",
-  "description": "BORAnaOBRA hub - Gerencie seus funis, tarefas e equipe em um único lugar",
+  "description": "BORAnaOBRA app - Gerencie seus funis, tarefas e equipe em um único lugar",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
