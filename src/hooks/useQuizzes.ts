@@ -176,7 +176,7 @@ export function useQuiz(id: string | undefined) {
 
       const { data: questions, error: questionsError } = await supabase
         .from("quiz_questions")
-        .select("*, quiz_options(*)")
+        .select("*, quiz_options!quiz_options_question_id_fkey(*)")
         .eq("quiz_id", id)
         .order("position");
 
@@ -221,7 +221,7 @@ export function useQuizBySlug(slug: string | undefined) {
 
       const { data: questions, error: questionsError } = await supabase
         .from("quiz_questions")
-        .select("*, quiz_options(*)")
+        .select("*, quiz_options!quiz_options_question_id_fkey(*)")
         .eq("quiz_id", quiz.id)
         .order("position");
 
@@ -340,7 +340,7 @@ export function useDuplicateQuiz() {
       // Get questions with options
       const { data: questions, error: questionsError } = await supabase
         .from("quiz_questions")
-        .select("*, quiz_options(*)")
+        .select("*, quiz_options!quiz_options_question_id_fkey(*)")
         .eq("quiz_id", quizId)
         .order("position");
 
@@ -595,7 +595,7 @@ export function useDuplicateQuestion() {
       // Get original question with options
       const { data: originalQuestion, error: questionError } = await supabase
         .from("quiz_questions")
-        .select("*, quiz_options(*)")
+        .select("*, quiz_options!quiz_options_question_id_fkey(*)")
         .eq("id", questionId)
         .single();
 
