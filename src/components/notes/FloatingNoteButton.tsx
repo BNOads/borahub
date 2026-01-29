@@ -21,18 +21,25 @@ export function FloatingNoteButton() {
   const hasContent = note?.content && note.content.trim().length > 0;
 
   const buttonElement = (
-    <Button
-      size="icon"
-      className={cn(
-        "h-14 w-14 rounded-full shadow-lg",
-        "bg-primary hover:bg-primary/90",
-        "transition-all duration-200",
-        "hover:scale-110 active:scale-95",
-        hasContent && "ring-2 ring-primary/30 ring-offset-2 ring-offset-background"
+    <div className="relative">
+      <Button
+        size="icon"
+        className={cn(
+          "h-14 w-14 rounded-full shadow-lg",
+          "bg-primary hover:bg-primary/90",
+          "transition-all duration-200",
+          "hover:scale-110 active:scale-95"
+        )}
+      >
+        <Pencil className="h-6 w-6" />
+      </Button>
+      {hasContent && (
+        <span className="absolute -top-1 -right-1 flex h-4 w-4">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75" />
+          <span className="relative inline-flex rounded-full h-4 w-4 bg-accent border-2 border-background" />
+        </span>
       )}
-    >
-      <Pencil className="h-6 w-6" />
-    </Button>
+    </div>
   );
 
   // Mobile: Sheet lateral
