@@ -6,6 +6,7 @@ import {
   ChevronRight,
   User,
   CheckCircle2,
+  CheckSquare,
   Circle,
   Clock,
   Eye,
@@ -402,6 +403,52 @@ export function TasksByPersonView({
     setSelectedTasks(new Set(visibleTaskIds));
   };
 
+  // Selecionar todas as tarefas de uma pessoa
+  const toggleSelectPersonTasks = (personName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Evita abrir/fechar o collapsible
+    
+    const personTasksList = tasksByPerson.find(([name]) => name === personName)?.[1] || [];
+    const filteredTasks = showCompleted 
+      ? personTasksList 
+      : personTasksList.filter(t => !t.completed);
+    const personTaskIds = filteredTasks.map(t => t.id);
+    
+    // Verifica se todas já estão selecionadas
+    const allSelected = personTaskIds.every(id => selectedTasks.has(id));
+    
+    setSelectedTasks(prev => {
+      const next = new Set(prev);
+      if (allSelected) {
+        // Remove todas da pessoa
+        personTaskIds.forEach(id => next.delete(id));
+      } else {
+        // Adiciona todas da pessoa
+        personTaskIds.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  // Verifica se todas as tarefas de uma pessoa estão selecionadas
+  const areAllPersonTasksSelected = (personName: string): boolean => {
+    const personTasksList = tasksByPerson.find(([name]) => name === personName)?.[1] || [];
+    const filteredTasks = showCompleted 
+      ? personTasksList 
+      : personTasksList.filter(t => !t.completed);
+    if (filteredTasks.length === 0) return false;
+    return filteredTasks.every(t => selectedTasks.has(t.id));
+  };
+
+  // Verifica se algumas tarefas de uma pessoa estão selecionadas
+  const areSomePersonTasksSelected = (personName: string): boolean => {
+    const personTasksList = tasksByPerson.find(([name]) => name === personName)?.[1] || [];
+    const filteredTasks = showCompleted 
+      ? personTasksList 
+      : personTasksList.filter(t => !t.completed);
+    const selectedCount = filteredTasks.filter(t => selectedTasks.has(t.id)).length;
+    return selectedCount > 0 && selectedCount < filteredTasks.length;
+  };
+
   // Limpar seleção
   const clearSelection = () => {
     setSelectedTasks(new Set());
@@ -539,8 +586,35 @@ export function TasksByPersonView({
                     </AvatarFallback>
                   </Avatar>
 
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 flex items-center gap-2">
                     <h3 className="font-semibold truncate">{personName}</h3>
+                    
+                    {/* Ícone para selecionar todas as tarefas da pessoa */}
+                    {selectionMode && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={(e) => toggleSelectPersonTasks(personName, e)}
+                              className={`p-1 rounded-md transition-colors hover:bg-primary/20 ${
+                                areAllPersonTasksSelected(personName)
+                                  ? "text-primary"
+                                  : areSomePersonTasksSelected(personName)
+                                    ? "text-primary/60"
+                                    : "text-muted-foreground"
+                              }`}
+                            >
+                              <CheckSquare className="h-4 w-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {areAllPersonTasksSelected(personName) 
+                              ? "Desmarcar todas" 
+                              : "Selecionar todas"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-3 text-sm">
