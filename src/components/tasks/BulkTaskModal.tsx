@@ -88,13 +88,24 @@ export function BulkTaskModal({ open, onOpenChange }: BulkTaskModalProps) {
 
     try {
       const tasksToCreate = titles.map((title) => ({
-        title,
+        title: title.trim(),
         assignee,
         due_date: dueDate,
         priority: "media" as const,
         completed: false,
         position: 0,
       }));
+
+      // Validar títulos antes de enviar
+      const invalidTitles = tasksToCreate.filter(t => !t.title || t.title.length === 0);
+      if (invalidTitles.length > 0) {
+        toast({
+          title: "Títulos inválidos",
+          description: "Alguns títulos estão vazios. Verifique a lista.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       await createBulkTasks.mutateAsync({ tasks: tasksToCreate, assignee });
 
@@ -108,11 +119,16 @@ export function BulkTaskModal({ open, onOpenChange }: BulkTaskModalProps) {
       setDueDate("");
       setTitlesText("");
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao criar tarefas em massa:", error);
+      const errorMessage = error?.message || "Erro desconhecido";
       toast({
         title: "Erro ao criar tarefas",
-        description: "Tente novamente",
+        description: errorMessage.includes("duplicate") 
+          ? "Algumas tarefas já existem" 
+          : errorMessage.includes("vazios")
+            ? errorMessage
+            : "Verifique os dados e tente novamente",
         variant: "destructive",
       });
     }
