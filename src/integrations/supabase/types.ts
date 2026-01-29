@@ -547,32 +547,41 @@ export type Database = {
       }
       funnel_checklist: {
         Row: {
+          assigned_to: string | null
           created_at: string | null
           description: string | null
           funnel_id: string
           id: string
           is_completed: boolean | null
+          linked_task_id: string | null
           order_index: number | null
+          task_due_date: string | null
           title: string
           updated_at: string | null
         }
         Insert: {
+          assigned_to?: string | null
           created_at?: string | null
           description?: string | null
           funnel_id: string
           id?: string
           is_completed?: boolean | null
+          linked_task_id?: string | null
           order_index?: number | null
+          task_due_date?: string | null
           title: string
           updated_at?: string | null
         }
         Update: {
+          assigned_to?: string | null
           created_at?: string | null
           description?: string | null
           funnel_id?: string
           id?: string
           is_completed?: boolean | null
+          linked_task_id?: string | null
           order_index?: number | null
+          task_due_date?: string | null
           title?: string
           updated_at?: string | null
         }
@@ -582,6 +591,13 @@ export type Database = {
             columns: ["funnel_id"]
             isOneToOne: false
             referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_checklist_linked_task_id_fkey"
+            columns: ["linked_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
