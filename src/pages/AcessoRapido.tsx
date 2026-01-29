@@ -27,6 +27,7 @@ import {
   FileAudio
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NoteWidget } from "@/components/notes/NoteWidget";
 
 const tools = [
   {
@@ -157,6 +158,11 @@ export default function AcessoRapido() {
         <button className="p-2 rounded-lg hover:bg-muted transition-colors">
           <LayoutGrid className="h-5 w-5 text-muted-foreground" />
         </button>
+      </div>
+
+      {/* Note Widget */}
+      <div className="mb-6">
+        <NoteWidget />
       </div>
 
       {/* Tools Grid */}
