@@ -45,6 +45,7 @@ import {
   ExternalLink,
   Play,
   Pause,
+  ListPlus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -63,6 +64,7 @@ import {
   useToggleTaskComplete,
   useToggleTaskDoing,
 } from "@/hooks/useTasks";
+import { BulkTaskModal } from "@/components/tasks/BulkTaskModal";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { AdminTasksPanel } from "@/components/tasks/AdminTasksPanel";
 import { TaskKanban } from "@/components/tasks/TaskKanban";
@@ -108,6 +110,7 @@ export default function Tarefas() {
   const [filterRecurrence, setFilterRecurrence] = useState<string>("all");
   const [filterDateRange, setFilterDateRange] = useState<string>("all");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -516,13 +519,22 @@ export default function Tarefas() {
           )}
 
           {isAdmin && (
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Nova Tarefa
-                </Button>
-              </DialogTrigger>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => setIsBulkModalOpen(true)}
+              >
+                <ListPlus className="h-4 w-4" />
+                <span className="hidden sm:inline">Criar em Massa</span>
+              </Button>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Nova Tarefa
+                  </Button>
+                </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>
@@ -695,6 +707,7 @@ export default function Tarefas() {
               </div>
             </DialogContent>
           </Dialog>
+            </div>
           )}
         </div>
       </div>
@@ -935,6 +948,12 @@ export default function Tarefas() {
         taskId={selectedTaskId}
         open={isDetailOpen}
         onOpenChange={setIsDetailOpen}
+      />
+
+      {/* Bulk Task Modal */}
+      <BulkTaskModal
+        open={isBulkModalOpen}
+        onOpenChange={setIsBulkModalOpen}
       />
     </div>
   );
