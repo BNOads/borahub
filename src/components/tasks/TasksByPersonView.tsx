@@ -203,14 +203,6 @@ export function TasksByPersonView({
     );
   };
 
-  const getCategoryBadge = (category: string | null) => {
-    if (!category) return null;
-    return (
-      <Badge variant="outline" className="text-xs">
-        {category}
-      </Badge>
-    );
-  };
 
   const formatDate = (date: string | null) => {
     if (!date) return "-";
@@ -667,7 +659,6 @@ export function TasksByPersonView({
                         <TableHead className="w-12"></TableHead>
                         <TableHead>Tarefa</TableHead>
                         <TableHead className="w-[100px]">Prioridade</TableHead>
-                        <TableHead className="w-[140px]">Categoria</TableHead>
                         <TableHead className="w-[100px]">Prazo</TableHead>
                         <TableHead className="w-[100px]">Status</TableHead>
                         {onDeleteTask && <TableHead className="w-12"></TableHead>}
@@ -748,15 +739,15 @@ export function TasksByPersonView({
                               )}
                             </TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-start gap-2">
                                 {isDoing && (
-                                  <span className="relative flex h-2.5 w-2.5">
+                                  <span className="relative flex h-2.5 w-2.5 mt-1 shrink-0">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
                                   </span>
                                 )}
                                 <span
-                                  className={`truncate ${
+                                  className={`break-words ${
                                     task.completed
                                       ? "line-through text-muted-foreground"
                                       : isDoing
@@ -767,14 +758,13 @@ export function TasksByPersonView({
                                   {task.title}
                                 </span>
                                 {task.recurrence && task.recurrence !== "none" && (
-                                  <Badge variant="secondary" className="text-[10px] px-1.5">
+                                  <Badge variant="secondary" className="text-[10px] px-1.5 shrink-0">
                                     🔁
                                   </Badge>
                                 )}
                               </div>
                             </TableCell>
                             <TableCell>{getPriorityBadge(task.priority)}</TableCell>
-                            <TableCell>{getCategoryBadge(task.category)}</TableCell>
                             <TableCell>
                               <span
                                 className={
