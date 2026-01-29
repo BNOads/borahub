@@ -13,6 +13,7 @@ import AcessoRapido from "./pages/AcessoRapido";
 import Tarefas from "./pages/Tarefas";
 import TarefaDetalhe from "./pages/TarefaDetalhe";
 import Placeholder from "./pages/Placeholder";
+import ReunioesView from "./pages/ReunioesView";
 import ConteudoView from "./pages/ConteudoView";
 import NotFound from "./pages/NotFound";
 import Senhas from "./pages/Senhas";
@@ -96,7 +97,7 @@ const App = () => (
               <Route path="/links" element={<Links />} />
               <Route path="/senhas" element={<Senhas />} />
               <Route path="/conteudo" element={<ConteudoView />} />
-              <Route path="/reunioes" element={<Placeholder />} />
+              <Route path="/reunioes" element={<ReunioesView />} />
               <Route path="/agenda" element={<Agenda />} />
               <Route path="/funis" element={<FunisView />} />
               <Route path="/funis/:id" element={<FunnelPanel />} />
