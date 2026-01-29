@@ -605,3 +605,36 @@ export function useBulkUpdateTasks() {
     },
   });
 }
+
+export function useBulkDeleteTasks() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (taskIds: string[]) => {
+      // Primeiro exclui subtarefas associadas
+      const { error: subtasksError } = await supabase
+        .from("subtasks")
+        .delete()
+        .in("task_id", taskIds);
+
+      if (subtasksError) {
+        console.error("Erro ao excluir subtarefas:", subtasksError);
+      }
+
+      // Depois exclui as tarefas
+      const { error } = await supabase
+        .from("tasks")
+        .delete()
+        .in("id", taskIds);
+
+      if (error) throw error;
+
+      return taskIds.length;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.today() });
+      queryClient.invalidateQueries({ queryKey: ["tasks", "user"] });
+    },
+  });
+}
