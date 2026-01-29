@@ -549,3 +549,59 @@ export function useToggleTaskDoing() {
     },
   });
 }
+
+export function useBulkUpdateTasks() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      taskIds, 
+      updates,
+      newAssignee 
+    }: { 
+      taskIds: string[]; 
+      updates: Record<string, unknown>;
+      newAssignee?: string;
+    }) => {
+      const { data, error } = await supabase
+        .from("tasks")
+        .update(updates)
+        .in("id", taskIds)
+        .select();
+
+      if (error) throw error;
+
+      // Enviar notificação se mudou o responsável
+      if (newAssignee && data && data.length > 0) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("full_name", newAssignee)
+          .single();
+
+        if (profileData?.id) {
+          const taskTitles = data.slice(0, 3).map(t => t.title);
+          const remaining = data.length - 3;
+          let message = taskTitles.map(t => `• ${t}`).join("\n");
+          if (remaining > 0) {
+            message += `\n... e mais ${remaining}`;
+          }
+
+          await supabase.from("notifications").insert({
+            title: `${data.length} tarefa${data.length > 1 ? "s" : ""} atribuída${data.length > 1 ? "s" : ""} a você`,
+            message,
+            type: "info",
+            recipient_id: profileData.id,
+          });
+        }
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: taskKeys.today() });
+      queryClient.invalidateQueries({ queryKey: ["tasks", "user"] });
+    },
+  });
+}

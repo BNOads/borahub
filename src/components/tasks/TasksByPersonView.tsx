@@ -15,6 +15,8 @@ import {
   Play,
   Pause,
   Trash2,
+  Edit3,
+  X,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +53,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { BulkEditModal } from "./BulkEditModal";
 import jsPDF from "jspdf";
 
 interface Task {
@@ -97,6 +100,12 @@ export function TasksByPersonView({
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<{ id: string; title: string } | null>(null);
+  
+  // Estado para seleção múltipla
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  
   const { toast } = useToast();
 
   // Agrupa tarefas por responsável (assignee = full_name)
@@ -369,47 +378,123 @@ export function TasksByPersonView({
     );
   }
 
+  // Toggle seleção de tarefa
+  const toggleTaskSelection = (taskId: string) => {
+    setSelectedTasks(prev => {
+      const next = new Set(prev);
+      if (next.has(taskId)) {
+        next.delete(taskId);
+      } else {
+        next.add(taskId);
+      }
+      return next;
+    });
+  };
+
+  // Selecionar todas as tarefas visíveis
+  const selectAllVisible = () => {
+    const visibleTaskIds = tasksByPerson.flatMap(([, personTasks]) => {
+      const filtered = showCompleted 
+        ? personTasks 
+        : personTasks.filter(t => !t.completed);
+      return filtered.map(t => t.id);
+    });
+    setSelectedTasks(new Set(visibleTaskIds));
+  };
+
+  // Limpar seleção
+  const clearSelection = () => {
+    setSelectedTasks(new Set());
+    setSelectionMode(false);
+  };
+
   return (
     <div className="space-y-4">
       {/* Botões de ação */}
-      <div className="flex justify-end gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={generatePdf}
-          disabled={isGeneratingPdf}
-          className="gap-2"
-        >
-          {isGeneratingPdf ? (
+      <div className="flex justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {selectionMode ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Gerando...
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={clearSelection}
+                className="gap-2"
+              >
+                <X className="h-4 w-4" />
+                Cancelar
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={selectAllVisible}
+                className="gap-2"
+              >
+                Selecionar tudo
+              </Button>
+              {selectedTasks.size > 0 && (
+                <Button
+                  size="sm"
+                  onClick={() => setBulkEditOpen(true)}
+                  className="gap-2"
+                >
+                  <Edit3 className="h-4 w-4" />
+                  Editar {selectedTasks.size} tarefa{selectedTasks.size > 1 ? "s" : ""}
+                </Button>
+              )}
             </>
           ) : (
-            <>
-              <Download className="h-4 w-4" />
-              Baixar PDF
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectionMode(true)}
+              className="gap-2"
+            >
+              <Edit3 className="h-4 w-4" />
+              Editar em massa
+            </Button>
           )}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowCompleted(!showCompleted)}
-          className="gap-2"
-        >
-          {showCompleted ? (
-            <>
-              <EyeOff className="h-4 w-4" />
-              Ocultar concluídas
-            </>
-          ) : (
-            <>
-              <Eye className="h-4 w-4" />
-              Mostrar concluídas
-            </>
-          )}
-        </Button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={generatePdf}
+            disabled={isGeneratingPdf}
+            className="gap-2"
+          >
+            {isGeneratingPdf ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Gerando...
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" />
+                Baixar PDF
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowCompleted(!showCompleted)}
+            className="gap-2"
+          >
+            {showCompleted ? (
+              <>
+                <EyeOff className="h-4 w-4" />
+                Ocultar concluídas
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4" />
+                Mostrar concluídas
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {tasksByPerson.map(([personName, personTasks]) => {
@@ -488,6 +573,7 @@ export function TasksByPersonView({
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/30">
+                        {selectionMode && <TableHead className="w-10"></TableHead>}
                         <TableHead className="w-12"></TableHead>
                         <TableHead className="w-12"></TableHead>
                         <TableHead>Tarefa</TableHead>
@@ -502,16 +588,30 @@ export function TasksByPersonView({
                       {filteredTasks.map((task) => {
                         const overdue = isOverdue(task.due_date ?? null, task.completed);
                         const isDoing = !!task.doing_since;
+                        const isSelected = selectedTasks.has(task.id);
                         return (
                           <TableRow
                             key={task.id}
                             className={`cursor-pointer transition-all ${
-                              isDoing 
-                                ? "bg-primary/10 hover:bg-primary/15 border-l-4 border-l-primary" 
-                                : "hover:bg-muted/50"
+                              isSelected 
+                                ? "bg-primary/20 hover:bg-primary/25" 
+                                : isDoing 
+                                  ? "bg-primary/10 hover:bg-primary/15 border-l-4 border-l-primary" 
+                                  : "hover:bg-muted/50"
                             }`}
-                            onClick={() => onViewDetail(task.id)}
+                            onClick={() => selectionMode ? toggleTaskSelection(task.id) : onViewDetail(task.id)}
                           >
+                            {selectionMode && (
+                              <TableCell
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-center"
+                              >
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleTaskSelection(task.id)}
+                                />
+                              </TableCell>
+                            )}
                             <TableCell
                               onClick={(e) => e.stopPropagation()}
                               className="text-center"
@@ -661,6 +761,14 @@ export function TasksByPersonView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk Edit Modal */}
+      <BulkEditModal
+        open={bulkEditOpen}
+        onOpenChange={setBulkEditOpen}
+        selectedTaskIds={Array.from(selectedTasks)}
+        onSuccess={clearSelection}
+      />
     </div>
   );
 }
