@@ -111,17 +111,13 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
       const selected = content.substring(start, end).trim();
       
       if (selected.length > 0) {
-        const containerRect = containerRef.current?.getBoundingClientRect();
-        const textareaRect = textareaRef.current.getBoundingClientRect();
-        
-        if (containerRect) {
-          setToolbarPosition({
-            top: textareaRect.top - containerRect.top - 45,
-            left: (textareaRect.width / 2) - 75,
-          });
-          setSelectedText(selected);
-          setShowToolbar(true);
-        }
+        // Position toolbar at top-right of textarea
+        setToolbarPosition({
+          top: -40,
+          left: 0,
+        });
+        setSelectedText(selected);
+        setShowToolbar(true);
       } else {
         setShowToolbar(false);
         setSelectedText("");
