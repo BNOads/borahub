@@ -16,7 +16,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { Calendar, Plus, Trash2 } from "lucide-react";
+import { Calendar, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -24,7 +24,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { MeetingWithBlocks, MeetingBlock as MeetingBlockType } from "@/hooks/useMeetings";
 import { useUpdateMeeting, useDeleteMeeting } from "@/hooks/useMeetings";
-import { useCreateBlock, useReorderBlocks } from "@/hooks/useMeetingBlocks";
+import { useReorderBlocks } from "@/hooks/useMeetingBlocks";
 import { MeetingBlock } from "./MeetingBlock";
 import { ConvertBlockToTaskModal } from "./ConvertBlockToTaskModal";
 
@@ -45,7 +45,6 @@ export function MeetingEditor({ meeting, onMeetingDeleted }: MeetingEditorProps)
 
   const updateMeeting = useUpdateMeeting();
   const deleteMeeting = useDeleteMeeting();
-  const createBlock = useCreateBlock();
   const reorderBlocks = useReorderBlocks();
 
   const sensors = useSensors(
@@ -86,17 +85,6 @@ export function MeetingEditor({ meeting, onMeetingDeleted }: MeetingEditorProps)
         meeting_date: format(date, "yyyy-MM-dd"),
       });
     }
-  };
-
-  const handleAddBlock = () => {
-    const maxOrderIndex = blocks.length > 0 
-      ? Math.max(...blocks.map((b) => b.order_index)) 
-      : -1;
-    
-    createBlock.mutate({
-      meetingId: meeting.id,
-      orderIndex: maxOrderIndex + 1,
-    });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -206,19 +194,6 @@ export function MeetingEditor({ meeting, onMeetingDeleted }: MeetingEditorProps)
           </SortableContext>
         </DndContext>
 
-        {/* Add Block Button */}
-        <Button
-          variant="outline"
-          onClick={handleAddBlock}
-          className={cn(
-            "w-full mt-4 border-dashed",
-            createBlock.isPending && "opacity-50"
-          )}
-          disabled={createBlock.isPending}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Adicionar Bloco
-        </Button>
       </div>
 
       {/* Convert to Task Modal */}

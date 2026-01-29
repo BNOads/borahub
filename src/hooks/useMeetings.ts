@@ -90,19 +90,28 @@ export function useCreateMeeting() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (data: { title: string; meeting_date: string; meeting_time?: string }) => {
+    mutationFn: async (data: { title: string; meeting_date: string }) => {
       const { data: meeting, error } = await supabase
         .from("meetings")
         .insert({
           title: data.title,
           meeting_date: data.meeting_date,
-          meeting_time: data.meeting_time || null,
           created_by: user?.id,
         })
         .select()
         .single();
 
       if (error) throw error;
+
+      // Criar bloco inicial automaticamente
+      await supabase
+        .from("meeting_blocks")
+        .insert({
+          meeting_id: meeting.id,
+          content: "",
+          order_index: 0,
+        });
+
       return meeting as Meeting;
     },
     onSuccess: () => {
