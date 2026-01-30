@@ -9,10 +9,10 @@ import {
   ListTodo
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { MeetingBlock as MeetingBlockType } from "@/hooks/useMeetings";
 import { useUpdateBlock, useDeleteBlock } from "@/hooks/useMeetingBlocks";
+import { RichTextEditor } from "./RichTextEditor";
 
 interface MeetingBlockProps {
   block: MeetingBlockType;
@@ -20,31 +20,24 @@ interface MeetingBlockProps {
   onConvertToTask: (block: MeetingBlockType) => void;
 }
 
-// Helper to strip HTML tags from content
+// Helper to strip HTML tags from content for task creation
 function stripHtml(html: string): string {
   if (!html) return "";
-  // Replace <br> and </div> with newlines, then strip all other tags
   const withLineBreaks = html
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/div>/gi, "\n")
     .replace(/<\/p>/gi, "\n");
-  // Remove all remaining HTML tags
   const textOnly = withLineBreaks.replace(/<[^>]*>/g, "");
-  // Decode HTML entities
   const textarea = document.createElement("textarea");
   textarea.innerHTML = textOnly;
   return textarea.value.trim();
 }
 
 export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlockProps) {
-  // Clean HTML on initial load
-  const cleanContent = stripHtml(block.content);
-  const [content, setContent] = useState(cleanContent);
+  const [content, setContent] = useState(block.content);
   const [isSaving, setIsSaving] = useState(false);
   const [showToolbar, setShowToolbar] = useState(false);
-  const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
   const [selectedText, setSelectedText] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -66,18 +59,10 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
     transition,
   };
 
-  // Sync content from props (clean HTML)
+  // Sync content from props
   useEffect(() => {
-    setContent(stripHtml(block.content));
+    setContent(block.content);
   }, [block.content]);
-
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.max(60, textareaRef.current.scrollHeight)}px`;
-    }
-  }, [content]);
 
   // Debounced save
   const saveContent = useCallback((value: string) => {
@@ -97,31 +82,18 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
     }, 1500);
   }, [block.id, meetingId, updateBlock]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value;
-    setContent(newContent);
-    saveContent(newContent);
+  const handleChange = (value: string) => {
+    setContent(value);
+    saveContent(value);
   };
 
-  // Handle text selection for toolbar
-  const handleSelect = () => {
-    if (textareaRef.current) {
-      const start = textareaRef.current.selectionStart;
-      const end = textareaRef.current.selectionEnd;
-      const selected = content.substring(start, end).trim();
-      
-      if (selected.length > 0) {
-        // Position toolbar at top-right of textarea
-        setToolbarPosition({
-          top: -40,
-          left: 0,
-        });
-        setSelectedText(selected);
-        setShowToolbar(true);
-      } else {
-        setShowToolbar(false);
-        setSelectedText("");
-      }
+  const handleSelectionChange = (selection: { text: string; index: number; length: number } | null) => {
+    if (selection && selection.text.length > 0) {
+      setSelectedText(selection.text);
+      setShowToolbar(true);
+    } else {
+      setShowToolbar(false);
+      setSelectedText("");
     }
   };
 
@@ -131,8 +103,8 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
       if (
         toolbarRef.current && 
         !toolbarRef.current.contains(e.target as Node) &&
-        textareaRef.current &&
-        !textareaRef.current.contains(e.target as Node)
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
       ) {
         setShowToolbar(false);
       }
@@ -159,7 +131,8 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
   };
 
   const handleDelete = () => {
-    if (content.trim() && !confirm("Tem certeza que deseja remover este bloco?")) {
+    const plainContent = stripHtml(content);
+    if (plainContent && !confirm("Tem certeza que deseja remover este bloco?")) {
       return;
     }
     deleteBlock.mutate({ id: block.id, meetingId });
@@ -186,15 +159,11 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
 
       {/* Content */}
       <div ref={containerRef} className="ml-6 relative">
-        {/* Floating Toolbar */}
-        {showToolbar && (
+        {/* Floating Toolbar for Selection */}
+        {showToolbar && selectedText && (
           <div
             ref={toolbarRef}
-            className="absolute z-50 flex items-center gap-1 bg-popover border rounded-lg shadow-lg p-1"
-            style={{
-              top: `${toolbarPosition.top}px`,
-              left: `${toolbarPosition.left}px`,
-            }}
+            className="absolute z-50 flex items-center gap-1 bg-popover border rounded-lg shadow-lg p-1 -top-10 left-0"
           >
             <Button
               variant="ghost"
@@ -208,15 +177,12 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
           </div>
         )}
 
-        {/* Editable Content */}
-        <Textarea
-          ref={textareaRef}
+        {/* Rich Text Editor */}
+        <RichTextEditor
           value={content}
           onChange={handleChange}
-          onSelect={handleSelect}
-          onMouseUp={handleSelect}
+          onSelectionChange={handleSelectionChange}
           placeholder="Digite o assunto aqui..."
-          className="min-h-[60px] resize-none border-0 p-0 focus-visible:ring-0 text-base bg-transparent"
         />
 
         {/* Footer */}
