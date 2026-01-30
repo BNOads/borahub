@@ -394,6 +394,16 @@ export default function Tarefas() {
     setIsDetailOpen(true);
   };
 
+  const handleAddTaskForPerson = (personName: string) => {
+    setFormData({
+      ...emptyFormData,
+      assignee: personName,
+    });
+    setEditingTaskId(null);
+    setPreviousAssignee(null);
+    setIsDialogOpen(true);
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "alta":
@@ -1020,6 +1030,7 @@ export default function Tarefas() {
               onViewDetail={handleOpenDetail}
               onToggleDoing={handleToggleDoing}
               onDeleteTask={handleDeleteTask}
+              onAddTaskForPerson={handleAddTaskForPerson}
             />
           ) : (
             <div className="space-y-6">

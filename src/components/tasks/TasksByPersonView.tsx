@@ -18,6 +18,7 @@ import {
   Trash2,
   Edit3,
   X,
+  Plus,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +87,7 @@ interface TasksByPersonViewProps {
   onViewDetail: (id: string) => void;
   onToggleDoing?: (id: string, isDoing: boolean) => void;
   onDeleteTask?: (id: string) => Promise<void>;
+  onAddTaskForPerson?: (personName: string) => void;
 }
 
 export function TasksByPersonView({
@@ -96,6 +98,7 @@ export function TasksByPersonView({
   onViewDetail,
   onToggleDoing,
   onDeleteTask,
+  onAddTaskForPerson,
 }: TasksByPersonViewProps) {
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [showCompleted, setShowCompleted] = useState(false);
@@ -595,6 +598,28 @@ export function TasksByPersonView({
 
                   <div className="flex-1 min-w-0 flex items-center gap-2">
                     <h3 className="font-semibold truncate">{personName}</h3>
+                    
+                    {/* Botão para adicionar nova tarefa para a pessoa */}
+                    {onAddTaskForPerson && !selectionMode && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onAddTaskForPerson(personName);
+                              }}
+                              className="p-1 rounded-md transition-colors hover:bg-accent text-muted-foreground hover:text-accent-foreground"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            Nova tarefa para {personName}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                     
                     {/* Ícone para selecionar todas as tarefas da pessoa */}
                     {selectionMode && (
