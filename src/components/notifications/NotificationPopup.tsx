@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +16,7 @@ import {
   X,
   Bell,
   ChevronRight,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -25,6 +27,7 @@ import {
 } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { supabase } from "@/integrations/supabase/client";
 
 const typeConfig = {
   info: { icon: Info, color: "text-blue-500", bg: "bg-blue-500/10" },
@@ -34,6 +37,7 @@ const typeConfig = {
 };
 
 export function NotificationPopup() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState<string[]>([]);
   const { data: notifications = [] } = useUnreadNotifications();
@@ -71,6 +75,42 @@ export function NotificationPopup() {
     setOpen(false);
   };
 
+  // Extrai o título da tarefa da mensagem de notificação
+  const extractTaskTitle = (message: string): string | null => {
+    const match = message.match(/à tarefa: "(.+)"/);
+    return match ? match[1] : null;
+  };
+
+  // Navega para a tarefa quando clica na notificação
+  const handleNotificationClick = async (notification: Notification) => {
+    // Verifica se é uma notificação de tarefa
+    if (notification.title === "Nova tarefa atribuída") {
+      const taskTitle = extractTaskTitle(notification.message);
+      if (taskTitle) {
+        // Busca a tarefa pelo título
+        const { data: tasks } = await supabase
+          .from("tasks")
+          .select("id")
+          .eq("title", taskTitle)
+          .limit(1);
+
+        if (tasks && tasks.length > 0) {
+          handleDismiss(notification.id);
+          setOpen(false);
+          navigate(`/tarefas/${tasks[0].id}`);
+          return;
+        }
+      }
+    }
+    // Para outras notificações, apenas dispensa
+    handleDismiss(notification.id);
+  };
+
+  // Verifica se a notificação é clicável
+  const isClickable = (notification: Notification): boolean => {
+    return notification.title === "Nova tarefa atribuída";
+  };
+
   const formatTime = (dateStr: string) => {
     try {
       return formatDistanceToNow(new Date(dateStr), {
@@ -105,10 +145,19 @@ export function NotificationPopup() {
               return (
                 <div
                   key={notification.id}
-                  className="relative p-3 rounded-lg border bg-card hover:bg-accent/5 transition-colors"
+                  className={cn(
+                    "relative p-3 rounded-lg border bg-card transition-colors",
+                    isClickable(notification) 
+                      ? "cursor-pointer hover:bg-accent/10 hover:border-accent/30" 
+                      : "hover:bg-accent/5"
+                  )}
+                  onClick={() => isClickable(notification) && handleNotificationClick(notification)}
                 >
                   <button
-                    onClick={() => handleDismiss(notification.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDismiss(notification.id);
+                    }}
                     className="absolute top-2 right-2 p-1 rounded-full hover:bg-muted transition-colors"
                     title="Dispensar"
                   >
@@ -120,7 +169,12 @@ export function NotificationPopup() {
                       <Icon className={cn("h-4 w-4", config.color)} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">{notification.title}</p>
+                      <p className="font-medium text-sm flex items-center gap-1">
+                        {notification.title}
+                        {isClickable(notification) && (
+                          <ExternalLink className="h-3 w-3 text-accent" />
+                        )}
+                      </p>
                       <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
                         {notification.message}
                       </p>
