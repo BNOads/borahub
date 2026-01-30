@@ -53,17 +53,7 @@ export function WelcomeSection() {
             Bem-vindo, {userName}!
           </h1>
           <p className="text-muted-foreground text-sm">
-            {isLoading ? (
-              <span className="inline-flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Carregando...
-              </span>
-            ) : (
-              <>
-                Você tem <span className="text-accent font-semibold">{pendingCount} {pendingCount === 1 ? 'tarefa' : 'tarefas'}</span> pendentes hoje e{" "}
-                <span className="text-accent font-semibold">{activeFunnelsCount ?? 0} {activeFunnelsCount === 1 ? 'lançamento' : 'lançamentos'}</span> ativos.
-              </>
-            )}
+            Sua central de tarefas, eventos e atalhos de operação.
           </p>
         </div>
 
