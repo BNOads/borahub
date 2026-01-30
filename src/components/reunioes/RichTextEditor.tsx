@@ -1,7 +1,16 @@
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import { cn } from "@/lib/utils";
+import { HardDrive } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { getMediaInfo } from "@/lib/videoUtils";
 
 interface RichTextEditorProps {
   value: string;
@@ -19,6 +28,8 @@ export function RichTextEditor({
   className,
 }: RichTextEditorProps) {
   const quillRef = useRef<ReactQuill>(null);
+  const [driveUrl, setDriveUrl] = useState("");
+  const [drivePopoverOpen, setDrivePopoverOpen] = useState(false);
 
   const modules = useMemo(() => ({
     toolbar: [
@@ -64,8 +75,60 @@ export function RichTextEditor({
     }
   }, [onSelectionChange]);
 
+  const handleEmbedDrive = () => {
+    if (!driveUrl || !quillRef.current) return;
+    
+    const mediaInfo = getMediaInfo(driveUrl);
+    if (mediaInfo.type === "google-drive" && mediaInfo.embedUrl) {
+      const editor = quillRef.current.getEditor();
+      const range = editor.getSelection(true);
+      
+      // Insert a clickable link with a special marker for Drive embeds
+      const embedHtml = `<a href="${mediaInfo.embedUrl}" target="_blank" rel="noopener noreferrer">📁 Arquivo do Google Drive</a>`;
+      editor.clipboard.dangerouslyPasteHTML(range.index, embedHtml);
+      
+      setDriveUrl("");
+      setDrivePopoverOpen(false);
+    }
+  };
+
   return (
     <div className={cn("meeting-rich-editor", className)}>
+      {/* Custom toolbar with Drive embed button */}
+      <div className="flex items-center gap-1 pb-1 border-b border-border mb-1">
+        <Popover open={drivePopoverOpen} onOpenChange={setDrivePopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0"
+              title="Embedar arquivo do Google Drive"
+            >
+              <HardDrive className="h-4 w-4 text-muted-foreground hover:text-primary" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80" align="start">
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Embedar arquivo do Google Drive</p>
+              <Input
+                placeholder="Cole o link do Google Drive..."
+                value={driveUrl}
+                onChange={(e) => setDriveUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleEmbedDrive();
+                  }
+                }}
+              />
+              <Button size="sm" onClick={handleEmbedDrive} className="w-full">
+                Inserir
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
+
       <ReactQuill
         ref={quillRef}
         theme="snow"
