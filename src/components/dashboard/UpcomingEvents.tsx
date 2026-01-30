@@ -287,33 +287,49 @@ export function UpcomingEvents() {
               <div
                 key={day.toISOString()}
                 className={cn(
-                  "aspect-square p-1 rounded-lg text-center relative",
+                  "min-h-[60px] p-1 rounded-lg relative flex flex-col",
                   isToday(day) && "bg-accent/20",
                   dayEvents.length > 0 && "cursor-pointer hover:bg-accent/10"
                 )}
               >
                 <span
                   className={cn(
-                    "text-sm",
+                    "text-sm text-center",
                     isToday(day) && "font-bold text-accent"
                   )}
                 >
                   {format(day, "d")}
                 </span>
                 {dayEvents.length > 0 && (
-                  <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
-                    {dayEvents.slice(0, 3).map((e, i) => {
+                  <div className="flex flex-col gap-0.5 mt-1 overflow-hidden">
+                    {dayEvents.slice(0, 2).map((e, i) => {
                       const colors = eventTypeColors[e.event_type || "outro"] || eventTypeColors.outro;
                       return (
                         <div
                           key={i}
                           className={cn(
-                            "w-1.5 h-1.5 rounded-full",
-                            colors.dot
+                            "flex items-center gap-1 px-1 py-0.5 rounded text-[9px] leading-tight truncate",
+                            colors.bg
                           )}
-                        />
+                          title={e.title}
+                        >
+                          <div
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full flex-shrink-0",
+                              colors.dot
+                            )}
+                          />
+                          <span className={cn("truncate", colors.text)}>
+                            {e.title}
+                          </span>
+                        </div>
                       );
                     })}
+                    {dayEvents.length > 2 && (
+                      <span className="text-[9px] text-muted-foreground text-center">
+                        +{dayEvents.length - 2}
+                      </span>
+                    )}
                   </div>
                 )}
               </div>
