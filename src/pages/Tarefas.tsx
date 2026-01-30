@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -109,6 +111,9 @@ export default function Tarefas() {
   const [filterAssignee, setFilterAssignee] = useState<string>("all");
   const [filterRecurrence, setFilterRecurrence] = useState<string>("all");
   const [filterDateRange, setFilterDateRange] = useState<string>("all");
+  const [customDateStart, setCustomDateStart] = useState<Date | undefined>(undefined);
+  const [customDateEnd, setCustomDateEnd] = useState<Date | undefined>(undefined);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -166,6 +171,21 @@ export default function Tarefas() {
         });
       case "overdue":
         return date < startOfDay(today);
+      case "custom":
+        if (!customDateStart && !customDateEnd) return true;
+        if (customDateStart && customDateEnd) {
+          return isWithinInterval(date, {
+            start: startOfDay(customDateStart),
+            end: endOfDay(customDateEnd),
+          });
+        }
+        if (customDateStart) {
+          return date >= startOfDay(customDateStart);
+        }
+        if (customDateEnd) {
+          return date <= endOfDay(customDateEnd);
+        }
+        return true;
       default:
         return true;
     }
@@ -793,19 +813,147 @@ export default function Tarefas() {
                     </SelectContent>
                   </Select>
 
-                  <Select value={filterDateRange} onValueChange={setFilterDateRange}>
-                    <SelectTrigger className="w-[160px]">
-                      <Calendar className="h-4 w-4 mr-2" />
-                      <SelectValue placeholder="Período" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas as datas</SelectItem>
-                      <SelectItem value="today">Hoje</SelectItem>
-                      <SelectItem value="week">Esta semana</SelectItem>
-                      <SelectItem value="month">Este mês</SelectItem>
-                      <SelectItem value="overdue">Atrasadas</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-[180px] justify-start text-left font-normal gap-2",
+                          filterDateRange !== "all" && "bg-accent text-accent-foreground border-accent hover:bg-accent/90 hover:text-accent-foreground"
+                        )}
+                      >
+                        <Calendar className="h-4 w-4" />
+                        {filterDateRange === "all" && "Todas as datas"}
+                        {filterDateRange === "today" && "Hoje"}
+                        {filterDateRange === "week" && "Esta semana"}
+                        {filterDateRange === "month" && "Este mês"}
+                        {filterDateRange === "overdue" && "Atrasadas"}
+                        {filterDateRange === "custom" && (
+                          customDateStart && customDateEnd 
+                            ? `${format(customDateStart, "dd/MM")} - ${format(customDateEnd, "dd/MM")}`
+                            : customDateStart 
+                              ? `A partir de ${format(customDateStart, "dd/MM")}`
+                              : customDateEnd 
+                                ? `Até ${format(customDateEnd, "dd/MM")}`
+                                : "Personalizado"
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <div className="p-2 space-y-1 border-b">
+                        <Button
+                          variant={filterDateRange === "all" ? "secondary" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            setFilterDateRange("all");
+                            setCustomDateStart(undefined);
+                            setCustomDateEnd(undefined);
+                            setDatePopoverOpen(false);
+                          }}
+                        >
+                          Todas as datas
+                        </Button>
+                        <Button
+                          variant={filterDateRange === "today" ? "secondary" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            setFilterDateRange("today");
+                            setCustomDateStart(undefined);
+                            setCustomDateEnd(undefined);
+                            setDatePopoverOpen(false);
+                          }}
+                        >
+                          Hoje
+                        </Button>
+                        <Button
+                          variant={filterDateRange === "week" ? "secondary" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            setFilterDateRange("week");
+                            setCustomDateStart(undefined);
+                            setCustomDateEnd(undefined);
+                            setDatePopoverOpen(false);
+                          }}
+                        >
+                          Esta semana
+                        </Button>
+                        <Button
+                          variant={filterDateRange === "month" ? "secondary" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            setFilterDateRange("month");
+                            setCustomDateStart(undefined);
+                            setCustomDateEnd(undefined);
+                            setDatePopoverOpen(false);
+                          }}
+                        >
+                          Este mês
+                        </Button>
+                        <Button
+                          variant={filterDateRange === "overdue" ? "secondary" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            setFilterDateRange("overdue");
+                            setCustomDateStart(undefined);
+                            setCustomDateEnd(undefined);
+                            setDatePopoverOpen(false);
+                          }}
+                        >
+                          Atrasadas
+                        </Button>
+                      </div>
+                      <div className="p-3 space-y-3">
+                        <p className="text-sm font-medium text-muted-foreground">Período personalizado</p>
+                        <div className="flex gap-2 items-center">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">De</Label>
+                            <Input
+                              type="date"
+                              className="h-8 w-[130px]"
+                              value={customDateStart ? format(customDateStart, "yyyy-MM-dd") : ""}
+                              onChange={(e) => {
+                                const date = e.target.value ? new Date(e.target.value + "T00:00:00") : undefined;
+                                setCustomDateStart(date);
+                                setFilterDateRange("custom");
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Até</Label>
+                            <Input
+                              type="date"
+                              className="h-8 w-[130px]"
+                              value={customDateEnd ? format(customDateEnd, "yyyy-MM-dd") : ""}
+                              onChange={(e) => {
+                                const date = e.target.value ? new Date(e.target.value + "T00:00:00") : undefined;
+                                setCustomDateEnd(date);
+                                setFilterDateRange("custom");
+                              }}
+                            />
+                          </div>
+                        </div>
+                        {filterDateRange === "custom" && (customDateStart || customDateEnd) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              setCustomDateStart(undefined);
+                              setCustomDateEnd(undefined);
+                              setFilterDateRange("all");
+                            }}
+                          >
+                            Limpar período
+                          </Button>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </>
               )}
             </div>
