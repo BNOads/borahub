@@ -287,7 +287,7 @@ export function UpcomingEvents() {
               <div
                 key={day.toISOString()}
                 className={cn(
-                  "min-h-[60px] p-1 rounded-lg relative flex flex-col",
+                  "min-h-[70px] p-1 rounded-lg relative flex flex-col",
                   isToday(day) && "bg-accent/20",
                   dayEvents.length > 0 && "cursor-pointer hover:bg-accent/10"
                 )}
@@ -301,14 +301,14 @@ export function UpcomingEvents() {
                   {format(day, "d")}
                 </span>
                 {dayEvents.length > 0 && (
-                  <div className="flex flex-col gap-0.5 mt-1 overflow-hidden">
+                  <div className="flex flex-col gap-0.5 mt-1">
                     {dayEvents.slice(0, 2).map((e, i) => {
                       const colors = eventTypeColors[e.event_type || "outro"] || eventTypeColors.outro;
                       return (
                         <div
                           key={i}
                           className={cn(
-                            "flex items-center gap-1 px-1 py-0.5 rounded text-[9px] leading-tight truncate",
+                            "flex items-center gap-1 px-1 py-0.5 rounded text-[9px] leading-tight",
                             colors.bg
                           )}
                           title={e.title}
@@ -319,7 +319,7 @@ export function UpcomingEvents() {
                               colors.dot
                             )}
                           />
-                          <span className={cn("truncate", colors.text)}>
+                          <span className={cn("break-words line-clamp-2", colors.text)}>
                             {e.title}
                           </span>
                         </div>
