@@ -609,7 +609,7 @@ export function TasksByPersonView({
                                 e.stopPropagation();
                                 onAddTaskForPerson(personName);
                               }}
-                              className="p-1 rounded-md transition-colors hover:bg-accent text-muted-foreground hover:text-accent-foreground"
+                              className="p-1.5 rounded-full transition-colors bg-accent text-accent-foreground hover:bg-accent/80 shadow-sm"
                             >
                               <Plus className="h-4 w-4" />
                             </button>
