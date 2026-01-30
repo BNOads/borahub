@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -18,7 +17,6 @@ export default function Login() {
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [attempts, setAttempts] = useState(0);
@@ -79,7 +77,7 @@ export default function Login() {
         setIsLoading(true);
 
         try {
-            await signIn(email, password, rememberMe);
+            await signIn(email, password, true);
             // Aguarda o estado ser atualizado antes de verificar redirecionamento
             // O useEffect se encarregará da navegação
         } catch (err: any) {
@@ -171,21 +169,6 @@ export default function Login() {
                                     minLength={8}
                                 />
                             </div>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                            <Checkbox
-                                id="remember"
-                                checked={rememberMe}
-                                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                                disabled={isBlocked || isLoading}
-                            />
-                            <Label
-                                htmlFor="remember"
-                                className="text-sm font-normal cursor-pointer"
-                            >
-                                Lembrar-me por 30 dias
-                            </Label>
                         </div>
 
                         <Button
