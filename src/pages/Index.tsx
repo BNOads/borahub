@@ -16,13 +16,13 @@ const Index = () => {
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <TodaysTasks />
-        <BoraNewsWidget />
+        <UpcomingEvents />
       </div>
 
       <ActiveLaunches />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <UpcomingEvents />
+        <BoraNewsWidget />
         <PendingPDIs />
       </div>
 
