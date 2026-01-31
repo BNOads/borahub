@@ -523,6 +523,28 @@ export function CopyAgentView() {
                       scheduledFor={copy.scheduledFor}
                       onSave={() => handleSave(copy)}
                       onRegenerate={() => handleRegenerate(copy.id)}
+                      onUpdateContent={(newContent) => {
+                        setGeneratedCopies((prev) =>
+                          prev.map((c) =>
+                            c.id === copy.id ? { ...c, content: newContent, saved: false } : c
+                          )
+                        );
+                      }}
+                      onRewriteWithAI={async (instructions) => {
+                        const { data, error } = await supabase.functions.invoke("agent-rewrite-copy", {
+                          body: {
+                            original_copy: copy.content,
+                            instructions,
+                            channel: copy.channel,
+                          },
+                        });
+                        if (error) throw error;
+                        setGeneratedCopies((prev) =>
+                          prev.map((c) =>
+                            c.id === copy.id ? { ...c, content: data.copy, saved: false } : c
+                          )
+                        );
+                      }}
                       isRegenerating={regeneratingId === copy.id}
                       isSaved={copy.saved}
                     />
