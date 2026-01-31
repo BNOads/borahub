@@ -19,7 +19,8 @@ import {
   FunnelMatchedSales,
 } from "@/components/funnel-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutDashboard, Settings, Link2, BookOpen, AlertTriangle, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Settings, BookOpen, AlertTriangle, ClipboardList, Sparkles } from "lucide-react";
+import { FunnelCopyAgent } from "@/components/funnel-panel/FunnelCopyAgent";
 import { useQuery } from "@tanstack/react-query";
 
 export default function FunnelPanel() {
@@ -116,7 +117,7 @@ export default function FunnelPanel() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 h-12">
+        <TabsList className="grid w-full grid-cols-5 h-12">
           <TabsTrigger value="overview" className="gap-2">
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">Visão Geral</span>
@@ -128,6 +129,10 @@ export default function FunnelPanel() {
           <TabsTrigger value="checklist" className="gap-2">
             <ClipboardList className="h-4 w-4" />
             <span className="hidden sm:inline">Checklist</span>
+          </TabsTrigger>
+          <TabsTrigger value="copy-agent" className="gap-2">
+            <Sparkles className="h-4 w-4" />
+            <span className="hidden sm:inline">Agente de Copy</span>
           </TabsTrigger>
           <TabsTrigger value="diary" className="gap-2">
             <BookOpen className="h-4 w-4" />
@@ -175,6 +180,11 @@ export default function FunnelPanel() {
         {/* Tab: Checklist */}
         <TabsContent value="checklist" className="space-y-6">
           <FunnelChecklist funnelId={funnel.id} funnelCategory={funnel.category || undefined} />
+        </TabsContent>
+
+        {/* Tab: Agente de Copy */}
+        <TabsContent value="copy-agent" className="space-y-6">
+          <FunnelCopyAgent funnel={funnel} />
         </TabsContent>
 
         {/* Tab: Diário */}
