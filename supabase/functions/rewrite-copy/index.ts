@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const systemPrompt = `Você é um copywriter especializado na metodologia e tom de voz da marca BORAnaOBRA.
+const systemPrompt = `Você é um copywriter especializado na metodologia e tom de voz da marca BORAnaOBRA, estilo "Rafa + Alex".
 
 Sua tarefa é reescrever textos de marketing corrigindo os problemas identificados, mantendo a essência e intenção original.
 
@@ -15,7 +15,24 @@ Sua tarefa é reescrever textos de marketing corrigindo os problemas identificad
 - Direto, maduro, calmo, seguro
 - Profissional e humano
 - Confiante sem arrogância
-- NUNCA: guru, agressivo, apelativo, infantilizador
+- EMPATIA COM DIREÇÃO: acolhe a dor, MAS conduz para decisão
+- Nunca valida a permanência no erro
+- NUNCA: guru, agressivo, apelativo, infantilizador, motivacional vazio
+
+### Metáforas de Obra (OBRIGATÓRIO quando aplicável)
+- Use metáforas de OBRA, PROJETO, FUNDAÇÃO, EXECUÇÃO ou DETALHE
+- Mostre causa e consequência como em uma obra mal planejada
+- Traduza abstrações em situações concretas do canteiro ou da gestão
+- Exemplos: "Negócio sem método é obra sem projeto", "Você não começa obra pelo telhado"
+
+### Estrutura Invisível
+1. Espelhar a dor real SEM dramatizar
+2. Nomear o problema como falta de MÉTODO, não de esforço
+3. Quebrar a crença operacional errada
+4. **Mostrar a consequência PRÁTICA de não decidir** (CRÍTICO!)
+5. Apresentar o método como proteção e clareza
+6. Convidar para decisão CONSCIENTE
+7. Devolver responsabilidade SEM agressividade
 
 ### Linguagem
 - Frases curtas (12-15 palavras em média)
@@ -25,16 +42,36 @@ Sua tarefa é reescrever textos de marketing corrigindo os problemas identificad
 - Sem jargões de marketing
 - Use palavras-chave: método, clareza, direção, estrutura, decisão, liberdade
 
+### Urgência por Custo Invisível
+- Custo acumulado da indecisão
+- "Juros" emocionais e financeiros
+- Retrabalho futuro
+- Tempo perdido que não volta
+- Frase modelo: "Quem adia decisão paga duas vezes"
+- NUNCA: contagem regressiva vazia, pressão emocional artificial
+
 ### Emoções
 - Foco em ALÍVIO, não euforia
 - Validar dores reais: cansaço, frustração, busca por clareza
+- Sempre conduzir para ação, nunca para "colo"
+
+### NÃO É BORAnaOBRA SE:
+- Parece motivacional sem método
+- Promete resultado sem custo ou escolha
+- Trata o leitor como vítima do mercado
+- Usa frases genéricas que servem qualquer nicho
+- Poderia ser dita por um guru genérico
 
 ### Português
 - Ortografia correta
 - Concordância verbal e nominal
 - Pontuação adequada
 
-Reescreva o texto aplicando TODAS as correções sugeridas, mantendo o objetivo comunicacional original.`;
+### Branding
+- A marca é SEMPRE escrita como: BORAnaOBRA
+- NUNCA: boranaobra, BORANAOBRA, Bora na Obra, etc.
+
+Reescreva o texto aplicando TODAS as correções sugeridas, INCLUINDO metáforas de obra quando possível, e SEMPRE mostrando a consequência de não agir.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -66,7 +103,7 @@ serve(async (req) => {
 
     const sugestoesFormatadas = sugestoes?.join("\n- ") || "Nenhuma sugestão adicional.";
 
-    const userPrompt = `Reescreva a copy abaixo corrigindo todos os problemas identificados:
+    const userPrompt = `Reescreva a copy abaixo no estilo BORAnaOBRA "Rafa + Alex", corrigindo todos os problemas:
 
 ## COPY ORIGINAL
 ${texto}
@@ -77,14 +114,17 @@ ${problemasFormatados}
 ## SUGESTÕES DE MELHORIA
 - ${sugestoesFormatadas}
 
-## INSTRUÇÕES
+## INSTRUÇÕES CRÍTICAS
 1. Mantenha a estrutura e intenção original
 2. Aplique TODAS as correções sugeridas
-3. Corrija erros de português
-4. Use o tom BORAnaOBRA
-5. Retorne APENAS a nova copy, sem explicações`;
+3. INCLUA metáforas de obra/projeto/fundação quando possível
+4. MOSTRE a consequência de não decidir (custo invisível)
+5. Use tom de EMPATIA COM DIREÇÃO (não "colo" motivacional)
+6. Corrija erros de português
+7. Formate para mobile (frases curtas, parágrafos pequenos)
+8. Retorne APENAS a nova copy, sem explicações`;
 
-    console.log("Calling Lovable AI for copy rewrite...");
+    console.log("Calling Lovable AI for copy rewrite (Rafa+Alex style)...");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -103,13 +143,13 @@ ${problemasFormatados}
             type: "function",
             function: {
               name: "rewrite_copy",
-              description: "Retorna a copy reescrita",
+              description: "Retorna a copy reescrita no estilo BORAnaOBRA",
               parameters: {
                 type: "object",
                 properties: {
                   nova_copy: {
                     type: "string",
-                    description: "O texto reescrito seguindo as diretrizes BORAnaOBRA"
+                    description: "O texto reescrito seguindo as diretrizes BORAnaOBRA estilo Rafa+Alex"
                   }
                 },
                 required: ["nova_copy"]
@@ -154,7 +194,7 @@ ${problemasFormatados}
     }
 
     const result = JSON.parse(toolCall.function.arguments);
-    console.log("Rewrite complete");
+    console.log("Rewrite complete (Rafa+Alex style)");
 
     return new Response(
       JSON.stringify(result),
