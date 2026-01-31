@@ -255,6 +255,72 @@ export type Database = {
         }
         Relationships: []
       }
+      copy_bank: {
+        Row: {
+          author_id: string | null
+          author_name: string
+          channel: string
+          content: string
+          created_at: string
+          funnel_id: string | null
+          funnel_name: string | null
+          funnel_stage: string | null
+          id: string
+          name: string
+          product_name: string | null
+          scheduled_for: string | null
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name: string
+          channel: string
+          content: string
+          created_at?: string
+          funnel_id?: string | null
+          funnel_name?: string | null
+          funnel_stage?: string | null
+          id?: string
+          name: string
+          product_name?: string | null
+          scheduled_for?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string
+          channel?: string
+          content?: string
+          created_at?: string
+          funnel_id?: string | null
+          funnel_name?: string | null
+          funnel_stage?: string | null
+          id?: string
+          name?: string
+          product_name?: string | null
+          scheduled_for?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "copy_bank_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "copy_bank_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       courses: {
         Row: {
           category: string | null
