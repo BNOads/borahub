@@ -103,7 +103,7 @@ serve(async (req) => {
 
     const sugestoesFormatadas = sugestoes?.join("\n- ") || "Nenhuma sugestão adicional.";
 
-    const userPrompt = `Reescreva a copy abaixo no estilo BORAnaOBRA "Rafa + Alex", corrigindo todos os problemas:
+    const userPrompt = `Reescreva a copy abaixo para atingir PONTUAÇÃO MÁXIMA no validador BORAnaOBRA "Rafa + Alex":
 
 ## COPY ORIGINAL
 ${texto}
@@ -114,15 +114,61 @@ ${problemasFormatados}
 ## SUGESTÕES DE MELHORIA
 - ${sugestoesFormatadas}
 
-## INSTRUÇÕES CRÍTICAS
-1. Mantenha a estrutura e intenção original
-2. Aplique TODAS as correções sugeridas
-3. INCLUA metáforas de obra/projeto/fundação quando possível
-4. MOSTRE a consequência de não decidir (custo invisível)
-5. Use tom de EMPATIA COM DIREÇÃO (não "colo" motivacional)
-6. Corrija erros de português
-7. Formate para mobile (frases curtas, parágrafos pequenos)
-8. Retorne APENAS a nova copy, sem explicações`;
+## CRITÉRIOS DE PONTUAÇÃO MÁXIMA (siga TODOS rigorosamente)
+
+### Tom e Voz (18%)
+- Direto, maduro, calmo, seguro
+- EMPATIA COM DIREÇÃO (acolhe a dor, MAS conduz para decisão)
+- NUNCA: guru, agressivo, apelativo, infantilizador, motivacional vazio
+
+### Metáforas de Obra (12%) - OBRIGATÓRIO!
+- INCLUA pelo menos 2-3 metáforas de OBRA, PROJETO, FUNDAÇÃO, EXECUÇÃO
+- Exemplos: "obra sem projeto", "fundação do negócio", "começar pelo telhado", "retrabalho"
+- A metáfora deve SUSTENTAR o raciocínio, não ser decorativa
+
+### Emoções (12%)
+- Foco em ALÍVIO, não euforia
+- Valide dores reais: cansaço, frustração, busca por clareza
+- Conduza para AÇÃO, não para "colo"
+
+### Estrutura Invisível (18%) - Os 7 passos obrigatórios:
+1. Espelhar a dor real SEM dramatizar
+2. Nomear o problema como falta de MÉTODO
+3. Quebrar a crença operacional errada
+4. MOSTRAR A CONSEQUÊNCIA de não decidir (custo invisível) - CRÍTICO!
+5. Apresentar o método como proteção e clareza
+6. Convidar para decisão CONSCIENTE
+7. Devolver responsabilidade SEM agressividade
+
+### Restrições de Linguagem (15%)
+- Frases curtas (12-15 palavras)
+- Parágrafos pequenos (máximo 4 linhas)
+- SEM travessão (—)
+- Máximo 2 emojis
+- SEM jargões de marketing digital (página, carrinho, lançamento, clique, leads, tráfego, conversão, gatilho, webinar, masterclass)
+- Use: método, clareza, direção, estrutura, decisão, liberdade
+
+### Urgência (5%)
+- Por CUSTO INVISÍVEL: juros da indecisão, retrabalho, tempo perdido
+- Frase modelo: "Quem adia decisão paga duas vezes"
+- NUNCA: contagem regressiva vazia, "últimas vagas", pressão artificial
+
+### Formato Mobile (5%)
+- Leitura vertical e respirável
+- Parágrafos curtos
+- Escaneável
+
+### Branding
+- Marca SEMPRE como: BORAnaOBRA (exatamente assim)
+
+## INSTRUÇÕES FINAIS
+1. PRIORIZE conformidade total com as diretrizes sobre manter estrutura original
+2. APLIQUE TODAS as correções - não deixe nenhum problema
+3. ELIMINE qualquer termo de marketing digital
+4. REDUZA exclamações (máximo 1 por parágrafo)
+5. EVITE superlativos e jargões ("ponto de virada", "lucrar de verdade")
+6. Corrija TODOS os erros de português
+7. Retorne APENAS a nova copy, sem explicações`;
 
     console.log("Calling Lovable AI for copy rewrite (Rafa+Alex style)...");
 
