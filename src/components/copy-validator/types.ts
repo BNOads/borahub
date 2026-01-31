@@ -14,6 +14,11 @@ export interface ProblematicSection {
   sugestao_reescrita: string;
 }
 
+export interface ExemploReescrito {
+  original: string;
+  reescrito: string;
+}
+
 export interface ValidationResult {
   pontuacao_geral: number;
   status: "Aprovado" | "Ajustes Recomendados" | "Necessita Revisão" | "Não Aprovado";
@@ -21,6 +26,9 @@ export interface ValidationResult {
   destaques_positivos: string[];
   trechos_problematicos: ProblematicSection[];
   resumo_executivo: string;
+  ajuste_prioritario?: string;
+  exemplo_reescrito?: ExemploReescrito;
+  sinais_alerta?: string[];
 }
 
 export const getStatusColor = (status: ValidationResult["status"]) => {

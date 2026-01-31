@@ -3,7 +3,7 @@ import { ScoreDisplay } from "./ScoreDisplay";
 import { DimensionCard } from "./DimensionCard";
 import { ProblemHighlight } from "./ProblemHighlight";
 import { Button } from "@/components/ui/button";
-import { Copy, CheckCircle, Sparkles, Wand2, Loader2, ChevronDown, ArrowRight } from "lucide-react";
+import { Copy, CheckCircle, Sparkles, Wand2, Loader2, ChevronDown, ArrowRight, Target, AlertTriangle, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import {
   Collapsible,
@@ -24,6 +24,7 @@ interface ValidationResultsProps {
 export function ValidationResults({ result, originalText, onReset, onNewCopy }: ValidationResultsProps) {
   const [showPositives, setShowPositives] = useState(false);
   const [showProblems, setShowProblems] = useState(true);
+  const [showAlerts, setShowAlerts] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleCopyText = async () => {
@@ -64,6 +65,9 @@ export function ValidationResults({ result, originalText, onReset, onNewCopy }: 
       setIsGenerating(false);
     }
   };
+
+  const hasAlerts = result.sinais_alerta && result.sinais_alerta.length > 0;
+  const hasExampleRewrite = result.exemplo_reescrito?.original && result.exemplo_reescrito?.reescrito;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -107,6 +111,71 @@ export function ValidationResults({ result, originalText, onReset, onNewCopy }: 
           </div>
         </div>
       </div>
+
+      {/* Priority Adjustment Card */}
+      {result.ajuste_prioritario && (
+        <div className="p-5 rounded-xl bg-accent/10 border border-accent/30">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-accent/20 rounded-lg shrink-0">
+              <Target className="h-5 w-5 text-accent" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-accent mb-1">🎯 Ajuste Prioritário</h3>
+              <p className="text-sm text-foreground">{result.ajuste_prioritario}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Example Rewrite Card */}
+      {hasExampleRewrite && (
+        <div className="p-5 rounded-xl bg-muted/50 border">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="p-2 bg-primary/10 rounded-lg shrink-0">
+              <Pencil className="h-5 w-5 text-primary" />
+            </div>
+            <h3 className="font-semibold">✏️ Exemplo de Correção</h3>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-lg bg-destructive/5 border border-destructive/20">
+              <p className="text-xs font-medium text-destructive mb-2 uppercase tracking-wide">Original</p>
+              <p className="text-sm italic">"{result.exemplo_reescrito!.original}"</p>
+            </div>
+            <div className="p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+              <p className="text-xs font-medium text-emerald-600 mb-2 uppercase tracking-wide">Tom BORAnaOBRA</p>
+              <p className="text-sm">"{result.exemplo_reescrito!.reescrito}"</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Warning Signs */}
+      {hasAlerts && (
+        <Collapsible open={showAlerts} onOpenChange={setShowAlerts}>
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 text-lg font-semibold hover:text-accent transition-colors w-full text-left">
+              <AlertTriangle className="h-5 w-5 text-orange-500" />
+              Sinais de Alerta ({result.sinais_alerta!.length})
+              <ChevronDown className={cn("ml-auto h-4 w-4 transition-transform", showAlerts && "rotate-180")} />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-4">
+            <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/20">
+              <p className="text-sm text-muted-foreground mb-3">
+                Estes sinais indicam que o texto NÃO está no padrão BORAnaOBRA:
+              </p>
+              <div className="space-y-2">
+                {result.sinais_alerta!.map((alerta, i) => (
+                  <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-orange-500/10">
+                    <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0 mt-0.5" />
+                    <p className="text-sm">{alerta}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       {/* Dimensions */}
       <div className="space-y-4">
@@ -163,4 +232,3 @@ export function ValidationResults({ result, originalText, onReset, onNewCopy }: 
     </div>
   );
 }
-
