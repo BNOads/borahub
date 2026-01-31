@@ -7,6 +7,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -91,6 +92,7 @@ export function FunnelCopyAgent({ funnel }: FunnelCopyAgentProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCopies, setGeneratedCopies] = useState<GeneratedCopy[]>([]);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [generationProgress, setGenerationProgress] = useState({ current: 0, total: 0 });
 
   // Get products for dropdown
   const availableProducts = funnelProducts.length > 0
@@ -129,14 +131,27 @@ export function FunnelCopyAgent({ funnel }: FunnelCopyAgentProps) {
     return data;
   };
 
+  const calculateTotalCopies = () => {
+    if (copyType === "single") {
+      return selectedChannels.length;
+    } else {
+      const totalTimes = schedule.reduce((acc, day) => acc + day.times.length, 0);
+      return totalTimes * selectedChannels.length;
+    }
+  };
+
   const handleGenerate = async () => {
     if (!canGenerate) return;
 
     setIsGenerating(true);
     setGeneratedCopies([]);
+    
+    const total = calculateTotalCopies();
+    setGenerationProgress({ current: 0, total });
 
     try {
       const copies: GeneratedCopy[] = [];
+      let currentCount = 0;
 
       if (copyType === "single") {
         for (const channel of selectedChannels) {
@@ -148,6 +163,8 @@ export function FunnelCopyAgent({ funnel }: FunnelCopyAgentProps) {
             suggestedName: result.suggested_name,
             saved: false,
           });
+          currentCount++;
+          setGenerationProgress({ current: currentCount, total });
         }
       } else {
         for (const day of schedule) {
@@ -163,6 +180,8 @@ export function FunnelCopyAgent({ funnel }: FunnelCopyAgentProps) {
                 scheduledFor,
                 saved: false,
               });
+              currentCount++;
+              setGenerationProgress({ current: currentCount, total });
             }
           }
         }
@@ -175,6 +194,7 @@ export function FunnelCopyAgent({ funnel }: FunnelCopyAgentProps) {
       toast.error("Erro ao gerar copies. Tente novamente.");
     } finally {
       setIsGenerating(false);
+      setGenerationProgress({ current: 0, total: 0 });
     }
   };
 
@@ -446,24 +466,48 @@ export function FunnelCopyAgent({ funnel }: FunnelCopyAgentProps) {
             </div>
 
             {/* Generate Button */}
-            <Button
-              className="w-full h-12 gap-2 rounded-xl font-bold"
-              variant="gold"
-              onClick={handleGenerate}
-              disabled={!canGenerate || isGenerating}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Gerando Copies...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-5 w-5" />
-                  Gerar Copies com IA
-                </>
+            <div className="space-y-3">
+              <Button
+                className="w-full h-12 gap-2 rounded-xl font-bold"
+                variant="gold"
+                onClick={handleGenerate}
+                disabled={!canGenerate || isGenerating}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Gerando Copies...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-5 w-5" />
+                    Gerar Copies com IA
+                  </>
+                )}
+              </Button>
+              
+              {/* Progress Bar */}
+              {isGenerating && generationProgress.total > 0 && (
+                <div className="space-y-2 p-4 bg-muted/50 rounded-xl border border-border/50">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Gerando com IA...
+                    </span>
+                    <span className="font-medium text-accent">
+                      {generationProgress.current}/{generationProgress.total}
+                    </span>
+                  </div>
+                  <Progress 
+                    value={(generationProgress.current / generationProgress.total) * 100} 
+                    className="h-2"
+                  />
+                  <p className="text-xs text-muted-foreground text-center">
+                    {Math.round((generationProgress.current / generationProgress.total) * 100)}% concluído
+                  </p>
+                </div>
               )}
-            </Button>
+            </div>
           </CardContent>
         </Card>
 
