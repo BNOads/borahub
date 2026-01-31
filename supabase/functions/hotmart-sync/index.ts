@@ -668,6 +668,8 @@ serve(async (req) => {
               tracking_source: sale.purchase.tracking?.source || null,
               tracking_source_sck: sale.purchase.tracking?.source_sck || null,
               tracking_external_code: sale.purchase.tracking?.external_code || null,
+              // Derive funnel_source from tracking data
+              funnel_source: sale.purchase.tracking?.source_sck || sale.purchase.tracking?.source || sale.purchase.tracking?.external_code || null,
             };
             
             // Check if sale already exists
@@ -839,6 +841,22 @@ serve(async (req) => {
           
           for (const sale of sales) {
             try {
+              // Extract tracking info for origin
+              const trackingSource = sale.purchase.tracking?.source || null;
+              const trackingSourceSck = sale.purchase.tracking?.source_sck || null;
+              const trackingExternalCode = sale.purchase.tracking?.external_code || null;
+              
+              // Derive funnel_source from tracking data when available
+              // Priority: source_sck (usually contains campaign/funnel name) > source > external_code
+              let funnelSource: string | null = null;
+              if (trackingSourceSck) {
+                funnelSource = trackingSourceSck;
+              } else if (trackingSource) {
+                funnelSource = trackingSource;
+              } else if (trackingExternalCode) {
+                funnelSource = trackingExternalCode;
+              }
+              
               const saleData = {
                 external_id: sale.purchase.transaction,
                 client_name: sale.buyer.name,
@@ -854,6 +872,13 @@ serve(async (req) => {
                   : new Date().toISOString().split('T')[0],
                 status: mapHotmartStatus(sale.purchase.status) === "paid" ? "active" : "cancelled",
                 seller_id: null, // NEVER auto-assign - must be manual
+                payment_type: sale.purchase.payment.type || null,
+                // Tracking fields for UTM and source info
+                tracking_source: trackingSource,
+                tracking_source_sck: trackingSourceSck,
+                tracking_external_code: trackingExternalCode,
+                // Set funnel_source from tracking data
+                funnel_source: funnelSource,
               };
               
               // Check if sale already exists
