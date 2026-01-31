@@ -25,6 +25,7 @@ import {
   Loader2,
   Sparkles,
   Download,
+  Save,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { toast } from "sonner";
@@ -497,20 +498,42 @@ export function CopyAgentView() {
         <div className="space-y-6">
         {generatedCopies.length > 0 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h3 className="text-lg font-bold flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-accent" />
                   Copies Geradas
                 </h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={handleDownloadPDF}
-                >
-                  <Download className="h-4 w-4" />
-                  Baixar PDF
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={async () => {
+                      const unsavedCopies = generatedCopies.filter((c) => !c.saved);
+                      if (unsavedCopies.length === 0) {
+                        toast.info("Todas as copies já estão salvas");
+                        return;
+                      }
+                      for (const copy of unsavedCopies) {
+                        await handleSave(copy);
+                      }
+                      toast.success(`${unsavedCopies.length} copies salvas no banco!`);
+                    }}
+                    disabled={generatedCopies.every((c) => c.saved)}
+                  >
+                    <Save className="h-4 w-4" />
+                    Salvar Todas
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleDownloadPDF}
+                  >
+                    <Download className="h-4 w-4" />
+                    Baixar PDF
+                  </Button>
+                </div>
               </div>
               <ScrollArea className="h-[500px] pr-4">
                 <div className="space-y-4">
