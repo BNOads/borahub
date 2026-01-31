@@ -63,6 +63,7 @@ import { ProfileManagementModal } from "@/components/conteudo/ProfileManagementM
 import { DiretrizesView } from "@/components/conteudo/DiretrizesView";
 import { AgentesIAView } from "@/components/conteudo/AgentesIAView";
 import { CopyValidatorTab } from "@/components/copy-validator/CopyValidatorTab";
+import { CopyAgentView } from "@/components/copy-agent/CopyAgentView";
 import { useSocialPosts, useSocialProfiles, useUpdateSocialPost, SocialPost as ImportedSocialPost, SocialProfile as ImportedSocialProfile, SOCIAL_POSTS_KEY } from "@/hooks/useSocialPosts";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -135,7 +136,7 @@ interface SocialPost {
 
 export default function ConteudoView() {
     const { isAdmin } = useAuth();
-    const [view, setView] = useState<"grid" | "kanban" | "diretrizes" | "agentes" | "validador">("grid");
+    const [view, setView] = useState<"grid" | "kanban" | "diretrizes" | "agentes" | "validador" | "copy-agent">("grid");
     const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -342,6 +343,14 @@ export default function ConteudoView() {
                                 <FileCheck className="h-4 w-4" />
                                 Validador
                             </Button>
+                            <Button
+                                variant={view === "copy-agent" ? "gold" : "ghost"}
+                                className={cn("rounded-xl h-9 gap-2 px-4", view === "copy-agent" && "shadow-md")}
+                                onClick={() => setView("copy-agent")}
+                            >
+                                <Wand2 className="h-4 w-4" />
+                                Agente de Copy
+                            </Button>
                         </div>
                         <div className="flex items-center gap-3 w-full md:w-auto">
                             <div className="relative flex-1 md:w-80">
@@ -385,6 +394,9 @@ export default function ConteudoView() {
                     )}
                     {view === "validador" && (
                         <CopyValidatorTab />
+                    )}
+                    {view === "copy-agent" && (
+                        <CopyAgentView />
                     )}
 
                     <DragOverlay>
