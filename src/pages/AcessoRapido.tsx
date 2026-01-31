@@ -24,7 +24,8 @@ import {
   FileCheck,
   CheckSquare,
   FileBarChart,
-  FileAudio
+  FileAudio,
+  PenTool
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NoteWidget } from "@/components/notes/NoteWidget";
@@ -141,6 +142,13 @@ const tools = [
     href: "/transcricoes",
     icon: FileAudio,
     color: "bg-fuchsia-500/10 text-fuchsia-500",
+  },
+  {
+    name: "Agente de Copy",
+    description: "Gere copies profissionais com IA seguindo a metodologia BORAnaOBRA",
+    href: "/agente-copy",
+    icon: PenTool,
+    color: "bg-rose-500/10 text-rose-500",
   },
 ];
 
