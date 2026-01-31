@@ -209,7 +209,7 @@ export function BulkTaskModal({ open, onOpenChange }: BulkTaskModalProps) {
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!isValid || createBulkTasks.isPending}
+            disabled={createBulkTasks.isPending}
           >
             {createBulkTasks.isPending ? (
               <>
