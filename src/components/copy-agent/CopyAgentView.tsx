@@ -24,7 +24,9 @@ import {
   Image,
   Loader2,
   Sparkles,
+  Download,
 } from "lucide-react";
+import jsPDF from "jspdf";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -224,6 +226,99 @@ export function CopyAgentView() {
     });
   };
 
+  const getChannelLabel = (channelId: string) => {
+    return CHANNELS.find((c) => c.id === channelId)?.label || channelId;
+  };
+
+  const getStageLabel = (stageId: string) => {
+    return STAGES.find((s) => s.id === stageId)?.label || stageId;
+  };
+
+  const handleDownloadPDF = () => {
+    if (generatedCopies.length === 0) return;
+
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const margin = 20;
+    const maxWidth = pageWidth - margin * 2;
+    let yPosition = 20;
+
+    // Header
+    pdf.setFontSize(18);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Copies Geradas - Agente de Copy", margin, yPosition);
+    yPosition += 10;
+
+    // Context info
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(100);
+    
+    const contextInfo = [];
+    if (selectedFunnelData) contextInfo.push(`Funil: ${selectedFunnelData.name}`);
+    if (selectedProduct) contextInfo.push(`Produto: ${selectedProduct}`);
+    if (selectedStage) contextInfo.push(`Etapa: ${getStageLabel(selectedStage)}`);
+    
+    if (contextInfo.length > 0) {
+      pdf.text(contextInfo.join(" | "), margin, yPosition);
+      yPosition += 8;
+    }
+
+    pdf.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, margin, yPosition);
+    yPosition += 15;
+
+    pdf.setTextColor(0);
+
+    // Copies
+    generatedCopies.forEach((copy, index) => {
+      // Check if we need a new page
+      if (yPosition > 250) {
+        pdf.addPage();
+        yPosition = 20;
+      }
+
+      // Copy header
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "bold");
+      const headerText = `${index + 1}. ${getChannelLabel(copy.channel)}${copy.scheduledFor ? ` - ${copy.scheduledFor}` : ""}`;
+      pdf.text(headerText, margin, yPosition);
+      yPosition += 8;
+
+      // Copy content
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      
+      const lines = pdf.splitTextToSize(copy.content, maxWidth);
+      lines.forEach((line: string) => {
+        if (yPosition > 280) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+        pdf.text(line, margin, yPosition);
+        yPosition += 5;
+      });
+
+      yPosition += 10;
+    });
+
+    // Footer
+    const pageCount = pdf.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(8);
+      pdf.setTextColor(150);
+      pdf.text(
+        `Gerado pelo BORA Hub - Página ${i} de ${pageCount}`,
+        pageWidth / 2,
+        290,
+        { align: "center" }
+      );
+    }
+
+    const fileName = `copies-${format(new Date(), "yyyy-MM-dd-HHmm")}.pdf`;
+    pdf.save(fileName);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -400,12 +495,23 @@ export function CopyAgentView() {
 
         {/* Generated Copies */}
         <div className="space-y-6">
-          {generatedCopies.length > 0 && (
+        {generatedCopies.length > 0 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-accent" />
-                Copies Geradas
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-accent" />
+                  Copies Geradas
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleDownloadPDF}
+                >
+                  <Download className="h-4 w-4" />
+                  Baixar PDF
+                </Button>
+              </div>
               <ScrollArea className="h-[500px] pr-4">
                 <div className="space-y-4">
                   {generatedCopies.map((copy) => (
