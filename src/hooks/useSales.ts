@@ -309,12 +309,16 @@ export function useCreateSale() {
   
   return useMutation({
     mutationFn: async (input: CreateSaleInput) => {
+      if (!user?.id) {
+        throw new Error("Usuário não autenticado");
+      }
+
       // Create sale
       const { data: sale, error: saleError } = await supabase
         .from('sales')
         .insert({
           ...input,
-          created_by: user?.id,
+          created_by: user.id,
         })
         .select()
         .single();
