@@ -57,8 +57,13 @@ export function SalesDashboard() {
   
   const sellerId = isAdminOrManager ? undefined : user?.id;
   
+  // Determine which seller to filter by (for admin, use sellerFilter if set)
+  const effectiveSellerId = isAdminOrManager 
+    ? (sellerFilter !== 'all' ? sellerFilter : undefined) 
+    : user?.id;
+  
   const { data: sales, isLoading: salesLoading } = useSales(sellerId);
-  const { data: summary, isLoading: summaryLoading } = useCommissionSummary(sellerId);
+  const { data: summary, isLoading: summaryLoading } = useCommissionSummary(effectiveSellerId);
   const { data: installments, isLoading: installmentsLoading } = useInstallments();
   const { data: sellers } = useSellers();
   
