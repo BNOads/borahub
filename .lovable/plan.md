@@ -1,207 +1,109 @@
 
+# Plano: Corrigir Erro ao Associar Vendedor a Venda
 
-# Plano: Agente de Copy - Gerador de Copies com IA
+## Problema Identificado
+O erro "duplicate key value violates unique constraint 'sales_external_id_key'" ocorre quando um usuário tenta associar um vendedor a uma venda existente. O sistema tenta inserir uma nova venda com o mesmo `external_id` em vez de atualizar a venda existente.
 
-## Resumo
+## Causa Raiz
+1. O modal de criação de venda (`CreateSaleModal.tsx`) verifica se a venda existe antes de decidir entre atualizar ou criar
+2. Essa verificação pode falhar devido a políticas RLS ou problemas de timing
+3. Quando a verificação falha, o código tenta criar uma nova venda com o mesmo `external_id`, violando a constraint única
 
-Criar uma nova ferramenta dentro do sistema que permite **gerar copies do zero** usando a mesma IA do validador (metodologia BORAnaOBRA "Rafa + Alex"). O sistema será contextualizado com base no funil, produto e etapa selecionados.
+## Solução Proposta
 
----
+### 1. Melhorar a Lógica de Associação no CreateSaleModal
+- Usar `upsert` ao invés de `insert` separado para evitar erros de constraint única
+- Adicionar tratamento de erro específico para constraint de `external_id`
+- Se ocorrer erro de duplicata, tentar fazer UPDATE automaticamente
 
-## Funcionalidades
+### 2. Atualizar o Hook useCreateSale
+- Modificar para usar `upsert` com `onConflict: 'external_id'`
+- Isso garante que vendas duplicadas sejam atualizadas em vez de falhar
 
-### 1. Seleção de Contexto
-- **Funil**: Dropdown com funis ativos (nome + categoria)
-- **Produto**: Dropdown com produtos vinculados ao funil selecionado
-- **Etapa do Funil**: Seletor com opções como:
-  - Aquecimento
-  - Captação
-  - CPL/Conteúdo
-  - Evento/Aula
-  - Abertura de Carrinho
-  - Carrinho Aberto
-  - Fechamento
-  - Pós-venda
-
-### 2. Tipo de Copy
-**Uma copy ou cronograma:**
-- **Copy única**: Gera apenas 1 copy
-- **Cronograma**: Define quantidade de dias + horários específicos para cada copy
-
-**Canal(is) de distribuição (múltipla seleção):**
-- E-mail
-- WhatsApp Grupos
-- WhatsApp 1x1
-- SMS
-- Áudios (roteiro)
-- Conteúdo (posts/stories)
-
-### 3. Geração com IA
-- Usa o prompt completo do estilo "Rafa + Alex"
-- Adapta formato automaticamente por canal:
-  - **E-mail**: Assunto + corpo completo
-  - **WhatsApp Grupos**: Texto curto + CTA direto
-  - **WhatsApp 1x1**: Tom pessoal, conversacional
-  - **SMS**: Limite de 160 caracteres
-  - **Áudios**: Roteiro coloquial para gravação
-  - **Conteúdo**: Legenda + hashtags
-
-### 4. Banco de Copies
-Nova tabela para salvar todas as copies geradas:
-- Nome da copy
-- Autor
-- Tag(s)
-- Funil correspondente
-- Canal
-- Conteúdo
-- Data de criação
+### 3. Adicionar Fallback de Erro
+- Capturar o erro específico "sales_external_id_key"
+- Quando ocorrer, tentar atualizar a venda existente automaticamente
+- Mostrar mensagem clara ao usuário
 
 ---
 
-## Arquivos a Criar/Modificar
+## Detalhes Técnicos
 
-| Arquivo | Tipo | Descrição |
-|---------|------|-----------|
-| `src/components/copy-agent/CopyAgentView.tsx` | Novo | Interface principal do gerador |
-| `src/components/copy-agent/CopyGeneratorModal.tsx` | Novo | Modal com formulário completo |
-| `src/components/copy-agent/CopyScheduleConfig.tsx` | Novo | Configuração de cronograma (dias/horários) |
-| `src/components/copy-agent/GeneratedCopyCard.tsx` | Novo | Card para exibir copy gerada |
-| `src/components/copy-agent/CopyBankList.tsx` | Novo | Lista de copies salvas (banco) |
-| `src/hooks/useCopyBank.ts` | Novo | Hook para CRUD do banco de copies |
-| `supabase/functions/generate-copy/index.ts` | Novo | Edge function para geração |
-| Migração SQL | Novo | Tabela `copy_bank` |
-
----
-
-## Estrutura de Banco de Dados
-
-### Nova Tabela: `copy_bank`
-
-```text
-id              UUID PRIMARY KEY
-name            TEXT NOT NULL (nome da copy)
-author_id       UUID (referência ao usuário)
-author_name     TEXT (nome do autor)
-funnel_id       UUID (referência ao funil, nullable)
-funnel_name     TEXT (nome do funil para histórico)
-product_name    TEXT (nome do produto)
-funnel_stage    TEXT (etapa: aquecimento, captacao, etc)
-channel         TEXT (email, whatsapp_grupos, whatsapp_1x1, sms, audio, conteudo)
-tags            TEXT[] (array de tags)
-content         TEXT NOT NULL (a copy gerada)
-scheduled_for   TIMESTAMP (se for parte de cronograma)
-created_at      TIMESTAMP DEFAULT now()
+### Arquivo: `src/components/vendas/CreateSaleModal.tsx`
+**Mudança principal:** Adicionar tratamento de erro no `onSubmit`:
+```typescript
+async function onSubmit(values: FormValues) {
+  try {
+    // ... código existente ...
+    
+    await createSale.mutateAsync({...});
+  } catch (error: any) {
+    // Tratar erro de duplicata
+    if (error.message?.includes('sales_external_id_key')) {
+      // Tentar atualizar a venda existente
+      const { data: existingSale } = await supabase
+        .from('sales')
+        .select('id')
+        .eq('external_id', values.external_id)
+        .maybeSingle();
+      
+      if (existingSale) {
+        await supabase.from('sales')
+          .update({ seller_id: values.seller_id, ... })
+          .eq('id', existingSale.id);
+        // Sucesso!
+        return;
+      }
+    }
+    throw error;
+  }
+}
 ```
 
----
-
-## Fluxo da Interface
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  AGENTE DE COPY                                     [+ Nova]│
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─ CONFIGURAÇÃO ─────────────────────────────────────────┐ │
-│  │                                                        │ │
-│  │  Funil:    [Dropdown: Lançamento MBA 2025 ▼]          │ │
-│  │  Produto:  [Dropdown: MBA Gestão Obra ▼]              │ │
-│  │  Etapa:    [Dropdown: Abertura de Carrinho ▼]         │ │
-│  │                                                        │ │
-│  │  Tipo:     ○ Copy Única   ● Cronograma                │ │
-│  │                                                        │ │
-│  │  [Se Cronograma]                                       │ │
-│  │  ┌──────────────────────────────────────────┐         │ │
-│  │  │ Dia 1 - 30/01  |  08:00  |  12:00  |     │         │ │
-│  │  │ Dia 2 - 31/01  |  08:00  |  18:00  |     │         │ │
-│  │  │ + Adicionar dia                          │         │ │
-│  │  └──────────────────────────────────────────┘         │ │
-│  │                                                        │ │
-│  │  Canais:   ☑ E-mail  ☑ WhatsApp 1x1  ☐ SMS            │ │
-│  │            ☐ WhatsApp Grupos  ☐ Áudio  ☐ Conteúdo     │ │
-│  │                                                        │ │
-│  │  Contexto adicional (opcional):                        │ │
-│  │  [textarea: Ex: Foco em urgência de fechamento...]    │ │
-│  │                                                        │ │
-│  │            [Gerar Copies com IA]                       │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                             │
-│  ┌─ COPIES GERADAS ───────────────────────────────────────┐ │
-│  │                                                        │ │
-│  │  ┌─ E-mail (30/01 08:00) ──────────────────────────┐  │ │
-│  │  │ Assunto: Você está construindo ou apenas...     │  │ │
-│  │  │ Corpo: [expandível]                              │  │ │
-│  │  │        [Copiar] [Salvar no Banco] [Regenerar]   │  │ │
-│  │  └─────────────────────────────────────────────────┘  │ │
-│  │                                                        │ │
-│  │  ┌─ WhatsApp 1x1 (30/01 12:00) ────────────────────┐  │ │
-│  │  │ [conteúdo...]                                    │  │ │
-│  │  │        [Copiar] [Salvar no Banco] [Regenerar]   │  │ │
-│  │  └─────────────────────────────────────────────────┘  │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                             │
-│  ┌─ BANCO DE COPIES ──────────────────────────────────────┐ │
-│  │  [Busca...]  [Filtro por funil ▼] [Filtro canal ▼]    │ │
-│  │                                                        │ │
-│  │  │ Nome      │ Funil    │ Canal  │ Etapa  │ Data    │ │ │
-│  │  │───────────│──────────│────────│────────│─────────│ │ │
-│  │  │ Copy Aqu1 │ MBA 2025 │ E-mail │ Aquec. │ 28/01   │ │ │
-│  │  │ Copy Carr │ MBA 2025 │ WhatsA │ Carr.  │ 30/01   │ │ │
-│  └────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
+### Arquivo: `src/hooks/useSales.ts`
+**Mudança no `useCreateSale`:** Usar upsert:
+```typescript
+const { data: sale, error: saleError } = await supabase
+  .from('sales')
+  .upsert({
+    ...input,
+    created_by: user.id,
+  }, {
+    onConflict: 'external_id',
+    ignoreDuplicates: false // Atualiza se existir
+  })
+  .select()
+  .single();
 ```
 
----
-
-## Prompt da Edge Function
-
-A edge function `generate-copy` usará o mesmo sistema de prompt do rewrite-copy, mas adaptado para CRIAR do zero:
-
+### Fluxo Corrigido
 ```text
-CONTEXTO DO FUNIL:
-- Funil: [nome]
-- Categoria: [lançamento/perpetuo/etc]
-- Produto: [nome do produto]
-- Etapa: [aquecimento/captacao/etc]
-- Canal: [email/whatsapp/etc]
-
-OBJETIVO:
-Criar uma copy original que [objetivo baseado na etapa]
-
-FORMATAÇÃO PARA [CANAL]:
-[regras específicas do canal]
+┌─────────────────────────────────────────────────────┐
+│              Usuário Associa Vendedor               │
+└─────────────────────┬───────────────────────────────┘
+                      ▼
+┌─────────────────────────────────────────────────────┐
+│        Verificar se venda existe (SELECT)           │
+└─────────────────────┬───────────────────────────────┘
+                      │
+          ┌───────────┴───────────┐
+          ▼                       ▼
+      Encontrou             Não Encontrou
+          │                       │
+          ▼                       ▼
+      UPDATE              UPSERT (Insert/Update)
+          │                       │
+          │     Se erro           │
+          │     duplicata         │
+          │     ┌─────────────────┤
+          │     │ Retry UPDATE    │
+          │     └─────────────────┤
+          ▼                       ▼
+┌─────────────────────────────────────────────────────┐
+│                  Sucesso ✓                          │
+└─────────────────────────────────────────────────────┘
 ```
 
-### Regras por Canal:
-
-| Canal | Formatação |
-|-------|------------|
-| E-mail | Assunto (max 50 chars) + corpo estruturado |
-| WhatsApp Grupos | Máx 1000 chars, CTAs claros, emojis moderados |
-| WhatsApp 1x1 | Tom pessoal, como se falasse com amigo, curto |
-| SMS | Máx 160 chars, CTA único, sem emoji |
-| Áudio | Roteiro coloquial, pausas marcadas, 30-60s |
-| Conteúdo | Legenda + 5-10 hashtags relevantes |
-
----
-
-## Integração com Página de Conteúdo
-
-O Agente de Copy será adicionado como uma nova aba/view dentro da página de Conteúdo (similar ao AgentesIAView), ou como item no menu lateral se preferido.
-
----
-
-## Ordem de Implementação
-
-1. Criar migração SQL para tabela `copy_bank`
-2. Criar hook `useCopyBank.ts`
-3. Criar edge function `generate-copy`
-4. Criar componentes de UI:
-   - `CopyAgentView.tsx` (container principal)
-   - `CopyGeneratorModal.tsx` (formulário)
-   - `CopyScheduleConfig.tsx` (cronograma)
-   - `GeneratedCopyCard.tsx` (resultado)
-   - `CopyBankList.tsx` (histórico)
-5. Integrar na página de Conteúdo ou menu
-6. Testar geração e salvamento
-
+## Resumo das Alterações
+1. **CreateSaleModal.tsx**: Adicionar fallback de erro para duplicatas
+2. **useSales.ts**: Usar upsert no `useCreateSale` para tratar conflitos automaticamente
