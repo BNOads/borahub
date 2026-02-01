@@ -445,7 +445,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
         }
       }
 
-      // Create new sale (for manual or if external sale doesn't exist)
+      // Create new sale using upsert (handles conflicts automatically)
       await createSale.mutateAsync({
         external_id: values.external_id,
         client_name: values.client_name,
@@ -467,7 +467,66 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
       onOpenChange(false);
     } catch (err: any) {
       console.error("Submit error:", err);
-      toast.error("Erro ao processar venda: " + (err.message || "Erro desconhecido"));
+      
+      // Handle duplicate key error - fallback to update existing sale
+      if (err.message?.includes('sales_external_id_key') || err.message?.includes('duplicate key')) {
+        try {
+          // Try to find and update the existing sale
+          const { data: existingSale } = await supabase
+            .from('sales')
+            .select('id')
+            .eq('external_id', values.external_id)
+            .maybeSingle();
+          
+          if (existingSale) {
+            const { error: updateError } = await supabase
+              .from('sales')
+              .update({
+                seller_id: values.seller_id,
+                commission_percent: values.commission_percent,
+                product_id: values.product_id && values.product_id !== "__none__" && values.product_id !== "" ? values.product_id : null,
+                proof_link: values.proof_link,
+              })
+              .eq('id', existingSale.id);
+            
+            if (updateError) throw updateError;
+            
+            // Update commissions
+            const { data: installments } = await supabase
+              .from('installments')
+              .select('id, value')
+              .eq('sale_id', existingSale.id);
+            
+            if (installments) {
+              for (const inst of installments) {
+                await supabase
+                  .from('commissions')
+                  .update({
+                    seller_id: values.seller_id,
+                    commission_percent: values.commission_percent,
+                    commission_value: (inst.value * values.commission_percent) / 100,
+                  })
+                  .eq('installment_id', inst.id);
+              }
+            }
+            
+            queryClient.invalidateQueries({ queryKey: ['associated-sales'] });
+            queryClient.invalidateQueries({ queryKey: ['sales'] });
+            queryClient.invalidateQueries({ queryKey: ['commissions'] });
+            
+            toast.success("Vendedor associado à venda com sucesso!");
+            form.reset();
+            setExistingSaleId(null);
+            onOpenChange(false);
+            return;
+          }
+        } catch (fallbackErr: any) {
+          console.error("Fallback update error:", fallbackErr);
+          toast.error("Erro ao associar vendedor: " + (fallbackErr.message || "Erro desconhecido"));
+        }
+      } else {
+        toast.error("Erro ao processar venda: " + (err.message || "Erro desconhecido"));
+      }
     } finally {
       setLoading(false);
     }

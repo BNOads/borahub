@@ -313,72 +313,105 @@ export function useCreateSale() {
         throw new Error("Usuário não autenticado");
       }
 
-      // Create sale
+      // Use upsert to handle conflicts with external_id
       const { data: sale, error: saleError } = await supabase
         .from('sales')
-        .insert({
+        .upsert({
           ...input,
           created_by: user.id,
+        }, {
+          onConflict: 'external_id',
+          ignoreDuplicates: false
         })
         .select()
         .single();
       
       if (saleError) throw saleError;
       
-      // Generate installments
-      const installmentValue = input.total_value / input.installments_count;
-      const installments = [];
-      const saleDate = new Date(input.sale_date);
+      // Check if installments already exist for this sale
+      const { data: existingInstallments } = await supabase
+        .from('installments')
+        .select('id')
+        .eq('sale_id', sale.id)
+        .limit(1);
       
-      for (let i = 1; i <= input.installments_count; i++) {
-        const dueDate = new Date(saleDate);
-        dueDate.setMonth(dueDate.getMonth() + i - 1);
+      // Only generate installments if they don't exist yet
+      if (!existingInstallments || existingInstallments.length === 0) {
+        // Generate installments
+        const installmentValue = input.total_value / input.installments_count;
+        const installments = [];
+        const saleDate = new Date(input.sale_date);
         
-        installments.push({
-          sale_id: sale.id,
-          installment_number: i,
-          total_installments: input.installments_count,
-          value: installmentValue,
-          due_date: dueDate.toISOString().split('T')[0],
-          status: 'pending',
-        });
-      }
-      
-      const { error: installmentsError } = await supabase
-        .from('installments')
-        .insert(installments);
-      
-      if (installmentsError) throw installmentsError;
-      
-      // Generate commissions for each installment
-      const { data: createdInstallments } = await supabase
-        .from('installments')
-        .select('id, value, due_date')
-        .eq('sale_id', sale.id);
-      
-      if (createdInstallments) {
-        const commissions = createdInstallments.map(inst => {
-          const dueDate = new Date(inst.due_date);
-          const competenceMonth = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
+        for (let i = 1; i <= input.installments_count; i++) {
+          const dueDate = new Date(saleDate);
+          dueDate.setMonth(dueDate.getMonth() + i - 1);
           
-          return {
-            installment_id: inst.id,
-            seller_id: input.seller_id,
-            installment_value: inst.value,
-            commission_percent: input.commission_percent,
-            commission_value: (inst.value * input.commission_percent) / 100,
-            competence_month: competenceMonth.toISOString().split('T')[0],
+          installments.push({
+            sale_id: sale.id,
+            installment_number: i,
+            total_installments: input.installments_count,
+            value: installmentValue,
+            due_date: dueDate.toISOString().split('T')[0],
             status: 'pending',
-          };
-        });
+          });
+        }
         
-        await supabase.from('commissions').insert(commissions);
+        const { error: installmentsError } = await supabase
+          .from('installments')
+          .insert(installments);
+        
+        if (installmentsError) throw installmentsError;
+        
+        // Generate commissions for each installment
+        const { data: createdInstallments } = await supabase
+          .from('installments')
+          .select('id, value, due_date')
+          .eq('sale_id', sale.id);
+        
+        if (createdInstallments) {
+          const commissions = createdInstallments.map(inst => {
+            const dueDate = new Date(inst.due_date);
+            const competenceMonth = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
+            
+            return {
+              installment_id: inst.id,
+              seller_id: input.seller_id,
+              installment_value: inst.value,
+              commission_percent: input.commission_percent,
+              commission_value: (inst.value * input.commission_percent) / 100,
+              competence_month: competenceMonth.toISOString().split('T')[0],
+              status: 'pending',
+            };
+          });
+          
+          await supabase.from('commissions').insert(commissions);
+        }
+      } else {
+        // Update existing commissions with new seller
+        const { data: installments } = await supabase
+          .from('installments')
+          .select('id, value')
+          .eq('sale_id', sale.id);
+        
+        if (installments) {
+          for (const inst of installments) {
+            await supabase
+              .from('commissions')
+              .update({
+                seller_id: input.seller_id,
+                commission_percent: input.commission_percent,
+                commission_value: (inst.value * input.commission_percent) / 100,
+              })
+              .eq('installment_id', inst.id);
+          }
+        }
       }
       
       return sale;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['associated-sales'] });
       queryClient.invalidateQueries({ queryKey: ['installments'] });
       queryClient.invalidateQueries({ queryKey: ['commissions'] });
       toast.success('Venda cadastrada com sucesso');
