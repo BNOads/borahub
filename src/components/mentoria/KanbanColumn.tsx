@@ -37,7 +37,7 @@ export function KanbanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col rounded-lg border-2 border-dashed p-3 transition-all min-h-[200px]",
+        "flex flex-col rounded-lg border-2 border-dashed p-3 transition-all min-h-[200px] max-h-[calc(100vh-280px)] overflow-hidden",
         column.color,
         isOver && "ring-2 ring-primary border-primary bg-primary/5 scale-[1.02]"
       )}
