@@ -192,6 +192,10 @@ export default function QuizBuilder() {
         result_image_url: (quiz as any).result_image_url || "",
         result_video_url: (quiz as any).result_video_url || "",
         result_layout: (quiz as any).result_layout || "standard",
+        // Pixel tracking
+        pixel_id: (quiz as any).pixel_id || "",
+        pixel_event_start: (quiz as any).pixel_event_start || "",
+        pixel_event_complete: (quiz as any).pixel_event_complete || "",
       });
       isInitialized.current = true;
     }
@@ -842,6 +846,51 @@ Exemplo:
                     onChange={(e) => setFormData({ ...formData, final_cta_url: e.target.value })}
                     placeholder="https://..."
                   />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pixel & Conversion Tracking */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Pixel & Eventos de Conversão</CardTitle>
+                <CardDescription>Configure o Facebook Pixel e eventos de conversão para rastrear performance</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>ID do Pixel (Facebook/Meta)</Label>
+                  <Input
+                    value={formData.pixel_id || ""}
+                    onChange={(e) => setFormData({ ...formData, pixel_id: e.target.value })}
+                    placeholder="123456789012345"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Encontre seu Pixel ID no Gerenciador de Eventos do Facebook
+                  </p>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Evento ao iniciar quiz</Label>
+                    <Input
+                      value={formData.pixel_event_start || ""}
+                      onChange={(e) => setFormData({ ...formData, pixel_event_start: e.target.value })}
+                      placeholder="Ex: InitiateCheckout, Lead, ViewContent"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Disparado quando o usuário clica em "Começar"
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Evento ao concluir quiz</Label>
+                    <Input
+                      value={formData.pixel_event_complete || ""}
+                      onChange={(e) => setFormData({ ...formData, pixel_event_complete: e.target.value })}
+                      placeholder="Ex: CompleteRegistration, Purchase, Lead"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Disparado quando o usuário vê o resultado
+                    </p>
+                  </div>
                 </div>
               </CardContent>
             </Card>

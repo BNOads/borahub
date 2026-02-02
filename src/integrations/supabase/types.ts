@@ -2284,6 +2284,9 @@ export type Database = {
           lead_required_fields: Json | null
           leads_count: number | null
           lgpd_consent_text: string | null
+          pixel_event_complete: string | null
+          pixel_event_start: string | null
+          pixel_id: string | null
           primary_color: string | null
           privacy_text: string | null
           result_image_url: string | null
@@ -2323,6 +2326,9 @@ export type Database = {
           lead_required_fields?: Json | null
           leads_count?: number | null
           lgpd_consent_text?: string | null
+          pixel_event_complete?: string | null
+          pixel_event_start?: string | null
+          pixel_id?: string | null
           primary_color?: string | null
           privacy_text?: string | null
           result_image_url?: string | null
@@ -2362,6 +2368,9 @@ export type Database = {
           lead_required_fields?: Json | null
           leads_count?: number | null
           lgpd_consent_text?: string | null
+          pixel_event_complete?: string | null
+          pixel_event_start?: string | null
+          pixel_id?: string | null
           primary_color?: string | null
           privacy_text?: string | null
           result_image_url?: string | null
