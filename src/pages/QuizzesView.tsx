@@ -263,7 +263,12 @@ export default function QuizzesView() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">{quiz.title}</h3>
+                        <h3 
+                          className="font-semibold cursor-pointer hover:text-primary hover:underline transition-colors"
+                          onClick={() => navigate(`/quizzes/${quiz.id}/edit`)}
+                        >
+                          {quiz.title}
+                        </h3>
                         {getStatusBadge(quiz.status)}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
