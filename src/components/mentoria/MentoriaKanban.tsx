@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { Plus, ClipboardList, UserPlus } from "lucide-react";
+import { Plus, ClipboardList, UserPlus, GripVertical, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { MentoriaTaskCard } from "./MentoriaTaskCard";
+import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { KanbanColumn } from "./KanbanColumn";
 import { MentoriaTarefa } from "@/hooks/useMentoria";
+import { cn } from "@/lib/utils";
 
 interface MentoriaKanbanProps {
   tarefas: MentoriaTarefa[];
@@ -162,12 +164,31 @@ export function MentoriaKanban({
         <DragOverlay>
           {activeTarefa ? (
             <div className="opacity-90 rotate-3 scale-105">
-              <MentoriaTaskCard
-                tarefa={activeTarefa}
-                onToggleComplete={() => {}}
-                onEdit={() => {}}
-                onDelete={() => {}}
-              />
+              <Card className={cn(
+                "cursor-grabbing shadow-xl",
+                activeTarefa.mentorado_nome && "border-l-4 border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/20"
+              )}>
+                <CardContent className="p-3">
+                  <div className="flex items-start gap-2">
+                    <GripVertical className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <Checkbox checked={activeTarefa.status === 'completed'} className="mt-0.5" disabled />
+                    <div className="flex-1 min-w-0">
+                      <p className={cn(
+                        "text-sm font-medium leading-tight",
+                        activeTarefa.status === 'completed' && "line-through text-muted-foreground"
+                      )}>
+                        {activeTarefa.title}
+                      </p>
+                      {activeTarefa.mentorado_nome && (
+                        <div className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                          <User className="h-3 w-3" />
+                          {activeTarefa.mentorado_nome}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           ) : null}
         </DragOverlay>
