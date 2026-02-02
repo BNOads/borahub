@@ -34,6 +34,7 @@ export default function MentoriaView() {
   // Selected state
   const [selectedEtapaId, setSelectedEtapaId] = useState<string | null>(null);
   const [selectedProcessoId, setSelectedProcessoId] = useState<string | null>(null);
+  const [selectedMentorado, setSelectedMentorado] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("tarefas");
 
   // Modal states
@@ -88,6 +89,19 @@ export default function MentoriaView() {
   const handleSelectEtapa = (etapaId: string, processoId: string) => {
     setSelectedEtapaId(etapaId);
     setSelectedProcessoId(processoId);
+    setSelectedMentorado(null); // Clear mentorado filter when selecting etapa
+  };
+
+  const handleSelectMentorado = (mentoradoNome: string | null, processoId: string) => {
+    setSelectedMentorado(mentoradoNome);
+    setSelectedProcessoId(processoId);
+    // Select the first etapa of this processo if none selected
+    if (!selectedEtapaId || selectedProcessoId !== processoId) {
+      const processo = processos.find(p => p.id === processoId);
+      if (processo && processo.mentoria_etapas.length > 0) {
+        setSelectedEtapaId(processo.mentoria_etapas[0].id);
+      }
+    }
   };
 
   const handleCreateProcesso = () => {
@@ -296,7 +310,9 @@ export default function MentoriaView() {
           <MentoriaProcessosList
             processos={processos}
             selectedEtapaId={selectedEtapaId}
+            selectedMentorado={selectedMentorado}
             onSelectEtapa={handleSelectEtapa}
+            onSelectMentorado={handleSelectMentorado}
             onCreateProcesso={handleCreateProcesso}
             onEditProcesso={handleEditProcesso}
             onDeleteProcesso={handleDeleteProcesso}
@@ -336,6 +352,8 @@ export default function MentoriaView() {
                     onReplicarProcesso={selectedProcessoId ? () => handleReplicarProcesso(selectedProcessoId) : undefined}
                     onOpenTaskDetail={handleOpenTaskDetail}
                     etapaName={selectedEtapa.name}
+                    filtroMentoradoExterno={selectedMentorado}
+                    onClearFiltroMentorado={() => setSelectedMentorado(null)}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
