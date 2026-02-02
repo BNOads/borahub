@@ -46,6 +46,7 @@ import RelatoriosView from "./pages/RelatoriosView";
 import ValidadorCopy from "./pages/ValidadorCopy";
 import TranscricoesView from "./pages/TranscricoesView";
 import AgenteCopy from "./pages/AgenteCopy";
+import MentoriaView from "./pages/MentoriaView";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -118,6 +119,7 @@ const App = () => (
               <Route path="/validador-copy" element={<ValidadorCopy />} />
               <Route path="/transcricoes" element={<TranscricoesView />} />
               <Route path="/agente-copy" element={<AgenteCopy />} />
+              <Route path="/mentoria" element={<MentoriaView />} />
               <Route path="/perfil" element={<Perfil />} />
               
               {/* Rotas admin */}

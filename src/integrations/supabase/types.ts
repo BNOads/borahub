@@ -1277,6 +1277,127 @@ export type Database = {
           },
         ]
       }
+      mentoria_etapas: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          position: number
+          processo_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          position?: number
+          processo_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          position?: number
+          processo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentoria_etapas_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "mentoria_processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentoria_processos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentoria_processos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mentoria_tarefas: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          etapa_id: string
+          id: string
+          mentorado_nome: string | null
+          parent_tarefa_id: string | null
+          position: number
+          status: string
+          title: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          etapa_id: string
+          id?: string
+          mentorado_nome?: string | null
+          parent_tarefa_id?: string | null
+          position?: number
+          status?: string
+          title: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          etapa_id?: string
+          id?: string
+          mentorado_nome?: string | null
+          parent_tarefa_id?: string | null
+          position?: number
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentoria_tarefas_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "mentoria_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mentoria_tarefas_parent_tarefa_id_fkey"
+            columns: ["parent_tarefa_id"]
+            isOneToOne: false
+            referencedRelation: "mentoria_tarefas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           created_at: string | null
