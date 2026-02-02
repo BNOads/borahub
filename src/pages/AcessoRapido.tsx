@@ -25,7 +25,8 @@ import {
   CheckSquare,
   FileBarChart,
   FileAudio,
-  PenTool
+  PenTool,
+  GraduationCap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NoteWidget } from "@/components/notes/NoteWidget";
@@ -149,6 +150,13 @@ const tools = [
     href: "/agente-copy",
     icon: PenTool,
     color: "bg-rose-500/10 text-rose-500",
+  },
+  {
+    name: "Mentoria BORA Acelerar",
+    description: "Gerencie processos de mentoria e acompanhe mentorados",
+    href: "/mentoria",
+    icon: GraduationCap,
+    color: "bg-yellow-500/10 text-yellow-500",
   },
 ];
 
