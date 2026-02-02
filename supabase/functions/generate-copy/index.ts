@@ -74,10 +74,12 @@ Sua tarefa é CRIAR copies originais do zero para marketing, seguindo rigorosame
 const CHANNEL_FORMATS: Record<string, string> = {
   email: `## FORMATO: E-MAIL
 - Crie um ASSUNTO impactante (máximo 50 caracteres)
+- Crie um SUBTÍTULO/PREHEADER (frase curta que aparece como preview do email, máximo 80 caracteres)
 - Corpo estruturado com parágrafos curtos
 - CTA claro ao final
 - Retorne no formato:
 ASSUNTO: [assunto aqui]
+SUBTITULO: [subtítulo/preheader aqui]
 
 [corpo do e-mail aqui]`,
   

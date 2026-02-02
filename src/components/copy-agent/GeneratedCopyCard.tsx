@@ -89,10 +89,16 @@ export function GeneratedCopyCard({
   const label = CHANNEL_LABELS[channel] || channel;
 
   const handleCopy = async () => {
-    // For emails, include the subject as part of the copy
-    const textToCopy = isEmail && subject 
-      ? `Assunto: ${subject}\n\n${body}` 
-      : content;
+    // For emails, include the subject and subtitle as part of the copy
+    let textToCopy = content;
+    if (isEmail) {
+      const parts: string[] = [];
+      if (subject) parts.push(`Assunto: ${subject}`);
+      if (subtitle) parts.push(`Subtítulo: ${subtitle}`);
+      if (parts.length > 0) {
+        textToCopy = parts.join("\n") + "\n\n" + body;
+      }
+    }
     await navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     toast.success("Copy copiada!");
@@ -137,15 +143,25 @@ export function GeneratedCopyCard({
   // Parse email format
   const isEmail = channel === "email";
   let subject = "";
+  let subtitle = "";
   let body = content;
   
-  if (isEmail && content.includes("ASSUNTO:")) {
+  if (isEmail) {
     const lines = content.split("\n");
     const subjectLine = lines.find(l => l.startsWith("ASSUNTO:"));
+    const subtitleLine = lines.find(l => l.startsWith("SUBTITULO:") || l.startsWith("SUBTÍTULO:"));
+    
     if (subjectLine) {
       subject = subjectLine.replace("ASSUNTO:", "").trim();
-      body = lines.filter(l => !l.startsWith("ASSUNTO:")).join("\n").trim();
     }
+    if (subtitleLine) {
+      subtitle = subtitleLine.replace(/SUBTÍTULO:|SUBTITULO:/, "").trim();
+    }
+    
+    body = lines
+      .filter(l => !l.startsWith("ASSUNTO:") && !l.startsWith("SUBTITULO:") && !l.startsWith("SUBTÍTULO:"))
+      .join("\n")
+      .trim();
   }
 
   return (
@@ -220,10 +236,20 @@ export function GeneratedCopyCard({
               </div>
             ) : (
               <>
-                {isEmail && subject && (
-                  <div className="p-3 bg-muted/50 rounded-lg border border-border">
-                    <span className="text-xs font-medium text-muted-foreground">Assunto:</span>
-                    <p className="font-medium mt-1">{subject}</p>
+                {isEmail && (subject || subtitle) && (
+                  <div className="space-y-2">
+                    {subject && (
+                      <div className="p-3 bg-muted/50 rounded-lg border border-border">
+                        <span className="text-xs font-medium text-muted-foreground">Assunto:</span>
+                        <p className="font-medium mt-1">{subject}</p>
+                      </div>
+                    )}
+                    {subtitle && (
+                      <div className="p-3 bg-accent/5 rounded-lg border border-accent/20">
+                        <span className="text-xs font-medium text-muted-foreground">Subtítulo (Preheader):</span>
+                        <p className="text-sm mt-1 text-foreground/80">{subtitle}</p>
+                      </div>
+                    )}
                   </div>
                 )}
                 
