@@ -27,11 +27,47 @@ const quickActions = [
   },
 ];
 
+// Common feminine name endings in Portuguese
+const isFeminineName = (name: string): boolean => {
+  const lowerName = name.toLowerCase().trim();
+  
+  // Common feminine endings
+  const feminineEndings = ['a', 'ane', 'ene', 'ine', 'ice', 'ete', 'iele', 'elle'];
+  
+  // Exceptions - names ending in 'a' that are typically masculine
+  const masculineExceptions = ['uca', 'luca', 'nikita', 'josua', 'joshua', 'noá', 'noa'];
+  
+  // Common feminine names that might not follow patterns
+  const femininNames = [
+    'ana', 'maria', 'julia', 'juliana', 'fernanda', 'amanda', 'bruna', 'camila',
+    'carolina', 'beatriz', 'leticia', 'larissa', 'mariana', 'gabriela', 'rafaela',
+    'patricia', 'adriana', 'luciana', 'daniela', 'priscila', 'vanessa', 'jessica',
+    'aline', 'michele', 'michele', 'raquel', 'debora', 'natalia', 'cristina',
+    'sandra', 'carla', 'paula', 'renata', 'simone', 'viviane', 'elaine', 'rose',
+    'isabel', 'marta', 'lucia', 'silvia', 'sonia', 'vera', 'regina', 'tereza',
+    'helena', 'alice', 'clara', 'laura', 'lara', 'livia', 'isadora', 'victoria',
+    'valentina', 'sofia', 'luiza', 'giovanna', 'manuela', 'rafaella', 'rebeca',
+    'sarah', 'tais', 'thaís', 'thais', 'ingrid', 'karen', 'kelly', 'miriam'
+  ];
+  
+  if (masculineExceptions.some(exc => lowerName.includes(exc))) {
+    return false;
+  }
+  
+  if (femininNames.includes(lowerName)) {
+    return true;
+  }
+  
+  return feminineEndings.some(ending => lowerName.endsWith(ending));
+};
+
 export function WelcomeSection() {
   const { profile } = useAuth();
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? "Bom dia" : currentHour < 18 ? "Boa tarde" : "Boa noite";
   const userName = profile?.display_name || profile?.full_name?.split(' ')[0] || 'usuário';
+  
+  const welcomeText = isFeminineName(userName) ? "Bem-vinda" : "Bem-vindo";
 
   const { data: tasks = [], isLoading: tasksLoading, isError: tasksError } = useTodaysTasks();
   const { data: activeFunnelsCount = 0, isLoading: funnelsLoading, isError: funnelsError } = useActiveFunnelsCount();
@@ -50,7 +86,7 @@ export function WelcomeSection() {
             <span className="text-xs font-medium">{greeting}</span>
           </div>
           <h1 className="text-2xl font-bold mb-1 text-foreground">
-            Bem-vindo, {userName}!
+            {welcomeText}, {userName}!
           </h1>
           <p className="text-muted-foreground text-sm">
             Sua central de tarefas, eventos e atalhos de operação.
