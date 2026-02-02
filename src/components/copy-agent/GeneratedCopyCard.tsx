@@ -89,7 +89,11 @@ export function GeneratedCopyCard({
   const label = CHANNEL_LABELS[channel] || channel;
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(content);
+    // For emails, include the subject as part of the copy
+    const textToCopy = isEmail && subject 
+      ? `Assunto: ${subject}\n\n${body}` 
+      : content;
+    await navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     toast.success("Copy copiada!");
     setTimeout(() => setCopied(false), 2000);
