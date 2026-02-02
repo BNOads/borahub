@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { ChevronDown, ChevronRight, FolderOpen, Plus, Search, MoreHorizontal, Pencil, Trash2, Copy } from "lucide-react";
+import { useState, useMemo } from "react";
+import { ChevronDown, ChevronRight, FolderOpen, Plus, Search, MoreHorizontal, Pencil, Trash2, Copy, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ProcessoComEtapas, MentoriaEtapa } from "@/hooks/useMentoria";
@@ -21,6 +22,13 @@ interface MentoriaProcessosListProps {
   onReplicarProcesso: (processoId: string) => void;
 }
 
+interface MentoradoProgress {
+  name: string;
+  total: number;
+  completed: number;
+  percentage: number;
+}
+
 export function MentoriaProcessosList({
   processos,
   selectedEtapaId,
@@ -35,6 +43,7 @@ export function MentoriaProcessosList({
 }: MentoriaProcessosListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedProcessos, setExpandedProcessos] = useState<Set<string>>(new Set(processos.map(p => p.id)));
+  const [expandedMentorados, setExpandedMentorados] = useState<Set<string>>(new Set());
 
   const filteredProcessos = processos.filter(processo =>
     processo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -51,10 +60,48 @@ export function MentoriaProcessosList({
     setExpandedProcessos(newExpanded);
   };
 
-  const getTarefasCount = (etapa: MentoriaEtapa & { mentoria_tarefas: any[] }) => {
-    const total = etapa.mentoria_tarefas.length;
-    const completed = etapa.mentoria_tarefas.filter(t => t.status === 'completed').length;
+  const toggleMentorado = (key: string) => {
+    const newExpanded = new Set(expandedMentorados);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedMentorados(newExpanded);
+  };
+
+  const getTarefasCount = (etapa: MentoriaEtapa & { mentoria_tarefas: any[] }, mentoradoNome?: string) => {
+    const tarefas = mentoradoNome 
+      ? etapa.mentoria_tarefas.filter(t => t.mentorado_nome === mentoradoNome)
+      : etapa.mentoria_tarefas.filter(t => !t.mentorado_nome);
+    const total = tarefas.length;
+    const completed = tarefas.filter(t => t.status === 'completed').length;
     return { total, completed };
+  };
+
+  // Get unique mentorados per processo with their progress
+  const getMentoradosForProcesso = (processo: ProcessoComEtapas): MentoradoProgress[] => {
+    const mentoradoMap = new Map<string, { total: number; completed: number }>();
+    
+    processo.mentoria_etapas.forEach(etapa => {
+      etapa.mentoria_tarefas.forEach(tarefa => {
+        if (tarefa.mentorado_nome) {
+          const current = mentoradoMap.get(tarefa.mentorado_nome) || { total: 0, completed: 0 };
+          current.total += 1;
+          if (tarefa.status === 'completed') {
+            current.completed += 1;
+          }
+          mentoradoMap.set(tarefa.mentorado_nome, current);
+        }
+      });
+    });
+
+    return Array.from(mentoradoMap.entries()).map(([name, stats]) => ({
+      name,
+      total: stats.total,
+      completed: stats.completed,
+      percentage: stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0
+    })).sort((a, b) => a.name.localeCompare(b.name));
   };
 
   return (
@@ -149,6 +196,7 @@ export function MentoriaProcessosList({
 
                 <CollapsibleContent>
                   <div className="ml-4 pl-4 border-l space-y-1 py-1">
+                    {/* Template Etapas (Processo Padrão) */}
                     {processo.mentoria_etapas.map((etapa) => {
                       const { total, completed } = getTarefasCount(etapa);
                       const isSelected = selectedEtapaId === etapa.id;
@@ -183,7 +231,7 @@ export function MentoriaProcessosList({
                                 <MoreHorizontal className="h-3 w-3" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="bg-popover">
                               <DropdownMenuItem onClick={() => onEditEtapa(etapa)}>
                                 <Pencil className="h-4 w-4 mr-2" />
                                 Editar
@@ -198,6 +246,59 @@ export function MentoriaProcessosList({
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
+                      );
+                    })}
+
+                    {/* Mentorados with Progress */}
+                    {getMentoradosForProcesso(processo).map((mentorado) => {
+                      const mentoradoKey = `${processo.id}-${mentorado.name}`;
+                      const isExpanded = expandedMentorados.has(mentoradoKey);
+                      
+                      return (
+                        <Collapsible
+                          key={mentoradoKey}
+                          open={isExpanded}
+                          onOpenChange={() => toggleMentorado(mentoradoKey)}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full justify-start px-2 h-auto py-2 text-sm bg-amber-500/10 hover:bg-amber-500/20 border-l-2 border-l-amber-500"
+                            >
+                              <div className="flex items-center gap-2 w-full">
+                                {isExpanded ? (
+                                  <ChevronDown className="h-3 w-3 shrink-0 text-amber-600" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3 shrink-0 text-amber-600" />
+                                )}
+                                <User className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                                <span className="truncate font-medium text-amber-700 dark:text-amber-400">
+                                  {mentorado.name}
+                                </span>
+                                <div className="ml-auto flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+                                    {mentorado.percentage}%
+                                  </span>
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-xs border-amber-500/50 text-amber-700 dark:text-amber-400"
+                                  >
+                                    {mentorado.completed}/{mentorado.total}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="ml-4 mt-1 mb-2">
+                              <Progress 
+                                value={mentorado.percentage} 
+                                className="h-1.5 bg-amber-100 dark:bg-amber-900/30"
+                              />
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
                       );
                     })}
                     
