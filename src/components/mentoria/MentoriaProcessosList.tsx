@@ -177,7 +177,7 @@ export function MentoriaProcessosList({
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => onReplicarProcesso(processo.id)}>
                         <Copy className="h-4 w-4 mr-2" />
-                        Replicar para Mentorado
+                        Replicar pra novo processo
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onCreateEtapa(processo.id)}>
                         <Plus className="h-4 w-4 mr-2" />
