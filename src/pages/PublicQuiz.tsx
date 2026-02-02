@@ -56,6 +56,44 @@ export default function PublicQuiz() {
   const progress = quiz?.questions?.length
     ? ((currentQuestionIndex) / quiz.questions.length) * 100
     : 0;
+  const pixelInitializedRef = useRef(false);
+
+  // Initialize Facebook Pixel
+  useEffect(() => {
+    const pixelId = (quiz as any)?.pixel_id;
+    if (!pixelId || pixelInitializedRef.current) return;
+
+    // Load Facebook Pixel script
+    const script = document.createElement("script");
+    script.innerHTML = `
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '${pixelId}');
+      fbq('track', 'PageView');
+    `;
+    document.head.appendChild(script);
+    pixelInitializedRef.current = true;
+
+    return () => {
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+  }, [quiz]);
+
+  // Helper function to fire pixel events
+  const firePixelEvent = (eventName: string) => {
+    if (typeof window !== "undefined" && (window as any).fbq && eventName) {
+      (window as any).fbq("track", eventName);
+      console.log(`[Pixel] Event fired: ${eventName}`);
+    }
+  };
 
   // Start session
   const handleStartQuiz = async () => {
@@ -71,6 +109,12 @@ export default function PublicQuiz() {
     setSessionId(session.id);
     setStep("questions");
     setQuestionStartTime(Date.now());
+
+    // Fire pixel event on quiz start
+    const startEvent = (quiz as any).pixel_event_start;
+    if (startEvent) {
+      firePixelEvent(startEvent);
+    }
   };
 
   // Submit answer and move to next question (with jump logic support)
@@ -248,6 +292,13 @@ export default function PublicQuiz() {
       // Show result screen FIRST, then generate AI diagnosis
       // This ensures the progress bar is visible while AI is generating
       setStep("result");
+      
+      // Fire pixel event on quiz completion
+      const completeEvent = (quiz as any).pixel_event_complete;
+      if (completeEvent) {
+        firePixelEvent(completeEvent);
+      }
+      
       if (quiz.diagnosis_type === "ai") {
         await generateAIDiagnosis();
       }
@@ -335,6 +386,12 @@ export default function PublicQuiz() {
     // IMPORTANT: Show result screen FIRST, then generate AI diagnosis
     // This ensures the progress bar is visible while AI is generating
     setStep("result");
+    
+    // Fire pixel event on quiz completion (after lead capture)
+    const completeEvent = (quiz as any).pixel_event_complete;
+    if (completeEvent) {
+      firePixelEvent(completeEvent);
+    }
     
     if (quiz.diagnosis_type === "ai") {
       await generateAIDiagnosis();
