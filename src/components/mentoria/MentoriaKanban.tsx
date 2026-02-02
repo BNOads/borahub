@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors, CollisionDetection, UniqueIdentifier } from "@dnd-kit/core";
 import { Plus, ClipboardList, UserPlus, GripVertical, User, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -189,7 +189,7 @@ export function MentoriaKanban({
       {/* Kanban Board */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={rectIntersection}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
