@@ -19,6 +19,7 @@ interface KanbanColumnProps {
   onEdit: (tarefa: MentoriaTarefa) => void;
   onDelete: (tarefaId: string) => void;
   onOpenDetail?: (tarefa: MentoriaTarefa) => void;
+  onChangeStatus?: (tarefa: MentoriaTarefa, newStatus: 'pending' | 'in_progress' | 'completed') => void;
 }
 
 export function KanbanColumn({
@@ -28,6 +29,7 @@ export function KanbanColumn({
   onEdit,
   onDelete,
   onOpenDetail,
+  onChangeStatus,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -66,6 +68,7 @@ export function KanbanColumn({
                 onEdit={onEdit}
                 onDelete={onDelete}
                 onOpenDetail={onOpenDetail}
+                onChangeStatus={onChangeStatus}
               />
             ))}
           </div>
