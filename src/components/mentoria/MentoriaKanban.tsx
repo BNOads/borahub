@@ -121,7 +121,7 @@ export function MentoriaKanban({
                 className="bg-amber-500 hover:bg-amber-600 text-white shadow-lg"
               >
                 <UserPlus className="h-4 w-4 mr-2" />
-                Replicar para Mentorado
+                Replicar pra novo processo
               </Button>
             )}
             <Button size="sm" onClick={onCreateTarefa}>
@@ -206,7 +206,7 @@ export function MentoriaKanban({
               className="bg-amber-500 hover:bg-amber-600 text-white shadow-lg"
             >
               <UserPlus className="h-4 w-4 mr-2" />
-              Replicar para Mentorado
+              Replicar pra novo processo
             </Button>
           )}
           <Button size="sm" onClick={onCreateTarefa}>
