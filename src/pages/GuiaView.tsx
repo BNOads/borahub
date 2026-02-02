@@ -360,16 +360,14 @@ export default function GuiaView() {
                 <div className="p-4 space-y-4">
                     <div className="flex items-center justify-between">
                         <h2 className="font-bold text-lg">Arquivos</h2>
-                        {isAdmin && (
-                            <div className="flex items-center gap-1">
-                                <Button size="icon" variant="ghost" className="rounded-xl h-8 w-8" onClick={() => setIsCreatingFolder(true)} title="Nova pasta">
-                                    <FolderPlus className="h-4 w-4" />
-                                </Button>
-                                <Button size="icon" variant="ghost" className="rounded-xl h-8 w-8" onClick={() => createDocument()} title="Novo documento">
-                                    <Plus className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        )}
+                        <div className="flex items-center gap-1">
+                            <Button size="icon" variant="ghost" className="rounded-xl h-8 w-8" onClick={() => setIsCreatingFolder(true)} title="Nova pasta">
+                                <FolderPlus className="h-4 w-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" className="rounded-xl h-8 w-8" onClick={() => createDocument()} title="Novo documento">
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -421,7 +419,7 @@ export default function GuiaView() {
                                             onClick={() => setSelectedDoc(doc)}
                                             onDelete={isAdmin ? () => deleteDocument(doc.id) : undefined}
                                             folders={folders}
-                                            onMoveToFolder={isAdmin ? (folder) => moveDocToFolder(doc.id, folder) : undefined}
+                                            onMoveToFolder={(folder) => moveDocToFolder(doc.id, folder)}
                                         />
                                     ))}
                                 </CollapsibleContent>
@@ -454,30 +452,32 @@ export default function GuiaView() {
                                         )}
                                         <span className="ml-auto text-[10px] opacity-50">{getDocsInFolder(folder).length}</span>
                                     </CollapsibleTrigger>
-                                    {isAdmin && (
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <MoreHorizontal className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-40">
-                                                <DropdownMenuItem onClick={() => createDocument(folder)}>
-                                                    <Plus className="h-4 w-4 mr-2" />
-                                                    Novo documento
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => { setEditingFolderName(folder); setEditedFolderName(folder); }}>
-                                                    <Pencil className="h-4 w-4 mr-2" />
-                                                    Renomear
-                                                </DropdownMenuItem>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuItem className="text-destructive" onClick={() => deleteFolder(folder)}>
-                                                    <Trash2 className="h-4 w-4 mr-2" />
-                                                    Excluir pasta
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    )}
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <MoreHorizontal className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-40">
+                                            <DropdownMenuItem onClick={() => createDocument(folder)}>
+                                                <Plus className="h-4 w-4 mr-2" />
+                                                Novo documento
+                                            </DropdownMenuItem>
+                                            {isAdmin && (
+                                                <>
+                                                    <DropdownMenuItem onClick={() => { setEditingFolderName(folder); setEditedFolderName(folder); }}>
+                                                        <Pencil className="h-4 w-4 mr-2" />
+                                                        Renomear
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuSeparator />
+                                                    <DropdownMenuItem className="text-destructive" onClick={() => deleteFolder(folder)}>
+                                                        <Trash2 className="h-4 w-4 mr-2" />
+                                                        Excluir pasta
+                                                    </DropdownMenuItem>
+                                                </>
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
                                 <CollapsibleContent className="space-y-0.5 ml-4">
                                     {getDocsInFolder(folder).map(doc => (
@@ -488,7 +488,7 @@ export default function GuiaView() {
                                             onClick={() => setSelectedDoc(doc)}
                                             onDelete={isAdmin ? () => deleteDocument(doc.id) : undefined}
                                             folders={folders}
-                                            onMoveToFolder={isAdmin ? (f) => moveDocToFolder(doc.id, f) : undefined}
+                                            onMoveToFolder={(f) => moveDocToFolder(doc.id, f)}
                                         />
                                     ))}
                                 </CollapsibleContent>
@@ -512,7 +512,7 @@ export default function GuiaView() {
                                             onClick={() => setSelectedDoc(doc)}
                                             onDelete={isAdmin ? () => deleteDocument(doc.id) : undefined}
                                             folders={folders}
-                                            onMoveToFolder={isAdmin ? (folder) => moveDocToFolder(doc.id, folder) : undefined}
+                                            onMoveToFolder={(folder) => moveDocToFolder(doc.id, folder)}
                                         />
                                     ))}
                                 </CollapsibleContent>
@@ -688,7 +688,7 @@ export default function GuiaView() {
                     <div className="flex-1 flex items-center justify-center text-muted-foreground flex-col gap-4">
                         <div className="h-16 w-16 bg-accent/5 rounded-3xl flex items-center justify-center text-accent/20"><Plus className="h-8 w-8" /></div>
                         <p>Selecione ou crie um documento para começar</p>
-                        {isAdmin && <Button onClick={() => createDocument()} variant="outline" className="rounded-xl border-accent/20">Criar Primeiro Documento</Button>}
+                        <Button onClick={() => createDocument()} variant="outline" className="rounded-xl border-accent/20">Criar Primeiro Documento</Button>
                     </div>
                 )}
             </div>
