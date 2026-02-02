@@ -26,6 +26,22 @@ function addDaysToDate(dateStr: string, days: number): string {
   return date.toISOString().split("T")[0];
 }
 
+// Skip weekends: if date falls on Saturday (6) or Sunday (0), move to Monday
+function skipWeekend(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00");
+  const dayOfWeek = date.getDay();
+  
+  if (dayOfWeek === 6) {
+    // Saturday -> move to Monday (+2 days)
+    date.setDate(date.getDate() + 2);
+  } else if (dayOfWeek === 0) {
+    // Sunday -> move to Monday (+1 day)
+    date.setDate(date.getDate() + 1);
+  }
+  
+  return date.toISOString().split("T")[0];
+}
+
 function getNextDueDate(currentDueDate: string, recurrenceType: string): string {
   const daysToAdd: Record<string, number> = {
     daily: 1,
@@ -35,7 +51,9 @@ function getNextDueDate(currentDueDate: string, recurrenceType: string): string 
     semiannual: 182,
     yearly: 365,
   };
-  return addDaysToDate(currentDueDate, daysToAdd[recurrenceType] || 1);
+  const nextDate = addDaysToDate(currentDueDate, daysToAdd[recurrenceType] || 1);
+  // Always skip weekends for all recurrence types
+  return skipWeekend(nextDate);
 }
 
 function isDatePastOrToday(dateStr: string, today: string): boolean {
