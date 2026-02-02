@@ -1277,6 +1277,83 @@ export type Database = {
           },
         ]
       }
+      mentoria_document_folders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      mentoria_documentos: {
+        Row: {
+          category: string | null
+          content: string | null
+          created_at: string
+          created_by: string | null
+          google_docs_url: string | null
+          icon: string | null
+          id: string
+          is_favorite: boolean | null
+          is_public: boolean | null
+          processo_id: string | null
+          slug: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          google_docs_url?: string | null
+          icon?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          is_public?: boolean | null
+          processo_id?: string | null
+          slug?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          created_at?: string
+          created_by?: string | null
+          google_docs_url?: string | null
+          icon?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          is_public?: boolean | null
+          processo_id?: string | null
+          slug?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mentoria_documentos_processo_id_fkey"
+            columns: ["processo_id"]
+            isOneToOne: false
+            referencedRelation: "mentoria_processos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mentoria_etapas: {
         Row: {
           created_at: string

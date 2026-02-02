@@ -5,6 +5,7 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { MentoriaProcessosList } from "@/components/mentoria/MentoriaProcessosList";
 import { MentoriaKanban } from "@/components/mentoria/MentoriaKanban";
+import { MentoriaDocumentos } from "@/components/mentoria/MentoriaDocumentos";
 import { CreateProcessoModal } from "@/components/mentoria/CreateProcessoModal";
 import { CreateEtapaModal } from "@/components/mentoria/CreateEtapaModal";
 import { CreateTarefaModal } from "@/components/mentoria/CreateTarefaModal";
@@ -32,6 +33,7 @@ export default function MentoriaView() {
   // Selected state
   const [selectedEtapaId, setSelectedEtapaId] = useState<string | null>(null);
   const [selectedProcessoId, setSelectedProcessoId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("tarefas");
 
   // Modal states
   const [processoModalOpen, setProcessoModalOpen] = useState(false);
@@ -290,20 +292,20 @@ export default function MentoriaView() {
         {/* Main Content */}
         <ResizablePanel defaultSize={75}>
           <div className="h-full p-4">
-            {selectedEtapa ? (
-              <Tabs defaultValue="tarefas" className="h-full flex flex-col">
-                <TabsList className="w-fit">
-                  <TabsTrigger value="tarefas" className="gap-2">
-                    <ClipboardList className="h-4 w-4" />
-                    Tarefas
-                  </TabsTrigger>
-                  <TabsTrigger value="documentos" className="gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    Documentos
-                  </TabsTrigger>
-                </TabsList>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+              <TabsList className="w-fit">
+                <TabsTrigger value="tarefas" className="gap-2">
+                  <ClipboardList className="h-4 w-4" />
+                  Tarefas
+                </TabsTrigger>
+                <TabsTrigger value="documentos" className="gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Documentos Gerais
+                </TabsTrigger>
+              </TabsList>
 
-                <TabsContent value="tarefas" className="flex-1 mt-4">
+              <TabsContent value="tarefas" className="flex-1 mt-4">
+                {selectedEtapa ? (
                   <MentoriaKanban
                     tarefas={selectedEtapa.mentoria_tarefas}
                     onUpdateTarefa={handleUpdateTarefaStatus}
@@ -311,29 +313,24 @@ export default function MentoriaView() {
                     onEditTarefa={handleEditTarefa}
                     onDeleteTarefa={handleDeleteTarefa}
                     onCreateTarefa={handleCreateTarefa}
+                    onReplicarProcesso={selectedProcessoId ? () => handleReplicarProcesso(selectedProcessoId) : undefined}
                     etapaName={selectedEtapa.name}
                   />
-                </TabsContent>
-
-                <TabsContent value="documentos" className="flex-1 mt-4">
+                ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center">
-                    <BookOpen className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                    <h3 className="text-lg font-medium mb-2">Documentos</h3>
-                    <p className="text-muted-foreground">
-                      Área de documentos em desenvolvimento
+                    <GraduationCap className="h-20 w-20 text-muted-foreground/30 mb-4" />
+                    <h3 className="text-xl font-medium mb-2">Selecione uma Etapa</h3>
+                    <p className="text-muted-foreground max-w-md">
+                      Escolha um processo e uma etapa na barra lateral para visualizar e gerenciar as tarefas.
                     </p>
                   </div>
-                </TabsContent>
-              </Tabs>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <GraduationCap className="h-20 w-20 text-muted-foreground/30 mb-4" />
-                <h3 className="text-xl font-medium mb-2">Selecione uma Etapa</h3>
-                <p className="text-muted-foreground max-w-md">
-                  Escolha um processo e uma etapa na barra lateral para visualizar e gerenciar as tarefas.
-                </p>
-              </div>
-            )}
+                )}
+              </TabsContent>
+
+              <TabsContent value="documentos" className="flex-1 mt-4 overflow-hidden">
+                <MentoriaDocumentos />
+              </TabsContent>
+            </Tabs>
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

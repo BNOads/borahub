@@ -3,7 +3,6 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, MoreHorizontal, Pencil, Trash2, User } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MentoriaTarefa } from "@/hooks/useMentoria";
@@ -32,15 +31,17 @@ export function MentoriaTaskCard({ tarefa, onToggleComplete, onEdit, onDelete }:
   };
 
   const isCompleted = tarefa.status === 'completed';
+  const hasMentorado = !!tarefa.mentorado_nome;
 
   return (
     <Card
       ref={setNodeRef}
       style={style}
       className={cn(
-        "cursor-pointer hover:shadow-md transition-shadow",
+        "cursor-pointer hover:shadow-md transition-all",
         isDragging && "opacity-50 shadow-lg",
-        isCompleted && "opacity-60"
+        isCompleted && "opacity-60",
+        hasMentorado && "border-l-4 border-l-amber-500 bg-amber-50/30 dark:bg-amber-950/20"
       )}
     >
       <CardContent className="p-3">
@@ -76,11 +77,11 @@ export function MentoriaTaskCard({ tarefa, onToggleComplete, onEdit, onDelete }:
               </p>
             )}
 
-            {tarefa.mentorado_nome && (
-              <Badge variant="secondary" className="mt-2 text-xs">
-                <User className="h-3 w-3 mr-1" />
+            {hasMentorado && (
+              <div className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                <User className="h-3 w-3" />
                 {tarefa.mentorado_nome}
-              </Badge>
+              </div>
             )}
           </div>
 
