@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Plus, Star, Trash2, Save, FileText, Folder, FolderPlus, ChevronRight, ChevronDown, MoreHorizontal, Pencil, Globe, Lock, Link2, FolderOpen } from "lucide-react";
+import { Search, Plus, Star, Trash2, Save, FileText, Folder, FolderPlus, ChevronRight, ChevronDown, MoreHorizontal, Pencil, Globe, Lock, Link2, FolderOpen, Smile } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
@@ -349,6 +350,7 @@ export function MentoriaDocumentos() {
                       onClick={() => setSelectedDoc(doc)}
                       onDelete={() => deleteDocument(doc.id)}
                       onToggleFavorite={() => performSave(doc.id, { is_favorite: !doc.is_favorite })}
+                      onChangeIcon={(icon) => performSave(doc.id, { icon })}
                       folders={folderNames}
                       onMoveToFolder={(folder) => moveDocToFolder(doc.id, folder)}
                       isAdmin={isAdmin}
@@ -379,13 +381,14 @@ export function MentoriaDocumentos() {
                 </div>
                 <CollapsibleContent className="space-y-0.5 ml-2">
                   {getDocsInFolder(folder).map(doc => (
-                    <DocListItem
+                  <DocListItem
                       key={doc.id}
                       doc={doc}
                       active={selectedDoc?.id === doc.id}
                       onClick={() => setSelectedDoc(doc)}
                       onDelete={() => deleteDocument(doc.id)}
                       onToggleFavorite={() => performSave(doc.id, { is_favorite: !doc.is_favorite })}
+                      onChangeIcon={(icon) => performSave(doc.id, { icon })}
                       folders={folderNames}
                       onMoveToFolder={(f) => moveDocToFolder(doc.id, f)}
                       isAdmin={isAdmin}
@@ -406,13 +409,14 @@ export function MentoriaDocumentos() {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="space-y-0.5 ml-2">
                   {rootDocs.map(doc => (
-                    <DocListItem
+                  <DocListItem
                       key={doc.id}
                       doc={doc}
                       active={selectedDoc?.id === doc.id}
                       onClick={() => setSelectedDoc(doc)}
                       onDelete={() => deleteDocument(doc.id)}
                       onToggleFavorite={() => performSave(doc.id, { is_favorite: !doc.is_favorite })}
+                      onChangeIcon={(icon) => performSave(doc.id, { icon })}
                       folders={folderNames}
                       onMoveToFolder={(f) => moveDocToFolder(doc.id, f)}
                       isAdmin={isAdmin}
@@ -442,7 +446,27 @@ export function MentoriaDocumentos() {
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-border">
               <div className="flex items-center gap-3 flex-1">
-                <span className="text-xl">{selectedDoc.icon}</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button className="text-xl hover:bg-muted rounded-md p-1 transition-colors" title="Alterar ícone">
+                      {selectedDoc.icon}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-2" align="start">
+                    <p className="text-xs text-muted-foreground mb-2 px-1">Escolha um ícone:</p>
+                    <div className="grid grid-cols-8 gap-1">
+                      {["📄", "📝", "📋", "📁", "📂", "📑", "📃", "📰", "📓", "📔", "📒", "📕", "📗", "📘", "📙", "📚", "🗂️", "🗃️", "🗄️", "📊", "📈", "📉", "🎯", "💡", "⚡", "🔥", "✨", "🚀", "💎", "🎨", "🎭", "🎬", "🎤", "🎧", "📷", "📹", "💻", "🖥️", "📱", "⌨️", "🔧", "⚙️", "🛠️", "🔨", "📌", "📍", "🏷️", "🔖"].map((emoji) => (
+                        <button
+                          key={emoji}
+                          className="p-1.5 text-lg hover:bg-muted rounded-md transition-colors"
+                          onClick={() => performSave(selectedDoc.id, { icon: emoji })}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 {isEditingTitle ? (
                   <div className="flex items-center gap-2 flex-1 max-w-md">
                     <Input
@@ -566,12 +590,15 @@ interface DocListItemProps {
   onClick: () => void;
   onDelete: () => void;
   onToggleFavorite: () => void;
+  onChangeIcon: (icon: string) => void;
   folders: string[];
   onMoveToFolder: (folder: string | null) => void;
   isAdmin: boolean;
 }
 
-function DocListItem({ doc, active, onClick, onDelete, onToggleFavorite, folders, onMoveToFolder, isAdmin }: DocListItemProps) {
+function DocListItem({ doc, active, onClick, onDelete, onToggleFavorite, onChangeIcon, folders, onMoveToFolder, isAdmin }: DocListItemProps) {
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  
   return (
     <div
       className={cn(
@@ -589,11 +616,30 @@ function DocListItem({ doc, active, onClick, onDelete, onToggleFavorite, folders
             <MoreHorizontal className="h-3 w-3" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuContent align="end" className="w-48 bg-popover">
           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}>
             <Star className={cn("h-4 w-4 mr-2", doc.is_favorite && "fill-amber-500 text-amber-500")} />
             {doc.is_favorite ? "Remover dos favoritos" : "Favoritar"}
           </DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Smile className="h-4 w-4 mr-2" />
+              Alterar ícone
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="p-2 bg-popover">
+              <div className="grid grid-cols-6 gap-1 max-w-[180px]">
+                {["📄", "📝", "📋", "📁", "📂", "📑", "📃", "📰", "📓", "📔", "📒", "📕", "📗", "📘", "📙", "📚", "🗂️", "🗃️", "📊", "📈", "📉", "🎯", "💡", "⚡"].map((emoji) => (
+                  <button
+                    key={emoji}
+                    className="p-1 text-base hover:bg-muted rounded transition-colors"
+                    onClick={(e) => { e.stopPropagation(); onChangeIcon(emoji); }}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <Folder className="h-4 w-4 mr-2" />
