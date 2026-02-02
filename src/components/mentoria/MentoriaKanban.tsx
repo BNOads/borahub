@@ -19,6 +19,8 @@ interface MentoriaKanbanProps {
   onReplicarProcesso?: () => void;
   onOpenTaskDetail?: (tarefa: MentoriaTarefa) => void;
   etapaName: string;
+  filtroMentoradoExterno?: string | null;
+  onClearFiltroMentorado?: () => void;
 }
 
 const columns = [
@@ -37,9 +39,16 @@ export function MentoriaKanban({
   onReplicarProcesso,
   onOpenTaskDetail,
   etapaName,
+  filtroMentoradoExterno,
+  onClearFiltroMentorado,
 }: MentoriaKanbanProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [filtroMentorado, setFiltroMentorado] = useState<string>("todos");
+
+  // Sync external filter with internal state
+  const filtroAtivo = filtroMentoradoExterno !== undefined && filtroMentoradoExterno !== null 
+    ? filtroMentoradoExterno 
+    : filtroMentorado;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -57,12 +66,12 @@ export function MentoriaKanban({
     return [...new Set(nomes)].sort();
   }, [tarefas]);
 
-  // Filter tasks based on selected mentorado
+  // Filter tasks based on selected mentorado (using active filter)
   const tarefasFiltradas = useMemo(() => {
-    if (filtroMentorado === "todos") return tarefas;
-    if (filtroMentorado === "template") return tarefas.filter(t => !t.mentorado_nome);
-    return tarefas.filter(t => t.mentorado_nome === filtroMentorado);
-  }, [tarefas, filtroMentorado]);
+    if (filtroAtivo === "todos") return tarefas;
+    if (filtroAtivo === "template") return tarefas.filter(t => !t.mentorado_nome);
+    return tarefas.filter(t => t.mentorado_nome === filtroAtivo);
+  }, [tarefas, filtroAtivo]);
 
   const tarefasByStatus = useMemo(() => {
     return {
@@ -148,8 +157,19 @@ export function MentoriaKanban({
           {mentoradosUnicos.length > 0 && (
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={filtroMentorado} onValueChange={setFiltroMentorado}>
-                <SelectTrigger className="w-[180px] h-8 text-sm">
+              <Select 
+                value={filtroAtivo} 
+                onValueChange={(value) => {
+                  setFiltroMentorado(value);
+                  if (onClearFiltroMentorado && value === "todos") {
+                    onClearFiltroMentorado();
+                  }
+                }}
+              >
+                <SelectTrigger className={cn(
+                  "w-[180px] h-8 text-sm",
+                  filtroMentoradoExterno && "border-amber-500 bg-amber-50 dark:bg-amber-950/30"
+                )}>
                   <SelectValue placeholder="Filtrar mentorado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -165,6 +185,16 @@ export function MentoriaKanban({
                   ))}
                 </SelectContent>
               </Select>
+              {filtroMentoradoExterno && onClearFiltroMentorado && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={onClearFiltroMentorado}
+                  className="h-8 px-2 text-amber-600 hover:text-amber-700"
+                >
+                  Limpar filtro
+                </Button>
+              )}
             </div>
           )}
         </div>
