@@ -2323,6 +2323,8 @@ export type Database = {
           funnel_source: string | null
           id: string
           installments_count: number
+          original_currency: string | null
+          original_value: number | null
           payment_type: string | null
           platform: string
           product_id: string | null
@@ -2348,6 +2350,8 @@ export type Database = {
           funnel_source?: string | null
           id?: string
           installments_count?: number
+          original_currency?: string | null
+          original_value?: number | null
           payment_type?: string | null
           platform: string
           product_id?: string | null
@@ -2373,6 +2377,8 @@ export type Database = {
           funnel_source?: string | null
           id?: string
           installments_count?: number
+          original_currency?: string | null
+          original_value?: number | null
           payment_type?: string | null
           platform?: string
           product_id?: string | null

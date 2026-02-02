@@ -88,6 +88,103 @@ interface HotmartSale {
 // Token cache
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+// Exchange rate cache (USD and EUR to BRL)
+interface ExchangeRateCache {
+  rates: Record<string, number>;
+  fetchedAt: number;
+}
+let exchangeRateCache: ExchangeRateCache | null = null;
+
+// Fetch exchange rates from public API (caches for 1 hour)
+async function getExchangeRateToBRL(currency: string): Promise<number> {
+  // BRL doesn't need conversion
+  if (currency === "BRL") return 1;
+  
+  const now = Date.now();
+  const cacheValidFor = 60 * 60 * 1000; // 1 hour
+  
+  // Check if cache is valid
+  if (exchangeRateCache && (now - exchangeRateCache.fetchedAt) < cacheValidFor) {
+    const rate = exchangeRateCache.rates[currency];
+    if (rate) {
+      console.log(`Using cached exchange rate for ${currency}: ${rate}`);
+      return rate;
+    }
+  }
+  
+  try {
+    // Use exchangerate-api (free tier, no key needed for basic usage)
+    // or Banco Central do Brasil API
+    const response = await fetch("https://api.exchangerate-api.com/v4/latest/BRL");
+    
+    if (!response.ok) {
+      console.error("Exchange rate API error:", response.status);
+      // Fallback rates if API fails (approximate values)
+      return getFallbackRate(currency);
+    }
+    
+    const data = await response.json();
+    // The API returns rates FROM BRL, so we need the inverse
+    // e.g., if 1 BRL = 0.18 EUR, then 1 EUR = 5.56 BRL
+    const rates: Record<string, number> = {};
+    
+    if (data.rates) {
+      for (const [curr, rate] of Object.entries(data.rates)) {
+        rates[curr] = 1 / (rate as number);
+      }
+    }
+    
+    // Cache the rates
+    exchangeRateCache = {
+      rates,
+      fetchedAt: now,
+    };
+    
+    const rate = rates[currency];
+    if (rate) {
+      console.log(`Fetched exchange rate for ${currency}: ${rate.toFixed(4)} BRL`);
+      return rate;
+    }
+    
+    return getFallbackRate(currency);
+  } catch (err) {
+    console.error("Error fetching exchange rate:", err);
+    return getFallbackRate(currency);
+  }
+}
+
+// Fallback rates for common currencies (approximations)
+function getFallbackRate(currency: string): number {
+  const fallbackRates: Record<string, number> = {
+    USD: 5.50,  // 1 USD ≈ 5.50 BRL
+    EUR: 6.00,  // 1 EUR ≈ 6.00 BRL
+    GBP: 7.00,  // 1 GBP ≈ 7.00 BRL
+    CAD: 4.00,  // 1 CAD ≈ 4.00 BRL
+    AUD: 3.60,  // 1 AUD ≈ 3.60 BRL
+    MXN: 0.32,  // 1 MXN ≈ 0.32 BRL
+  };
+  
+  const rate = fallbackRates[currency];
+  if (rate) {
+    console.log(`Using fallback exchange rate for ${currency}: ${rate}`);
+    return rate;
+  }
+  
+  console.log(`Unknown currency ${currency}, assuming 1:1 rate`);
+  return 1;
+}
+
+// Convert value to BRL if needed
+async function convertToBRL(value: number, currency: string): Promise<number> {
+  if (currency === "BRL") return value;
+  
+  const rate = await getExchangeRateToBRL(currency);
+  const convertedValue = value * rate;
+  
+  console.log(`Converted ${value} ${currency} -> ${convertedValue.toFixed(2)} BRL (rate: ${rate.toFixed(4)})`);
+  return convertedValue;
+}
+
 async function getAccessToken(): Promise<string> {
   // Check if we have a valid cached token (with 5 minutes buffer)
   const now = Date.now();
@@ -646,6 +743,13 @@ serve(async (req) => {
         
         for (const sale of sales) {
           try {
+            // Convert value to BRL if sale was made in foreign currency
+            const originalValue = sale.purchase.price.value;
+            const originalCurrency = sale.purchase.price.currency_code || "BRL";
+            const valueInBRL = await convertToBRL(originalValue, originalCurrency);
+            
+            console.log(`Sale ${sale.purchase.transaction}: ${originalValue} ${originalCurrency} -> ${valueInBRL.toFixed(2)} BRL`);
+            
             // IMPORTANT: seller_id must ALWAYS be null for automatic syncs
             // Seller assignment must be done MANUALLY by admin/financeiro
             const saleData = {
@@ -654,7 +758,9 @@ serve(async (req) => {
               client_email: sale.buyer.email,
               client_phone: sale.buyer.phone || null,
               product_name: sale.product.name,
-              total_value: sale.purchase.price.value,
+              total_value: Math.round(valueInBRL * 100) / 100, // Round to 2 decimal places
+              original_value: originalCurrency !== "BRL" ? originalValue : null, // Store original value if foreign currency
+              original_currency: originalCurrency !== "BRL" ? originalCurrency : null, // Store original currency if not BRL
               installments_count: sale.purchase.payment.installments_number || 1,
               platform: "hotmart",
               commission_percent: 0, // Will be set based on product config
