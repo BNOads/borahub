@@ -15,8 +15,8 @@ const Index = () => {
       <WelcomeSection />
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <TodaysTasks />
         <UpcomingEvents />
+        <TodaysTasks />
       </div>
 
       <ActiveLaunches />
