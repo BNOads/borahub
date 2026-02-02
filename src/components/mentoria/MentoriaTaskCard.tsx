@@ -1,10 +1,10 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, MoreHorizontal, Pencil, Trash2, User, Link2 } from "lucide-react";
+import { GripVertical, MoreHorizontal, Pencil, Trash2, User, Link2, Circle, Clock, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { MentoriaTarefa } from "@/hooks/useMentoria";
 import { cn } from "@/lib/utils";
 
@@ -14,9 +14,10 @@ interface MentoriaTaskCardProps {
   onEdit: (tarefa: MentoriaTarefa) => void;
   onDelete: (tarefaId: string) => void;
   onOpenDetail?: (tarefa: MentoriaTarefa) => void;
+  onChangeStatus?: (tarefa: MentoriaTarefa, newStatus: 'pending' | 'in_progress' | 'completed') => void;
 }
 
-export function MentoriaTaskCard({ tarefa, onToggleComplete, onEdit, onDelete, onOpenDetail }: MentoriaTaskCardProps) {
+export function MentoriaTaskCard({ tarefa, onToggleComplete, onEdit, onDelete, onOpenDetail, onChangeStatus }: MentoriaTaskCardProps) {
   const {
     attributes,
     listeners,
@@ -47,6 +48,12 @@ export function MentoriaTaskCard({ tarefa, onToggleComplete, onEdit, onDelete, o
     }
     onOpenDetail?.(tarefa);
   };
+
+  const statusOptions = [
+    { value: 'pending' as const, label: 'A Fazer', icon: Circle, color: 'text-yellow-500' },
+    { value: 'in_progress' as const, label: 'Em Andamento', icon: Clock, color: 'text-blue-500' },
+    { value: 'completed' as const, label: 'Concluído', icon: CheckCircle2, color: 'text-green-500' },
+  ];
 
   return (
     <Card
@@ -118,7 +125,40 @@ export function MentoriaTaskCard({ tarefa, onToggleComplete, onEdit, onDelete, o
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="bg-popover">
+              {onChangeStatus && (
+                <>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Circle className="h-4 w-4 mr-2" />
+                      Alterar Status
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="bg-popover">
+                      {statusOptions.map((option) => {
+                        const Icon = option.icon;
+                        const isCurrent = tarefa.status === option.value;
+                        return (
+                          <DropdownMenuItem
+                            key={option.value}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!isCurrent) {
+                                onChangeStatus(tarefa, option.value);
+                              }
+                            }}
+                            className={cn(isCurrent && "bg-accent")}
+                          >
+                            <Icon className={cn("h-4 w-4 mr-2", option.color)} />
+                            {option.label}
+                            {isCurrent && <span className="ml-auto text-xs text-muted-foreground">atual</span>}
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem onClick={() => onEdit(tarefa)}>
                 <Pencil className="h-4 w-4 mr-2" />
                 Editar

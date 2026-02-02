@@ -203,6 +203,7 @@ export function MentoriaKanban({
               onEdit={onEditTarefa}
               onDelete={onDeleteTarefa}
               onOpenDetail={onOpenTaskDetail}
+              onChangeStatus={onUpdateTarefa}
             />
           ))}
         </div>
