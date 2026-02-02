@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
-import { Plus, ClipboardList, UserPlus, GripVertical, User } from "lucide-react";
+import { Plus, ClipboardList, UserPlus, GripVertical, User, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { KanbanColumn } from "./KanbanColumn";
 import { MentoriaTarefa } from "@/hooks/useMentoria";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ export function MentoriaKanban({
   etapaName,
 }: MentoriaKanbanProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [filtroMentorado, setFiltroMentorado] = useState<string>("todos");
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -45,13 +47,28 @@ export function MentoriaKanban({
     })
   );
 
+  // Get unique mentorado names for filter
+  const mentoradosUnicos = useMemo(() => {
+    const nomes = tarefas
+      .map(t => t.mentorado_nome)
+      .filter((nome): nome is string => !!nome);
+    return [...new Set(nomes)].sort();
+  }, [tarefas]);
+
+  // Filter tasks based on selected mentorado
+  const tarefasFiltradas = useMemo(() => {
+    if (filtroMentorado === "todos") return tarefas;
+    if (filtroMentorado === "template") return tarefas.filter(t => !t.mentorado_nome);
+    return tarefas.filter(t => t.mentorado_nome === filtroMentorado);
+  }, [tarefas, filtroMentorado]);
+
   const tarefasByStatus = useMemo(() => {
     return {
-      pending: tarefas.filter(t => t.status === 'pending'),
-      in_progress: tarefas.filter(t => t.status === 'in_progress'),
-      completed: tarefas.filter(t => t.status === 'completed'),
+      pending: tarefasFiltradas.filter(t => t.status === 'pending'),
+      in_progress: tarefasFiltradas.filter(t => t.status === 'in_progress'),
+      completed: tarefasFiltradas.filter(t => t.status === 'completed'),
     };
-  }, [tarefas]);
+  }, [tarefasFiltradas]);
 
   const activeTarefa = useMemo(() => {
     if (!activeId) return null;
@@ -121,8 +138,35 @@ export function MentoriaKanban({
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">{etapaName}</h2>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-3">
+          <h2 className="text-lg font-semibold">{etapaName}</h2>
+          
+          {/* Filtro por Mentorado */}
+          {mentoradosUnicos.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={filtroMentorado} onValueChange={setFiltroMentorado}>
+                <SelectTrigger className="w-[180px] h-8 text-sm">
+                  <SelectValue placeholder="Filtrar mentorado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="template">Apenas Template</SelectItem>
+                  {mentoradosUnicos.map((nome) => (
+                    <SelectItem key={nome} value={nome}>
+                      <div className="flex items-center gap-2">
+                        <User className="h-3 w-3" />
+                        {nome}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+        
         <div className="flex items-center gap-2">
           {onReplicarProcesso && (
             <Button 
