@@ -47,9 +47,17 @@ function getGoogleDocsEmbedUrl(url: string): string | null {
     return null;
 }
 
+interface DocumentFolder {
+    id: string;
+    name: string;
+    created_at: string;
+    created_by: string | null;
+}
+
 export default function GuiaView() {
     const { isAdmin } = useAuth();
     const [documents, setDocuments] = useState<Document[]>([]);
+    const [persistedFolders, setPersistedFolders] = useState<DocumentFolder[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedDoc, setSelectedDoc] = useState<Document | null>(null);
     const [loading, setLoading] = useState(true);
@@ -71,7 +79,22 @@ export default function GuiaView() {
 
     useEffect(() => {
         fetchDocuments();
+        fetchFolders();
     }, []);
+
+    async function fetchFolders() {
+        try {
+            const { data, error } = await supabase
+                .from("document_folders")
+                .select("*")
+                .order("name", { ascending: true });
+            
+            if (error) throw error;
+            setPersistedFolders(data || []);
+        } catch (error) {
+            console.error("Error fetching folders:", error);
+        }
+    }
 
     useEffect(() => {
         if (selectedDoc) {
@@ -143,12 +166,30 @@ export default function GuiaView() {
             setIsCreatingFolder(false);
             return;
         }
-        // Folders are just categories, we create a placeholder doc or just use the category
-        // For now, we'll just set the folder and it will appear when docs are assigned to it
-        setExpandedFolders(prev => new Set([...prev, newFolderName.trim()]));
-        toast.success(`Pasta "${newFolderName.trim()}" criada!`);
-        setNewFolderName("");
-        setIsCreatingFolder(false);
+        try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const userId = sessionData?.session?.user?.id;
+            
+            const { data, error } = await supabase
+                .from("document_folders")
+                .insert({ name: newFolderName.trim(), created_by: userId })
+                .select()
+                .single();
+            
+            if (error) throw error;
+            
+            setPersistedFolders(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+            setExpandedFolders(prev => new Set([...prev, newFolderName.trim()]));
+            toast.success(`Pasta "${newFolderName.trim()}" criada!`);
+            setNewFolderName("");
+            setIsCreatingFolder(false);
+        } catch (error: any) {
+            if (error.code === '23505') {
+                toast.error("Já existe uma pasta com esse nome");
+            } else {
+                toast.error("Erro ao criar pasta: " + error.message);
+            }
+        }
     };
 
     const renameFolder = async (oldName: string, newName: string) => {
@@ -157,11 +198,22 @@ export default function GuiaView() {
             return;
         }
         try {
+            // Update folder name in document_folders table
+            const { error: folderError } = await supabase
+                .from("document_folders")
+                .update({ name: newName.trim() })
+                .eq("name", oldName);
+            
+            if (folderError) throw folderError;
+            
+            // Update all documents with this category
             const docsInFolder = documents.filter(d => d.category === oldName);
             for (const doc of docsInFolder) {
                 await supabase.from("documents").update({ category: newName.trim() }).eq("id", doc.id);
             }
+            
             toast.success(`Pasta renomeada para "${newName.trim()}"`);
+            fetchFolders();
             fetchDocuments();
             setEditingFolderName(null);
         } catch (error: any) {
@@ -172,11 +224,22 @@ export default function GuiaView() {
     const deleteFolder = async (folderName: string) => {
         if (!confirm(`Excluir pasta "${folderName}"? Os documentos serão movidos para a raiz.`)) return;
         try {
+            // Move documents to root
             const docsInFolder = documents.filter(d => d.category === folderName);
             for (const doc of docsInFolder) {
                 await supabase.from("documents").update({ category: null }).eq("id", doc.id);
             }
+            
+            // Delete the folder
+            const { error } = await supabase
+                .from("document_folders")
+                .delete()
+                .eq("name", folderName);
+            
+            if (error) throw error;
+            
             toast.success("Pasta excluída");
+            fetchFolders();
             fetchDocuments();
         } catch (error: any) {
             toast.error("Erro ao excluir pasta: " + error.message);
@@ -281,7 +344,10 @@ export default function GuiaView() {
     );
 
     const favoriteDocs = filteredDocs.filter(d => d.is_favorite);
-    const folders = [...new Set(filteredDocs.filter(d => d.category).map(d => d.category!))].sort();
+    // Use persisted folders from database, combined with any category names from documents for backwards compatibility
+    const documentCategories = [...new Set(filteredDocs.filter(d => d.category).map(d => d.category!))];
+    const persistedFolderNames = persistedFolders.map(f => f.name);
+    const folders = [...new Set([...persistedFolderNames, ...documentCategories])].sort();
     const rootDocs = filteredDocs.filter(d => !d.is_favorite && !d.category);
     const getDocsInFolder = (folder: string) => filteredDocs.filter(d => !d.is_favorite && d.category === folder);
 
