@@ -4,7 +4,7 @@ import { GripVertical, MoreHorizontal, Pencil, Trash2, User, Link2, Circle, Cloc
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
 import { MentoriaTarefa } from "@/hooks/useMentoria";
 import { cn } from "@/lib/utils";
 
@@ -129,32 +129,34 @@ export function MentoriaTaskCard({ tarefa, onToggleComplete, onEdit, onDelete, o
               {onChangeStatus && (
                 <>
                   <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
+                    <DropdownMenuSubTrigger className="cursor-pointer">
                       <Circle className="h-4 w-4 mr-2" />
                       Alterar Status
                     </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent className="bg-popover">
-                      {statusOptions.map((option) => {
-                        const Icon = option.icon;
-                        const isCurrent = tarefa.status === option.value;
-                        return (
-                          <DropdownMenuItem
-                            key={option.value}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!isCurrent) {
-                                onChangeStatus(tarefa, option.value);
-                              }
-                            }}
-                            className={cn(isCurrent && "bg-accent")}
-                          >
-                            <Icon className={cn("h-4 w-4 mr-2", option.color)} />
-                            {option.label}
-                            {isCurrent && <span className="ml-auto text-xs text-muted-foreground">atual</span>}
-                          </DropdownMenuItem>
-                        );
-                      })}
-                    </DropdownMenuSubContent>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent className="bg-popover border shadow-lg z-50">
+                        {statusOptions.map((option) => {
+                          const Icon = option.icon;
+                          const isCurrent = tarefa.status === option.value;
+                          return (
+                            <DropdownMenuItem
+                              key={option.value}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!isCurrent && onChangeStatus) {
+                                  onChangeStatus(tarefa, option.value);
+                                }
+                              }}
+                              className={cn("cursor-pointer", isCurrent && "bg-accent")}
+                            >
+                              <Icon className={cn("h-4 w-4 mr-2", option.color)} />
+                              {option.label}
+                              {isCurrent && <span className="ml-auto text-xs text-muted-foreground">atual</span>}
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
                   </DropdownMenuSub>
                   <DropdownMenuSeparator />
                 </>
