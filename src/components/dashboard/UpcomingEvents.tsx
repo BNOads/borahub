@@ -105,7 +105,7 @@ export function UpcomingEvents() {
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold">
             {viewMode === "list"
-              ? "Proximos Eventos"
+              ? "Próximos Eventos"
               : format(currentMonth, "MMMM yyyy", { locale: ptBR })}
           </h2>
           {viewMode === "list" && (
