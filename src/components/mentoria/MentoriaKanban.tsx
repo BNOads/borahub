@@ -17,6 +17,7 @@ interface MentoriaKanbanProps {
   onDeleteTarefa: (tarefaId: string) => void;
   onCreateTarefa: () => void;
   onReplicarProcesso?: () => void;
+  onOpenTaskDetail?: (tarefa: MentoriaTarefa) => void;
   etapaName: string;
 }
 
@@ -34,6 +35,7 @@ export function MentoriaKanban({
   onDeleteTarefa,
   onCreateTarefa,
   onReplicarProcesso,
+  onOpenTaskDetail,
   etapaName,
 }: MentoriaKanbanProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -200,6 +202,7 @@ export function MentoriaKanban({
               onToggleComplete={onToggleComplete}
               onEdit={onEditTarefa}
               onDelete={onDeleteTarefa}
+              onOpenDetail={onOpenTaskDetail}
             />
           ))}
         </div>

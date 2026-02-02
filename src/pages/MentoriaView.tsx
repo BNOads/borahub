@@ -10,6 +10,7 @@ import { CreateProcessoModal } from "@/components/mentoria/CreateProcessoModal";
 import { CreateEtapaModal } from "@/components/mentoria/CreateEtapaModal";
 import { CreateTarefaModal } from "@/components/mentoria/CreateTarefaModal";
 import { ReplicarProcessoModal } from "@/components/mentoria/ReplicarProcessoModal";
+import { MentoriaTaskDetailModal } from "@/components/mentoria/MentoriaTaskDetailModal";
 import {
   useProcessos,
   useCreateProcesso,
@@ -40,6 +41,8 @@ export default function MentoriaView() {
   const [etapaModalOpen, setEtapaModalOpen] = useState(false);
   const [tarefaModalOpen, setTarefaModalOpen] = useState(false);
   const [replicarModalOpen, setReplicarModalOpen] = useState(false);
+  const [taskDetailOpen, setTaskDetailOpen] = useState(false);
+  const [selectedTaskForDetail, setSelectedTaskForDetail] = useState<MentoriaTarefa | null>(null);
 
   // Editing states
   const [editingProcesso, setEditingProcesso] = useState<ProcessoComEtapas | null>(null);
@@ -246,6 +249,23 @@ export default function MentoriaView() {
     });
   };
 
+  const handleOpenTaskDetail = (tarefa: MentoriaTarefa) => {
+    setSelectedTaskForDetail(tarefa);
+    setTaskDetailOpen(true);
+  };
+
+  const handleSaveTaskDetail = (tarefa: MentoriaTarefa, updates: { description?: string }) => {
+    updateTarefa.mutate({
+      id: tarefa.id,
+      description: updates.description,
+    }, {
+      onSuccess: () => {
+        setTaskDetailOpen(false);
+        setSelectedTaskForDetail(null);
+      },
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
@@ -314,6 +334,7 @@ export default function MentoriaView() {
                     onDeleteTarefa={handleDeleteTarefa}
                     onCreateTarefa={handleCreateTarefa}
                     onReplicarProcesso={selectedProcessoId ? () => handleReplicarProcesso(selectedProcessoId) : undefined}
+                    onOpenTaskDetail={handleOpenTaskDetail}
                     etapaName={selectedEtapa.name}
                   />
                 ) : (
@@ -368,6 +389,16 @@ export default function MentoriaView() {
         onSubmit={handleSubmitReplicar}
         processoName={selectedProcessoName}
         isLoading={replicarProcesso.isPending}
+      />
+
+      <MentoriaTaskDetailModal
+        tarefa={selectedTaskForDetail}
+        open={taskDetailOpen}
+        onClose={() => {
+          setTaskDetailOpen(false);
+          setSelectedTaskForDetail(null);
+        }}
+        onSave={handleSaveTaskDetail}
       />
 
       {/* Delete Confirmation Dialog */}

@@ -18,6 +18,7 @@ interface KanbanColumnProps {
   onToggleComplete: (tarefa: MentoriaTarefa) => void;
   onEdit: (tarefa: MentoriaTarefa) => void;
   onDelete: (tarefaId: string) => void;
+  onOpenDetail?: (tarefa: MentoriaTarefa) => void;
 }
 
 export function KanbanColumn({
@@ -26,6 +27,7 @@ export function KanbanColumn({
   onToggleComplete,
   onEdit,
   onDelete,
+  onOpenDetail,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
@@ -63,6 +65,7 @@ export function KanbanColumn({
                 onToggleComplete={onToggleComplete}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onOpenDetail={onOpenDetail}
               />
             ))}
           </div>
