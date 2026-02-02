@@ -421,8 +421,8 @@ export function SalesDashboard() {
             <div className="text-2xl font-bold text-success">
               {formatCurrency(summary?.totalReleased || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Total acumulado
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Calendar className="h-3 w-3" /> Regime de Competência
             </p>
           </CardContent>
         </Card>
@@ -436,8 +436,8 @@ export function SalesDashboard() {
             <div className="text-2xl font-bold">
               {formatCurrency(summary?.currentMonthReleased || 0)}
             </div>
-            <p className="text-xs text-muted-foreground capitalize">
-              {currentMonth}
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Calendar className="h-3 w-3" /> Competência: <span className="capitalize">{currentMonth}</span>
             </p>
           </CardContent>
         </Card>
@@ -451,8 +451,8 @@ export function SalesDashboard() {
             <div className="text-2xl font-bold text-muted-foreground">
               {formatCurrency(summary?.totalPending || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">
-              {pendingInstallments} parcelas pendentes
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Calendar className="h-3 w-3" /> {pendingInstallments} parcelas (competência)
             </p>
           </CardContent>
         </Card>
@@ -496,9 +496,13 @@ export function SalesDashboard() {
             <CardTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5 text-yellow-500" />
               Ranking de Vendedores
+              <Badge variant="outline" className="text-xs font-normal ml-auto">
+                <ShoppingCart className="h-3 w-3 mr-1" />
+                Regime de Venda
+              </Badge>
             </CardTitle>
             <CardDescription>
-              Por faturamento e quantidade de vendas
+              Por faturamento e quantidade de vendas (data da venda)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -547,9 +551,13 @@ export function SalesDashboard() {
                 <CardTitle className="flex items-center gap-2">
                   <Package className="h-5 w-5 text-accent" />
                   Ranking de Produtos
+                  <Badge variant="outline" className="text-xs font-normal">
+                    <ShoppingCart className="h-3 w-3 mr-1" />
+                    Regime de Venda
+                  </Badge>
                 </CardTitle>
                 <CardDescription>
-                  {productRanking.length} produtos encontrados
+                  {productRanking.length} produtos (data da venda)
                 </CardDescription>
               </div>
             </div>
@@ -691,9 +699,13 @@ export function SalesDashboard() {
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-accent" />
               Vendas por Mês
+              <Badge variant="outline" className="text-xs font-normal ml-auto">
+                <ShoppingCart className="h-3 w-3 mr-1" />
+                Regime de Venda
+              </Badge>
             </CardTitle>
             <CardDescription>
-              Faturamento dos últimos 6 meses
+              Faturamento dos últimos 6 meses (data da venda)
             </CardDescription>
           </CardHeader>
           <CardContent>
