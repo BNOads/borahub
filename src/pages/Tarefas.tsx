@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -123,9 +123,21 @@ export default function Tarefas() {
   const [formData, setFormData] = useState<TaskFormData>(emptyFormData);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [tabView, setTabView] = useState<TabView>("tasks");
+  const [initialTabSet, setInitialTabSet] = useState(false);
 
   // Buscar perfil do usuário atual
   const { profile } = useAuth();
+
+  // Quando isAdmin ficar disponível, definir a aba inicial como "team" para admins
+  useEffect(() => {
+    if (!initialTabSet && isAdmin !== undefined) {
+      if (isAdmin) {
+        setTabView("team");
+        setViewMode("by-person");
+      }
+      setInitialTabSet(true);
+    }
+  }, [isAdmin, initialTabSet]);
 
   // Filtros para tarefas do time (admin vê todas)
   const teamFilters = {
