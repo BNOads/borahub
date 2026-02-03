@@ -19,6 +19,9 @@ import {
   Edit3,
   X,
   Plus,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -112,9 +115,75 @@ export function TasksByPersonView({
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
   
+  // Estado para ordenação de colunas
+  type SortColumn = "title" | "priority" | "due_date" | "status";
+  type SortDirection = "asc" | "desc";
+  const [sortColumn, setSortColumn] = useState<SortColumn>("due_date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  
   const bulkDelete = useBulkDeleteTasks();
   
   const { toast } = useToast();
+
+  // Função para alternar ordenação de coluna
+  const handleSortColumn = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  // Renderiza ícone de ordenação
+  const SortIcon = ({ column }: { column: SortColumn }) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3.5 w-3.5 ml-1 opacity-50" />;
+    }
+    return sortDirection === "asc" 
+      ? <ArrowUp className="h-3.5 w-3.5 ml-1" /> 
+      : <ArrowDown className="h-3.5 w-3.5 ml-1" />;
+  };
+
+  // Função de ordenação de tarefas
+  const sortTasks = (tasksToSort: Task[]): Task[] => {
+    const priorityOrder: Record<string, number> = { alta: 1, media: 2, baixa: 3 };
+    
+    return [...tasksToSort].sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortColumn) {
+        case "title":
+          comparison = a.title.localeCompare(b.title);
+          break;
+        case "priority":
+          comparison = (priorityOrder[a.priority] || 4) - (priorityOrder[b.priority] || 4);
+          break;
+        case "due_date":
+          if (!a.due_date && !b.due_date) comparison = 0;
+          else if (!a.due_date) comparison = 1;
+          else if (!b.due_date) comparison = -1;
+          else comparison = new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+          break;
+        case "status":
+          // Order: fazendo > atrasada > pendente > concluída
+          const getStatusOrder = (task: Task) => {
+            if (task.doing_since) return 1;
+            if (!task.completed && task.due_date) {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              if (new Date(task.due_date + "T00:00:00") < today) return 2;
+            }
+            if (!task.completed) return 3;
+            return 4;
+          };
+          comparison = getStatusOrder(a) - getStatusOrder(b);
+          break;
+      }
+      
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  };
 
   // Agrupa tarefas por responsável (assignee = full_name)
   const tasksByPerson = useMemo(() => {
@@ -128,42 +197,14 @@ export function TasksByPersonView({
       grouped[assignee].push(task);
     });
 
-    // Função para obter prioridade de ordenação por data
-    const getDateSortPriority = (task: Task): number => {
-      if (!task.due_date) return 4; // Sem data = última prioridade
-      
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const dueDate = new Date(task.due_date + "T00:00:00");
-      
-      if (dueDate < today) return 1; // Atrasada
-      if (dueDate.getTime() === today.getTime()) return 2; // Hoje
-      return 3; // Futura
-    };
-
-    // Ordena tarefas dentro de cada grupo por data
+    // Ordena tarefas dentro de cada grupo usando a função de ordenação
     Object.keys(grouped).forEach((assignee) => {
-      grouped[assignee].sort((a, b) => {
-        const priorityA = getDateSortPriority(a);
-        const priorityB = getDateSortPriority(b);
-        
-        // Primeiro ordena por prioridade (atrasadas > hoje > futuras > sem data)
-        if (priorityA !== priorityB) {
-          return priorityA - priorityB;
-        }
-        
-        // Dentro da mesma prioridade, ordena por data
-        if (a.due_date && b.due_date) {
-          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
-        }
-        
-        return 0;
-      });
+      grouped[assignee] = sortTasks(grouped[assignee]);
     });
 
     // Ordena por nome
     return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b));
-  }, [tasks]);
+  }, [tasks, sortColumn, sortDirection]);
 
   // Expande todos por padrão quando os dados carregam
   useEffect(() => {
@@ -682,10 +723,42 @@ export function TasksByPersonView({
                         {selectionMode && <TableHead className="w-10"></TableHead>}
                         <TableHead className="w-12"></TableHead>
                         <TableHead className="w-12"></TableHead>
-                        <TableHead>Tarefa</TableHead>
-                        <TableHead className="w-[100px]">Prioridade</TableHead>
-                        <TableHead className="w-[100px]">Prazo</TableHead>
-                        <TableHead className="w-[100px]">Status</TableHead>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50 transition-colors select-none"
+                          onClick={() => handleSortColumn("title")}
+                        >
+                          <div className="flex items-center">
+                            Tarefa
+                            <SortIcon column="title" />
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="w-[100px] cursor-pointer hover:bg-muted/50 transition-colors select-none"
+                          onClick={() => handleSortColumn("priority")}
+                        >
+                          <div className="flex items-center">
+                            Prioridade
+                            <SortIcon column="priority" />
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="w-[100px] cursor-pointer hover:bg-muted/50 transition-colors select-none"
+                          onClick={() => handleSortColumn("due_date")}
+                        >
+                          <div className="flex items-center">
+                            Prazo
+                            <SortIcon column="due_date" />
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="w-[100px] cursor-pointer hover:bg-muted/50 transition-colors select-none"
+                          onClick={() => handleSortColumn("status")}
+                        >
+                          <div className="flex items-center">
+                            Status
+                            <SortIcon column="status" />
+                          </div>
+                        </TableHead>
                         {onDeleteTask && <TableHead className="w-12"></TableHead>}
                       </TableRow>
                     </TableHeader>
