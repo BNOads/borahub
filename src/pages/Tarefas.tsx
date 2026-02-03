@@ -162,6 +162,15 @@ export default function Tarefas() {
   const error = tabView === "team" ? teamError : myTasksError;
 
   // Função helper para verificar se a tarefa está no período selecionado
+  // Para tarefas concluídas, usa completed_at; para pendentes, usa due_date
+  const getRelevantDateForTask = (task: TaskWithSubtasks): string | null => {
+    if (task.completed && task.completed_at) {
+      // Extrai apenas a data (YYYY-MM-DD) do timestamp completed_at
+      return task.completed_at.split("T")[0];
+    }
+    return task.due_date;
+  };
+
   const isInDateRange = (taskDate: string | null, range: string): boolean => {
     if (!taskDate || range === "all") return true;
     
@@ -216,7 +225,9 @@ export default function Tarefas() {
             if (task.recurrence !== filterRecurrence) return false;
           }
         }
-        if (!isInDateRange(task.due_date, filterDateRange)) return false;
+        // Usa data relevante: completed_at para concluídas, due_date para pendentes
+        const relevantDate = getRelevantDateForTask(task);
+        if (!isInDateRange(relevantDate, filterDateRange)) return false;
         return true;
       })
     : myTasks.filter(task => {
