@@ -244,20 +244,6 @@ export function useDeleteTask() {
   });
 }
 
-// Helper para calcular próxima data de recorrência
-function getNextDueDate(currentDueDate: string, recurrenceType: string): string {
-  const daysToAdd: Record<string, number> = {
-    daily: 1,
-    weekly: 7,
-    biweekly: 14,
-    monthly: 30,
-    semiannual: 182,
-    yearly: 365,
-  };
-  const date = new Date(currentDueDate + "T00:00:00");
-  date.setDate(date.getDate() + (daysToAdd[recurrenceType] || 1));
-  return date.toISOString().split("T")[0];
-}
 
 export function useToggleTaskComplete() {
   const queryClient = useQueryClient();
@@ -287,50 +273,8 @@ export function useToggleTaskComplete() {
 
       if (error) throw error;
 
-      // Se está sendo marcada como concluída E tem recorrência, criar próxima instância
-      if (completed && taskData.recurrence && taskData.recurrence !== "none" && taskData.due_date) {
-        const today = new Date().toISOString().split("T")[0];
-        const nextDueDate = getNextDueDate(taskData.due_date, taskData.recurrence);
-
-        // Verificar se já existe tarefa para essa data
-        const { data: existingTask } = await supabase
-          .from("tasks")
-          .select("id")
-          .eq("parent_task_id", id)
-          .eq("due_date", nextDueDate)
-          .single();
-
-        // Verificar se próxima data está dentro do período de recorrência
-        const withinEndDate = !taskData.recurrence_end_date || nextDueDate <= taskData.recurrence_end_date;
-
-        if (!existingTask && withinEndDate) {
-          // Criar nova tarefa recorrente
-          const { error: insertError } = await supabase
-            .from("tasks")
-            .insert({
-              title: taskData.title,
-              description: taskData.description,
-              priority: taskData.priority,
-              category: taskData.category,
-              assignee: taskData.assignee,
-              assigned_to_id: taskData.assigned_to_id,
-              due_date: nextDueDate,
-              due_time: taskData.due_time,
-              recurrence: taskData.recurrence,
-              recurrence_end_date: taskData.recurrence_end_date,
-              parent_task_id: id,
-              is_recurring_instance: true,
-              completed: false,
-              position: taskData.position,
-            });
-
-          if (insertError) {
-            console.error("Erro ao criar próxima tarefa recorrente:", insertError);
-          } else {
-            console.log(`Tarefa recorrente criada para ${nextDueDate}`);
-          }
-        }
-      }
+      // NOTA: A criação da próxima tarefa recorrente é feita pela Edge Function process-task-recurrence
+      // que roda via cron job. Não criar aqui para evitar duplicatas.
 
       return data as Task;
     },
