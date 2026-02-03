@@ -120,16 +120,18 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Check if a task with this parent and due date already exists
-      const { data: existingTask } = await supabase
+      // Check if a task with this title, assignee, and due date already exists (any parent)
+      // This prevents duplicates even when chains get complex
+      const { data: existingTasks } = await supabase
         .from("tasks")
         .select("id")
-        .eq("parent_task_id", task.id)
+        .eq("title", task.title)
+        .eq("assignee", task.assignee)
         .eq("due_date", nextDueDate)
-        .single();
+        .eq("completed", false);
 
-      if (existingTask) {
-        console.log(`[process-task-recurrence] Task "${task.title}" for ${nextDueDate} already exists`);
+      if (existingTasks && existingTasks.length > 0) {
+        console.log(`[process-task-recurrence] Task "${task.title}" for ${nextDueDate} already exists (found ${existingTasks.length} matches)`);
         skippedTasks.push(task.id);
         continue;
       }

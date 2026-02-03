@@ -37,13 +37,13 @@ export function TodaysTasks() {
   const notificationShownRef = useRef(false);
   const previousCompletedRef = useRef<number | null>(null);
 
-  // State for collapsible sections - all collapsed by default
+  // State for collapsible sections - today and completed open by default
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    overdue: false,
-    today: false,
+    overdue: true,
+    today: true,
     upcoming: false,
     "no-date": false,
-    completed: false,
+    completed: true,
   });
 
   // State for quick task creation
