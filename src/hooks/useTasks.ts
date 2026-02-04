@@ -33,10 +33,7 @@ export function useTasks(filters?: Partial<TaskFilters>) {
           .select(`
             id, title, description, priority, category, assignee, assigned_to_id, due_date, due_time, completed, position, created_at, updated_at, completed_at, recurrence, recurrence_end_date, parent_task_id, is_recurring_instance, doing_since,
             subtasks (id, title, completed)
-          `)
-          .order("completed", { ascending: true }) // Pendentes primeiro
-          .order("due_date", { ascending: true, nullsFirst: false })
-          .order("created_at", { ascending: false });
+          `);
 
         if (filters?.priority && filters.priority !== "all") {
           query = query.eq("priority", filters.priority);
@@ -51,7 +48,13 @@ export function useTasks(filters?: Partial<TaskFilters>) {
           query = query.ilike("title", `%${filters.search}%`);
         }
 
-        query = query.limit(500); // Aumentar limite para incluir mais tarefas da equipe
+        // Reordenar para priorizar concluídas recentemente (completed_at DESC)
+        // nullsFirst: true mantém pendentes no topo (completed_at = null)
+        query = query
+          .order("completed", { ascending: true })
+          .order("completed_at", { ascending: false, nullsFirst: true })
+          .order("due_date", { ascending: true, nullsFirst: false })
+          .limit(600); // Aumentado para cobrir volume atual de tarefas
 
         const { data, error } = await query;
         if (error) {
