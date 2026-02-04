@@ -249,7 +249,28 @@ export default function Tarefas() {
         }
         // Usa data relevante: completed_at para concluídas, due_date para pendentes
         const relevantDate = getRelevantDateForTask(task);
-        if (!isInDateRange(relevantDate, filterDateRange)) return false;
+        const inRange = isInDateRange(relevantDate, filterDateRange);
+
+        // Debug pontual: ajuda a entender por que algumas concluídas não aparecem no filtro "Hoje"
+        if (
+          import.meta.env.DEV &&
+          (task.id === "b8cc00d8-fcc8-41b2-b91f-98529aaecb20" || task.id === "7eb54cc7-d1af-4002-9f4e-3a5942e6a34c")
+        ) {
+          // eslint-disable-next-line no-console
+          console.log("🧪 date-filter-debug", {
+            id: task.id,
+            title: task.title,
+            assignee: task.assignee,
+            completed: task.completed,
+            due_date: task.due_date,
+            completed_at: task.completed_at,
+            relevantDate,
+            filterDateRange,
+            inRange,
+          });
+        }
+
+        if (!inRange) return false;
         return true;
       })
     : myTasks.filter(task => {
