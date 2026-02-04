@@ -189,20 +189,31 @@ export function TaskDetailDialog({
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
-    const date = new Date(dateString + "T00:00:00");
+
+    // Suporta tanto data-only (YYYY-MM-DD) quanto timestamp (ex: 2026-02-04T14:22:11Z)
+    const isTimestamp = dateString.includes("T") || dateString.includes(" ");
+    const date = isTimestamp
+      ? new Date(dateString)
+      : new Date(dateString + "T00:00:00");
+
+    if (Number.isNaN(date.getTime())) return null;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
+    const dateOnly = new Date(date);
+    dateOnly.setHours(0, 0, 0, 0);
+
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date.getTime() === today.getTime()) return "Hoje";
-    if (date.getTime() === tomorrow.getTime()) return "Amanhã";
-    if (date.getTime() === yesterday.getTime()) return "Ontem";
-    
+
+    if (dateOnly.getTime() === today.getTime()) return "Hoje";
+    if (dateOnly.getTime() === tomorrow.getTime()) return "Amanhã";
+    if (dateOnly.getTime() === yesterday.getTime()) return "Ontem";
+
     return date.toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "long",
