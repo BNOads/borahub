@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { format, startOfDay, endOfDay, parseISO, isWithinInterval, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toLocalDateString, isInDateRange as isInDateRangeUtil, type DateRangeFilter } from "@/lib/dateUtils";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -161,96 +162,19 @@ export default function Tarefas() {
   const isLoading = tabView === "team" ? teamLoading : myTasksLoading;
   const error = tabView === "team" ? teamError : myTasksError;
 
-  // Função helper para verificar se a tarefa está no período selecionado
-  // Para tarefas concluídas, usa completed_at; para pendentes, usa due_date.
-  // IMPORTANTE: completed_at é timestamp (com timezone). Para evitar bugs de UTC vs horário local,
-  // transformamos o timestamp na data (yyyy-MM-dd) do fuso local antes de comparar.
-  const normalizeTimestamp = (raw: string): string => {
-    let v = raw.trim();
-
-    // Ex: "2026-02-04 14:41:29.882+00" -> "2026-02-04T14:41:29.882+00"
-    if (/^\d{4}-\d{2}-\d{2} /.test(v)) {
-      v = v.replace(" ", "T");
-    }
-
-    // Alguns formatos vêm com offset sem minutos ("+00"). JS costuma exigir "+00:00".
-    if (/[+-]\d{2}$/.test(v)) {
-      v = v.replace(/([+-]\d{2})$/, "$1:00");
-    }
-
-    return v;
-  };
-
-  const toDateOnly = (value: string | null): string | null => {
-    if (!value) return null;
-    // Se já vier como 'YYYY-MM-DD'
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-
-    // Tenta converter timestamp para Date (aceita ISO e formatos retornados pelo backend)
-    const parsed = new Date(normalizeTimestamp(value));
-    if (!Number.isNaN(parsed.getTime())) {
-      return format(parsed, "yyyy-MM-dd"); // data local
-    }
-
-    // Fallback: extrai 'YYYY-MM-DD' de strings como 'YYYY-MM-DD HH:mm:ss...'
-    const match = value.match(/^\d{4}-\d{2}-\d{2}/);
-    return match ? match[0] : null;
-  };
-
+  // Função helper para obter a data relevante para filtros de tarefas.
+  // Para tarefas concluídas, prioriza completed_at; para pendentes, usa due_date.
   const getRelevantDateForTask = (task: TaskWithSubtasks): string | null => {
     if (task.completed) {
       // Preferimos completed_at (data real de conclusão); se vier nulo/inválido, caímos no due_date.
-      return toDateOnly(task.completed_at) ?? toDateOnly(task.due_date);
+      return toLocalDateString(task.completed_at) ?? toLocalDateString(task.due_date);
     }
-    return toDateOnly(task.due_date);
+    return toLocalDateString(task.due_date);
   };
 
+  // Wrapper para usar o utilitário centralizado de filtro de data
   const isInDateRange = (taskDate: string | null, range: string): boolean => {
-    if (!taskDate || range === "all") return true;
-    
-    // Normaliza a data para comparação (apenas YYYY-MM-DD, no fuso local quando aplicável)
-    const taskDateStr = toDateOnly(taskDate);
-    if (!taskDateStr) return false;
-
-    const date = new Date(taskDateStr + "T00:00:00"); // Cria data local (início do dia)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayStr = format(today, "yyyy-MM-dd");
-    
-    switch (range) {
-      case "today":
-        // Comparação robusta em horário local
-        return isSameDay(date, today);
-      case "week":
-        return isWithinInterval(date, {
-          start: startOfWeek(today, { weekStartsOn: 1 }),
-          end: endOfWeek(today, { weekStartsOn: 1 }),
-        });
-      case "month":
-        return isWithinInterval(date, {
-          start: startOfMonth(today),
-          end: endOfMonth(today),
-        });
-      case "overdue":
-        return date < today;
-      case "custom":
-        if (!customDateStart && !customDateEnd) return true;
-        if (customDateStart && customDateEnd) {
-          return isWithinInterval(date, {
-            start: startOfDay(customDateStart),
-            end: endOfDay(customDateEnd),
-          });
-        }
-        if (customDateStart) {
-          return date >= startOfDay(customDateStart);
-        }
-        if (customDateEnd) {
-          return date <= endOfDay(customDateEnd);
-        }
-        return true;
-      default:
-        return true;
-    }
+    return isInDateRangeUtil(taskDate, range as DateRangeFilter, customDateStart, customDateEnd);
   };
 
   // Aplica filtros locais
