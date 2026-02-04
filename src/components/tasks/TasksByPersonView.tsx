@@ -58,6 +58,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { BulkEditModal } from "./BulkEditModal";
 import { useBulkDeleteTasks } from "@/hooks/useTasks";
 import jsPDF from "jspdf";
@@ -117,6 +123,9 @@ export function TasksByPersonView({
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [bulkDeleteConfirmOpen, setBulkDeleteConfirmOpen] = useState(false);
+  
+  // Estado para popup de pessoa
+  const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
   
   // Estado para ordenação de colunas
   type SortColumn = "title" | "priority" | "due_date" | "status";
@@ -639,7 +648,15 @@ export function TasksByPersonView({
                   </Avatar>
 
                   <div className="flex-1 min-w-0 flex items-center gap-2">
-                    <h3 className="font-semibold truncate">{personName}</h3>
+                    <h3 
+                      className="font-semibold truncate cursor-pointer hover:text-primary hover:underline transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPerson(personName);
+                      }}
+                    >
+                      {personName}
+                    </h3>
                     
                     {/* Botão para adicionar nova tarefa para a pessoa */}
                     {onAddTaskForPerson && !selectionMode && (
@@ -1002,6 +1019,150 @@ export function TasksByPersonView({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Person Tasks Popup */}
+      <Dialog open={!!selectedPerson} onOpenChange={(open) => !open && setSelectedPerson(null)}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              {selectedPerson && (
+                <>
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={getUserProfile(selectedPerson)?.avatar_url || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {selectedPerson.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  Tarefas de {selectedPerson}
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedPerson && (
+            <div className="flex-1 overflow-auto -mx-6 px-6">
+              {(() => {
+                const personTasks = tasks.filter(t => t.assignee === selectedPerson);
+                const pendingTasks = personTasks.filter(t => !t.completed);
+                const completedTasks = personTasks.filter(t => t.completed);
+                
+                return (
+                  <div className="space-y-4 pb-4">
+                    {/* Resumo */}
+                    <div className="flex gap-4 text-sm">
+                      <div className="flex items-center gap-1.5 text-muted-foreground">
+                        <Circle className="h-3.5 w-3.5" />
+                        <span>{pendingTasks.length} pendente{pendingTasks.length !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <span>{completedTasks.length} concluída{completedTasks.length !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Tarefas pendentes */}
+                    {pendingTasks.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm text-muted-foreground">Pendentes</h4>
+                        <div className="space-y-1">
+                          {sortTasks(pendingTasks).map(task => {
+                            const overdue = isOverdue(task.due_date ?? null, task.completed);
+                            const isDoing = !!task.doing_since;
+                            return (
+                              <div 
+                                key={task.id}
+                                className={`p-3 rounded-md border cursor-pointer hover:bg-muted/50 transition-colors ${
+                                  isDoing ? 'border-l-4 border-l-primary bg-primary/5' : ''
+                                }`}
+                                onClick={() => {
+                                  setSelectedPerson(null);
+                                  onViewDetail(task.id);
+                                }}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-start gap-2 min-w-0">
+                                    {isDoing && (
+                                      <span className="relative flex h-2.5 w-2.5 mt-1.5 shrink-0">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                                      </span>
+                                    )}
+                                    <span className={`break-words ${isDoing ? 'font-medium text-primary' : ''}`}>
+                                      {task.title}
+                                    </span>
+                                    {task.recurrence && task.recurrence !== "none" && (
+                                      <Badge variant="secondary" className="text-[10px] px-1.5 shrink-0">🔁</Badge>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {getPriorityBadge(task.priority)}
+                                    {isDoing ? (
+                                      <Badge className="bg-primary/90 text-primary-foreground text-[10px]">Fazendo</Badge>
+                                    ) : overdue ? (
+                                      <Badge variant="destructive" className="text-[10px]">Atrasada</Badge>
+                                    ) : null}
+                                  </div>
+                                </div>
+                                {task.due_date && (
+                                  <div className={`text-xs mt-1 ${overdue ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                                    {formatDate(task.due_date)}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Tarefas concluídas */}
+                    {completedTasks.length > 0 && (
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm text-muted-foreground">Concluídas</h4>
+                        <div className="space-y-1">
+                          {sortTasks(completedTasks).map(task => (
+                            <div 
+                              key={task.id}
+                              className="p-3 rounded-md border cursor-pointer hover:bg-muted/50 transition-colors opacity-70"
+                              onClick={() => {
+                                setSelectedPerson(null);
+                                onViewDetail(task.id);
+                              }}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                                  <span className="break-words line-through text-muted-foreground">
+                                    {task.title}
+                                  </span>
+                                </div>
+                                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 text-[10px] shrink-0">
+                                  Concluída
+                                </Badge>
+                              </div>
+                              {task.completed_at && (
+                                <div className="text-xs text-muted-foreground mt-1 ml-6">
+                                  {format(parseISO(task.completed_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {personTasks.length === 0 && (
+                      <div className="text-center text-muted-foreground py-8">
+                        Nenhuma tarefa atribuída
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
