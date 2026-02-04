@@ -193,14 +193,15 @@ export default function Tarefas() {
     const taskDateStr = toDateOnly(taskDate);
     if (!taskDateStr) return false;
 
-    const date = new Date(taskDateStr + "T00:00:00"); // Cria data local
+    const date = new Date(taskDateStr + "T00:00:00"); // Cria data local (início do dia)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todayStr = format(today, "yyyy-MM-dd");
     
     switch (range) {
       case "today":
-        return taskDateStr === todayStr;
+        // Comparação robusta em horário local
+        return isSameDay(date, today);
       case "week":
         return isWithinInterval(date, {
           start: startOfWeek(today, { weekStartsOn: 1 }),
