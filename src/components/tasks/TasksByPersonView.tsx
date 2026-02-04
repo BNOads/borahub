@@ -92,6 +92,7 @@ interface TasksByPersonViewProps {
   onToggleDoing?: (id: string, isDoing: boolean) => void;
   onDeleteTask?: (id: string) => Promise<void>;
   onAddTaskForPerson?: (personName: string) => void;
+  activeDateFilter?: string;
 }
 
 export function TasksByPersonView({
@@ -103,6 +104,7 @@ export function TasksByPersonView({
   onToggleDoing,
   onDeleteTask,
   onAddTaskForPerson,
+  activeDateFilter,
 }: TasksByPersonViewProps) {
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const [showCompleted, setShowCompleted] = useState(false);
@@ -125,6 +127,14 @@ export function TasksByPersonView({
   const bulkDelete = useBulkDeleteTasks();
   
   const { toast } = useToast();
+
+  // Helper: verifica se uma tarefa deve ser visível baseado no estado de filtros
+  const hasActiveDateFilter = activeDateFilter && activeDateFilter !== "all";
+  const shouldShowTask = (task: Task) => {
+    if (!task.completed) return true; // Pendentes sempre visíveis
+    // Para concluídas: mostrar se showCompleted OU se há filtro de data ativo
+    return showCompleted || hasActiveDateFilter;
+  };
 
   // Função para alternar ordenação de coluna
   const handleSortColumn = (column: SortColumn) => {
@@ -311,16 +321,17 @@ export function TasksByPersonView({
       pdf.setFont("helvetica", "normal");
       pdf.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, margin, yPosition);
       yPosition += 4;
-      pdf.text(`Exibindo: ${showCompleted ? "Todas as tarefas" : "Apenas pendentes"}`, margin, yPosition);
+      const filterLabel = hasActiveDateFilter 
+        ? "Tarefas do período filtrado" 
+        : showCompleted ? "Todas as tarefas" : "Apenas pendentes";
+      pdf.text(`Exibindo: ${filterLabel}`, margin, yPosition);
       yPosition += 10;
 
       // Para cada pessoa
       tasksByPerson.forEach(([personName, personTasks]) => {
-        const filteredTasks = showCompleted 
-          ? personTasks 
-          : personTasks.filter(t => !t.completed);
+        const filteredTasks = personTasks.filter(shouldShowTask);
         
-        if (!showCompleted && filteredTasks.length === 0) return;
+        if (filteredTasks.length === 0) return;
 
         // Verifica se precisa nova página
         if (yPosition > pageHeight - 40) {
@@ -436,10 +447,7 @@ export function TasksByPersonView({
   // Selecionar todas as tarefas visíveis
   const selectAllVisible = () => {
     const visibleTaskIds = tasksByPerson.flatMap(([, personTasks]) => {
-      const filtered = showCompleted 
-        ? personTasks 
-        : personTasks.filter(t => !t.completed);
-      return filtered.map(t => t.id);
+      return personTasks.filter(shouldShowTask).map(t => t.id);
     });
     setSelectedTasks(new Set(visibleTaskIds));
   };
@@ -449,9 +457,7 @@ export function TasksByPersonView({
     e.stopPropagation(); // Evita abrir/fechar o collapsible
     
     const personTasksList = tasksByPerson.find(([name]) => name === personName)?.[1] || [];
-    const filteredTasks = showCompleted 
-      ? personTasksList 
-      : personTasksList.filter(t => !t.completed);
+    const filteredTasks = personTasksList.filter(shouldShowTask);
     const personTaskIds = filteredTasks.map(t => t.id);
     
     // Verifica se todas já estão selecionadas
@@ -473,9 +479,7 @@ export function TasksByPersonView({
   // Verifica se todas as tarefas de uma pessoa estão selecionadas
   const areAllPersonTasksSelected = (personName: string): boolean => {
     const personTasksList = tasksByPerson.find(([name]) => name === personName)?.[1] || [];
-    const filteredTasks = showCompleted 
-      ? personTasksList 
-      : personTasksList.filter(t => !t.completed);
+    const filteredTasks = personTasksList.filter(shouldShowTask);
     if (filteredTasks.length === 0) return false;
     return filteredTasks.every(t => selectedTasks.has(t.id));
   };
@@ -483,9 +487,7 @@ export function TasksByPersonView({
   // Verifica se algumas tarefas de uma pessoa estão selecionadas
   const areSomePersonTasksSelected = (personName: string): boolean => {
     const personTasksList = tasksByPerson.find(([name]) => name === personName)?.[1] || [];
-    const filteredTasks = showCompleted 
-      ? personTasksList 
-      : personTasksList.filter(t => !t.completed);
+    const filteredTasks = personTasksList.filter(shouldShowTask);
     const selectedCount = filteredTasks.filter(t => selectedTasks.has(t.id)).length;
     return selectedCount > 0 && selectedCount < filteredTasks.length;
   };
@@ -600,10 +602,8 @@ export function TasksByPersonView({
         const userProfile = getUserProfile(personName);
         const isExpanded = expandedUsers.has(personName);
         
-        // Filtra tarefas baseado no showCompleted
-        const filteredTasks = showCompleted 
-          ? personTasks 
-          : personTasks.filter(t => !t.completed);
+        // Usa a função helper global shouldShowTask
+        const filteredTasks = personTasks.filter(shouldShowTask);
         
         const pendingCount = personTasks.filter((t) => !t.completed).length;
         const completedCount = personTasks.filter((t) => t.completed).length;
@@ -611,8 +611,8 @@ export function TasksByPersonView({
           (t) => isOverdue(t.due_date ?? null, t.completed)
         ).length;
 
-        // Não exibe usuário se não tiver tarefas pendentes e showCompleted = false
-        if (!showCompleted && filteredTasks.length === 0) return null;
+        // Não exibe usuário se não tiver tarefas visíveis
+        if (filteredTasks.length === 0) return null;
 
         return (
           <Collapsible

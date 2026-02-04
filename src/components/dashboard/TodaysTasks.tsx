@@ -123,6 +123,14 @@ export function TodaysTasks() {
   const progressPercentage =
     totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
+  // Helper para verificar se tarefa foi concluída hoje
+  const wasCompletedToday = (task: TaskWithSubtasks): boolean => {
+    if (!task.completed_at) return false;
+    const completedDate = task.completed_at.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    return completedDate === todayStr;
+  };
+
   const groupedTasks = {
     overdue: tasks.filter(
       (t) => !t.completed && getTaskStatus(t) === "overdue"
@@ -132,7 +140,7 @@ export function TodaysTasks() {
     "no-date": tasks.filter(
       (t) => !t.completed && getTaskStatus(t) === "no-date"
     ),
-    completed: tasks.filter((t) => t.completed),
+    completed: tasks.filter((t) => t.completed && wasCompletedToday(t)),
   };
 
   if (isLoading) {
@@ -345,7 +353,7 @@ export function TodaysTasks() {
                 )}
                 <CheckCircle2 className="h-4 w-4 text-success" />
                 <span className="text-sm font-medium text-success">
-                  Concluidas ({groupedTasks.completed.length})
+                  Concluídas hoje ({groupedTasks.completed.length})
                 </span>
               </CollapsibleTrigger>
               <CollapsibleContent className="space-y-2 mt-2">

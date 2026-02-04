@@ -1067,6 +1067,7 @@ export default function Tarefas() {
               onToggleDoing={handleToggleDoing}
               onDeleteTask={handleDeleteTask}
               onAddTaskForPerson={handleAddTaskForPerson}
+              activeDateFilter={filterDateRange}
             />
           ) : (
             <div className="space-y-6">
