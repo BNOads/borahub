@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar, ChevronDown, ChevronRight, ClipboardList, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -367,6 +367,8 @@ interface TaskItemProps {
 }
 
 function TaskItem({ task, onToggle }: TaskItemProps) {
+  const navigate = useNavigate();
+  
   const formatTime = (time: string | null) => {
     if (!time) return null;
     return time.substring(0, 5);
@@ -396,6 +398,10 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
 
   const hasRecurrence = task.recurrence && task.recurrence !== "none";
 
+  const handleTitleClick = () => {
+    navigate(`/tarefas/${task.id}`);
+  };
+
   return (
     <div
       className={cn(
@@ -409,14 +415,15 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
         className="mt-0.5 data-[state=checked]:bg-success data-[state=checked]:border-success"
       />
       <div className="flex-1 min-w-0">
-        <p
+        <button
+          onClick={handleTitleClick}
           className={cn(
-            "font-medium text-sm truncate",
+            "font-medium text-sm truncate text-left w-full hover:text-accent hover:underline transition-colors",
             task.completed && "line-through text-muted-foreground"
           )}
         >
           {task.title}
-        </p>
+        </button>
         <div className="flex flex-wrap items-center gap-2 mt-1">
           {task.due_date && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
