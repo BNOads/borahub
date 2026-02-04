@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { format, parseISO, formatDistanceToNow } from "date-fns";
+import { isToday as isTodayUtil } from "@/lib/dateUtils";
 import { ptBR } from "date-fns/locale";
 import {
   ChevronDown,
@@ -137,24 +138,8 @@ export function TasksByPersonView({
   
   const { toast } = useToast();
 
-  // Helper: verifica se uma tarefa foi concluída hoje
-  const wasCompletedToday = (task: Task): boolean => {
-    if (!task.completed_at) return false;
-
-    const normalizeTimestamp = (raw: string): string => {
-      let v = raw.trim();
-      if (/^\d{4}-\d{2}-\d{2} /.test(v)) v = v.replace(" ", "T");
-      if (/[+-]\d{2}$/.test(v)) v = v.replace(/([+-]\d{2})$/, "$1:00");
-      return v;
-    };
-
-    const parsed = new Date(normalizeTimestamp(task.completed_at));
-    if (Number.isNaN(parsed.getTime())) return false;
-
-    const completedLocal = format(parsed, "yyyy-MM-dd");
-    const todayStr = format(new Date(), "yyyy-MM-dd");
-    return completedLocal === todayStr;
-  };
+  // Helper: verifica se uma tarefa foi concluída hoje (usa utilitário centralizado)
+  const wasCompletedToday = (task: Task): boolean => isTodayUtil(task.completed_at);
 
   // Helper: verifica se uma tarefa deve ser visível baseado no estado de filtros
   const hasActiveDateFilter = activeDateFilter && activeDateFilter !== "all";

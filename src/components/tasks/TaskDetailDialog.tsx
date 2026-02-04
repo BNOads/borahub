@@ -41,6 +41,7 @@ import type { TaskPriority } from "@/types/tasks";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatDateFriendly, isOverdue as isOverdueUtil } from "@/lib/dateUtils";
 
 interface TaskDetailDialogProps {
   taskId: string | null;
@@ -187,47 +188,12 @@ export function TaskDetailDialog({
     }
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return null;
+  // Usa utilitário centralizado para formatação de data
+  const formatDate = (dateString: string | null) => formatDateFriendly(dateString);
 
-    // Suporta tanto data-only (YYYY-MM-DD) quanto timestamp (ex: 2026-02-04T14:22:11Z)
-    const isTimestamp = dateString.includes("T") || dateString.includes(" ");
-    const date = isTimestamp
-      ? new Date(dateString)
-      : new Date(dateString + "T00:00:00");
-
-    if (Number.isNaN(date.getTime())) return null;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const dateOnly = new Date(date);
-    dateOnly.setHours(0, 0, 0, 0);
-
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    if (dateOnly.getTime() === today.getTime()) return "Hoje";
-    if (dateOnly.getTime() === tomorrow.getTime()) return "Amanhã";
-    if (dateOnly.getTime() === yesterday.getTime()) return "Ontem";
-
-    return date.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-    });
-  };
-
-  const isOverdue = (dateString: string | null, completed: boolean) => {
-    if (!dateString || completed) return false;
-    const date = new Date(dateString + "T00:00:00");
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return date < today;
-  };
+  // Usa utilitário centralizado para verificar atraso
+  const isOverdue = (dateString: string | null, completed: boolean) =>
+    isOverdueUtil(dateString, completed);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
