@@ -137,12 +137,20 @@ export function TasksByPersonView({
   
   const { toast } = useToast();
 
+  // Helper: verifica se uma tarefa foi concluída hoje
+  const wasCompletedToday = (task: Task): boolean => {
+    if (!task.completed_at) return false;
+    const completedDate = task.completed_at.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+    const todayStr = format(new Date(), "yyyy-MM-dd");
+    return completedDate === todayStr;
+  };
+
   // Helper: verifica se uma tarefa deve ser visível baseado no estado de filtros
   const hasActiveDateFilter = activeDateFilter && activeDateFilter !== "all";
   const shouldShowTask = (task: Task) => {
     if (!task.completed) return true; // Pendentes sempre visíveis
-    // Para concluídas: mostrar se showCompleted OU se há filtro de data ativo
-    return showCompleted || hasActiveDateFilter;
+    // Para concluídas: mostrar se showCompleted OU se há filtro de data ativo OU se foi concluída hoje
+    return showCompleted || hasActiveDateFilter || wasCompletedToday(task);
   };
 
   // Função para alternar ordenação de coluna
@@ -616,6 +624,8 @@ export function TasksByPersonView({
         
         const pendingCount = personTasks.filter((t) => !t.completed).length;
         const completedCount = personTasks.filter((t) => t.completed).length;
+        const completedTodayCount = personTasks.filter((t) => t.completed && wasCompletedToday(t)).length;
+        const hiddenCompletedCount = completedCount - completedTodayCount; // Concluídas que não são de hoje
         const overdueCount = personTasks.filter(
           (t) => isOverdue(t.due_date ?? null, t.completed)
         ).length;
@@ -929,8 +939,8 @@ export function TasksByPersonView({
                     </TableBody>
                   </Table>
                   
-                  {/* Link para ver tarefas concluídas ocultas */}
-                  {!showCompleted && !hasActiveDateFilter && completedCount > 0 && (
+                  {/* Link para ver tarefas concluídas ocultas (exclui as de hoje que já aparecem) */}
+                  {!showCompleted && !hasActiveDateFilter && hiddenCompletedCount > 0 && (
                     <div className="border-t border-border">
                       <button
                         onClick={(e) => {
@@ -940,7 +950,7 @@ export function TasksByPersonView({
                         className="w-full py-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-2"
                       >
                         <CheckCircle2 className="h-4 w-4" />
-                        + {completedCount} tarefa{completedCount > 1 ? 's' : ''} concluída{completedCount > 1 ? 's' : ''}
+                        + {hiddenCompletedCount} tarefa{hiddenCompletedCount > 1 ? 's' : ''} concluída{hiddenCompletedCount > 1 ? 's' : ''} anterior{hiddenCompletedCount > 1 ? 'es' : ''}
                       </button>
                     </div>
                   )}
