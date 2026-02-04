@@ -71,6 +71,7 @@ interface Task {
   assignee: string;
   due_date?: string | null;
   completed: boolean;
+  completed_at?: string | null;
   recurrence?: string | null;
   doing_since?: string | null;
 }
