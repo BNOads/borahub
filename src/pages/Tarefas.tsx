@@ -174,12 +174,17 @@ export default function Tarefas() {
   const isInDateRange = (taskDate: string | null, range: string): boolean => {
     if (!taskDate || range === "all") return true;
     
-    const date = parseISO(taskDate);
+    // Normaliza a data para comparação (apenas YYYY-MM-DD, sem timezone)
+    // Isso evita problemas com UTC vs local
+    const taskDateStr = taskDate.split("T")[0]; // Garante formato YYYY-MM-DD
+    const date = new Date(taskDateStr + "T00:00:00"); // Cria data local
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = format(today, "yyyy-MM-dd");
     
     switch (range) {
       case "today":
-        return format(date, "yyyy-MM-dd") === format(today, "yyyy-MM-dd");
+        return taskDateStr === todayStr;
       case "week":
         return isWithinInterval(date, {
           start: startOfWeek(today, { weekStartsOn: 1 }),
@@ -191,7 +196,7 @@ export default function Tarefas() {
           end: endOfMonth(today),
         });
       case "overdue":
-        return date < startOfDay(today);
+        return date < today;
       case "custom":
         if (!customDateStart && !customDateEnd) return true;
         if (customDateStart && customDateEnd) {
