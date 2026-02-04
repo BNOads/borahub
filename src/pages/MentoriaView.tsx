@@ -23,6 +23,7 @@ import {
   useUpdateTarefa,
   useDeleteTarefa,
   useReplicarProcesso,
+  useDeleteMentorado,
   ProcessoComEtapas,
   MentoriaEtapa,
   MentoriaTarefa,
@@ -54,8 +55,9 @@ export default function MentoriaView() {
 
   // Delete confirmation
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [deleteType, setDeleteType] = useState<'processo' | 'etapa' | 'tarefa'>('processo');
+  const [deleteType, setDeleteType] = useState<'processo' | 'etapa' | 'tarefa' | 'mentorado'>('processo');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteMentoradoData, setDeleteMentoradoData] = useState<{ processoId: string; nome: string } | null>(null);
 
   // Mutations
   const createProcesso = useCreateProcesso();
@@ -68,6 +70,7 @@ export default function MentoriaView() {
   const updateTarefa = useUpdateTarefa();
   const deleteTarefa = useDeleteTarefa();
   const replicarProcesso = useReplicarProcesso();
+  const deleteMentorado = useDeleteMentorado();
 
   // Get selected etapa data
   const selectedEtapa = useMemo(() => {
@@ -199,6 +202,22 @@ export default function MentoriaView() {
   };
 
   const handleConfirmDelete = () => {
+    if (deleteType === 'mentorado' && deleteMentoradoData) {
+      deleteMentorado.mutate({ 
+        processoId: deleteMentoradoData.processoId, 
+        mentoradoNome: deleteMentoradoData.nome 
+      }, {
+        onSuccess: () => {
+          if (selectedMentorado === deleteMentoradoData.nome) {
+            setSelectedMentorado(null);
+          }
+        },
+      });
+      setDeleteConfirmOpen(false);
+      setDeleteMentoradoData(null);
+      return;
+    }
+
     if (!deleteId) return;
 
     switch (deleteType) {
@@ -233,6 +252,12 @@ export default function MentoriaView() {
   const handleReplicarProcesso = (processoId: string) => {
     setProcessoIdForReplicar(processoId);
     setReplicarModalOpen(true);
+  };
+
+  const handleDeleteMentorado = (processoId: string, mentoradoNome: string) => {
+    setDeleteType('mentorado');
+    setDeleteMentoradoData({ processoId, nome: mentoradoNome });
+    setDeleteConfirmOpen(true);
   };
 
   const handleSubmitReplicar = (mentoradoNome: string) => {
@@ -320,6 +345,7 @@ export default function MentoriaView() {
             onEditEtapa={handleEditEtapa}
             onDeleteEtapa={handleDeleteEtapa}
             onReplicarProcesso={handleReplicarProcesso}
+            onDeleteMentorado={handleDeleteMentorado}
           />
         </ResizablePanel>
 
@@ -428,6 +454,7 @@ export default function MentoriaView() {
               {deleteType === 'processo' && "Tem certeza que deseja excluir este processo? Todas as etapas e tarefas serão excluídas."}
               {deleteType === 'etapa' && "Tem certeza que deseja excluir esta etapa? Todas as tarefas serão excluídas."}
               {deleteType === 'tarefa' && "Tem certeza que deseja excluir esta tarefa?"}
+              {deleteType === 'mentorado' && deleteMentoradoData && `Tem certeza que deseja excluir o mentorado "${deleteMentoradoData.nome}"? Todas as tarefas associadas a este mentorado serão excluídas.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

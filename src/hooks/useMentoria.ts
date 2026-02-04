@@ -383,3 +383,43 @@ export function useReplicarProcesso() {
     },
   });
 }
+
+// Delete mentorado (remove all tarefas with that mentorado_nome in a processo)
+export function useDeleteMentorado() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ processoId, mentoradoNome }: { processoId: string; mentoradoNome: string }) => {
+      // Get all etapas for this processo
+      const { data: etapas, error: etapasError } = await supabase
+        .from("mentoria_etapas")
+        .select("id")
+        .eq("processo_id", processoId);
+
+      if (etapasError) throw etapasError;
+
+      const etapaIds = etapas.map(e => e.id);
+
+      if (etapaIds.length > 0) {
+        // Delete all tarefas with this mentorado_nome in these etapas
+        const { error } = await supabase
+          .from("mentoria_tarefas")
+          .delete()
+          .in("etapa_id", etapaIds)
+          .eq("mentorado_nome", mentoradoNome);
+
+        if (error) throw error;
+      }
+
+      return { processoId, mentoradoNome };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["mentoria-processos"] });
+      queryClient.invalidateQueries({ queryKey: ["mentoria-tarefas"] });
+      toast.success(`Mentorado "${data.mentoradoNome}" excluído!`);
+    },
+    onError: (error) => {
+      toast.error("Erro ao excluir mentorado: " + error.message);
+    },
+  });
+}
