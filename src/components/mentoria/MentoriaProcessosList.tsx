@@ -22,6 +22,7 @@ interface MentoriaProcessosListProps {
   onEditEtapa: (etapa: MentoriaEtapa) => void;
   onDeleteEtapa: (etapaId: string) => void;
   onReplicarProcesso: (processoId: string) => void;
+  onDeleteMentorado: (processoId: string, mentoradoNome: string) => void;
 }
 
 interface MentoradoProgress {
@@ -44,6 +45,7 @@ export function MentoriaProcessosList({
   onEditEtapa,
   onDeleteEtapa,
   onReplicarProcesso,
+  onDeleteMentorado,
 }: MentoriaProcessosListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [expandedProcessos, setExpandedProcessos] = useState<Set<string>>(new Set(processos.map(p => p.id)));
@@ -261,57 +263,80 @@ export function MentoriaProcessosList({
                       
                       return (
                         <div key={mentoradoKey} className="space-y-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                              "w-full justify-start px-2 h-auto py-2 text-sm border-l-2 border-l-amber-500 cursor-pointer transition-all",
-                              isSelected 
-                                ? "bg-amber-500/30 hover:bg-amber-500/40 ring-1 ring-amber-500" 
-                                : "bg-amber-500/10 hover:bg-amber-500/20"
-                            )}
-                            onClick={() => {
-                              // Toggle selection - if already selected, clear it
-                              if (isSelected) {
-                                onSelectMentorado(null, processo.id);
-                              } else {
-                                onSelectMentorado(mentorado.name, processo.id);
-                              }
-                            }}
-                          >
-                            <div className="flex items-center gap-2 w-full">
-                              <User className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-                              <span className={cn(
-                                "truncate font-medium",
+                          <div className="flex items-center group">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={cn(
+                                "flex-1 justify-start px-2 h-auto py-2 text-sm border-l-2 border-l-amber-500 cursor-pointer transition-all",
                                 isSelected 
-                                  ? "text-amber-800 dark:text-amber-300" 
-                                  : "text-amber-700 dark:text-amber-400"
-                              )}>
-                                {mentorado.name}
-                              </span>
-                              <div className="ml-auto flex items-center gap-2">
+                                  ? "bg-amber-500/30 hover:bg-amber-500/40 ring-1 ring-amber-500" 
+                                  : "bg-amber-500/10 hover:bg-amber-500/20"
+                              )}
+                              onClick={() => {
+                                // Toggle selection - if already selected, clear it
+                                if (isSelected) {
+                                  onSelectMentorado(null, processo.id);
+                                } else {
+                                  onSelectMentorado(mentorado.name, processo.id);
+                                }
+                              }}
+                            >
+                              <div className="flex items-center gap-2 w-full">
+                                <User className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                                 <span className={cn(
-                                  "text-xs font-semibold",
+                                  "truncate font-medium",
                                   isSelected 
-                                    ? "text-amber-700 dark:text-amber-300" 
-                                    : "text-amber-600 dark:text-amber-400"
+                                    ? "text-amber-800 dark:text-amber-300" 
+                                    : "text-amber-700 dark:text-amber-400"
                                 )}>
-                                  {mentorado.percentage}%
+                                  {mentorado.name}
                                 </span>
-                                <Badge 
-                                  variant="outline" 
-                                  className={cn(
-                                    "text-xs",
+                                <div className="ml-auto flex items-center gap-2">
+                                  <span className={cn(
+                                    "text-xs font-semibold",
                                     isSelected 
-                                      ? "border-amber-600 text-amber-800 dark:text-amber-300 bg-amber-500/20" 
-                                      : "border-amber-500/50 text-amber-700 dark:text-amber-400"
-                                  )}
-                                >
-                                  {mentorado.completed}/{mentorado.total}
-                                </Badge>
+                                      ? "text-amber-700 dark:text-amber-300" 
+                                      : "text-amber-600 dark:text-amber-400"
+                                  )}>
+                                    {mentorado.percentage}%
+                                  </span>
+                                  <Badge 
+                                    variant="outline" 
+                                    className={cn(
+                                      "text-xs",
+                                      isSelected 
+                                        ? "border-amber-600 text-amber-800 dark:text-amber-300 bg-amber-500/20" 
+                                        : "border-amber-500/50 text-amber-700 dark:text-amber-400"
+                                    )}
+                                  >
+                                    {mentorado.completed}/{mentorado.total}
+                                  </Badge>
+                                </div>
                               </div>
-                            </div>
-                          </Button>
+                            </Button>
+                            
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
+                                >
+                                  <MoreHorizontal className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="bg-popover">
+                                <DropdownMenuItem 
+                                  onClick={() => onDeleteMentorado(processo.id, mentorado.name)}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Excluir Mentorado
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                           {(isExpanded || isSelected) && (
                             <div className="ml-4 mb-2">
                               <Progress 
