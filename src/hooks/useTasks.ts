@@ -283,12 +283,24 @@ export function useToggleTaskComplete() {
 
       const previousTasks = queryClient.getQueryData(taskKeys.lists());
 
+       // Importante: a tela de tarefas pode filtrar concluídas por `completed_at`.
+       // Se fizermos update otimista apenas de `completed`, a tarefa pode “sumir”
+       // até o refetch porque `completed_at` ainda está null.
+       const optimisticCompletedAt = completed ? new Date().toISOString() : null;
+
       // Atualização otimística para todas as queries de tarefas
       queryClient.setQueriesData(
         { queryKey: taskKeys.lists() },
         (old: TaskWithSubtasks[] | undefined) =>
           old?.map((task) =>
-            task.id === id ? { ...task, completed, doing_since: completed ? null : task.doing_since } : task
+            task.id === id
+              ? {
+                  ...task,
+                  completed,
+                  completed_at: optimisticCompletedAt,
+                  doing_since: completed ? null : task.doing_since,
+                }
+              : task
           )
       );
 
@@ -296,7 +308,14 @@ export function useToggleTaskComplete() {
         { queryKey: taskKeys.today() },
         (old: TaskWithSubtasks[] | undefined) =>
           old?.map((task) =>
-            task.id === id ? { ...task, completed, doing_since: completed ? null : task.doing_since } : task
+            task.id === id
+              ? {
+                  ...task,
+                  completed,
+                  completed_at: optimisticCompletedAt,
+                  doing_since: completed ? null : task.doing_since,
+                }
+              : task
           )
       );
 
@@ -305,7 +324,14 @@ export function useToggleTaskComplete() {
         { queryKey: ["tasks", "user"], exact: false },
         (old: TaskWithSubtasks[] | undefined) =>
           old?.map((task) =>
-            task.id === id ? { ...task, completed, doing_since: completed ? null : task.doing_since } : task
+            task.id === id
+              ? {
+                  ...task,
+                  completed,
+                  completed_at: optimisticCompletedAt,
+                  doing_since: completed ? null : task.doing_since,
+                }
+              : task
           )
       );
 
