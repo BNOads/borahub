@@ -163,12 +163,18 @@ export default function Tarefas() {
 
   // Função helper para verificar se a tarefa está no período selecionado
   // Para tarefas concluídas, usa completed_at; para pendentes, usa due_date
+  const toDateOnly = (value: string | null): string | null => {
+    if (!value) return null;
+    // Aceita tanto 'YYYY-MM-DD', quanto 'YYYY-MM-DDTHH:mm:ss...', quanto 'YYYY-MM-DD HH:mm:ss...'
+    const match = value.match(/^\d{4}-\d{2}-\d{2}/);
+    return match ? match[0] : null;
+  };
+
   const getRelevantDateForTask = (task: TaskWithSubtasks): string | null => {
-    if (task.completed && task.completed_at) {
-      // Extrai apenas a data (YYYY-MM-DD) do timestamp completed_at
-      return task.completed_at.split("T")[0];
+    if (task.completed) {
+      return toDateOnly(task.completed_at);
     }
-    return task.due_date;
+    return toDateOnly(task.due_date);
   };
 
   const isInDateRange = (taskDate: string | null, range: string): boolean => {
@@ -176,7 +182,9 @@ export default function Tarefas() {
     
     // Normaliza a data para comparação (apenas YYYY-MM-DD, sem timezone)
     // Isso evita problemas com UTC vs local
-    const taskDateStr = taskDate.split("T")[0]; // Garante formato YYYY-MM-DD
+    const taskDateStr = toDateOnly(taskDate);
+    if (!taskDateStr) return false;
+
     const date = new Date(taskDateStr + "T00:00:00"); // Cria data local
     const today = new Date();
     today.setHours(0, 0, 0, 0);
