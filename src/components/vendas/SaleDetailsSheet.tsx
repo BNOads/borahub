@@ -130,6 +130,20 @@ export function SaleDetailsSheet({ saleId, open, onOpenChange }: SaleDetailsShee
                   <p className="text-xs text-muted-foreground">Meio de Pagamento</p>
                   <p className="font-medium">{(sale as any).payment_type || '-'}</p>
                 </div>
+                {(sale as any).proof_link && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground mb-1">Link de Comprovação</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start gap-2"
+                      onClick={() => window.open((sale as any).proof_link, '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      <span className="truncate">{(sale as any).proof_link}</span>
+                    </Button>
+                  </div>
+                )}
               </div>
               
               {/* Tracking / UTM Info */}
