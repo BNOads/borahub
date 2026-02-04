@@ -113,7 +113,7 @@ export function TasksByPersonView({
   activeDateFilter,
 }: TasksByPersonViewProps) {
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(true);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<{ id: string; title: string } | null>(null);
