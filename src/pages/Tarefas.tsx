@@ -165,13 +165,29 @@ export default function Tarefas() {
   // Para tarefas concluídas, usa completed_at; para pendentes, usa due_date.
   // IMPORTANTE: completed_at é timestamp (com timezone). Para evitar bugs de UTC vs horário local,
   // transformamos o timestamp na data (yyyy-MM-dd) do fuso local antes de comparar.
+  const normalizeTimestamp = (raw: string): string => {
+    let v = raw.trim();
+
+    // Ex: "2026-02-04 14:41:29.882+00" -> "2026-02-04T14:41:29.882+00"
+    if (/^\d{4}-\d{2}-\d{2} /.test(v)) {
+      v = v.replace(" ", "T");
+    }
+
+    // Alguns formatos vêm com offset sem minutos ("+00"). JS costuma exigir "+00:00".
+    if (/[+-]\d{2}$/.test(v)) {
+      v = v.replace(/([+-]\d{2})$/, "$1:00");
+    }
+
+    return v;
+  };
+
   const toDateOnly = (value: string | null): string | null => {
     if (!value) return null;
     // Se já vier como 'YYYY-MM-DD'
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
 
     // Tenta converter timestamp para Date (aceita ISO e formatos retornados pelo backend)
-    const parsed = new Date(value);
+    const parsed = new Date(normalizeTimestamp(value));
     if (!Number.isNaN(parsed.getTime())) {
       return format(parsed, "yyyy-MM-dd"); // data local
     }
@@ -182,7 +198,10 @@ export default function Tarefas() {
   };
 
   const getRelevantDateForTask = (task: TaskWithSubtasks): string | null => {
-    if (task.completed) return toDateOnly(task.completed_at);
+    if (task.completed) {
+      // Preferimos completed_at (data real de conclusão); se vier nulo/inválido, caímos no due_date.
+      return toDateOnly(task.completed_at) ?? toDateOnly(task.due_date);
+    }
     return toDateOnly(task.due_date);
   };
 
@@ -250,25 +269,6 @@ export default function Tarefas() {
         // Usa data relevante: completed_at para concluídas, due_date para pendentes
         const relevantDate = getRelevantDateForTask(task);
         const inRange = isInDateRange(relevantDate, filterDateRange);
-
-        // Debug pontual: ajuda a entender por que algumas concluídas não aparecem no filtro "Hoje"
-        if (
-          import.meta.env.DEV &&
-          (task.id === "b8cc00d8-fcc8-41b2-b91f-98529aaecb20" || task.id === "7eb54cc7-d1af-4002-9f4e-3a5942e6a34c")
-        ) {
-          // eslint-disable-next-line no-console
-          console.log("🧪 date-filter-debug", {
-            id: task.id,
-            title: task.title,
-            assignee: task.assignee,
-            completed: task.completed,
-            due_date: task.due_date,
-            completed_at: task.completed_at,
-            relevantDate,
-            filterDateRange,
-            inRange,
-          });
-        }
 
         if (!inRange) return false;
         return true;

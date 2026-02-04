@@ -140,9 +140,20 @@ export function TasksByPersonView({
   // Helper: verifica se uma tarefa foi concluída hoje
   const wasCompletedToday = (task: Task): boolean => {
     if (!task.completed_at) return false;
-    const completedDate = task.completed_at.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+
+    const normalizeTimestamp = (raw: string): string => {
+      let v = raw.trim();
+      if (/^\d{4}-\d{2}-\d{2} /.test(v)) v = v.replace(" ", "T");
+      if (/[+-]\d{2}$/.test(v)) v = v.replace(/([+-]\d{2})$/, "$1:00");
+      return v;
+    };
+
+    const parsed = new Date(normalizeTimestamp(task.completed_at));
+    if (Number.isNaN(parsed.getTime())) return false;
+
+    const completedLocal = format(parsed, "yyyy-MM-dd");
     const todayStr = format(new Date(), "yyyy-MM-dd");
-    return completedDate === todayStr;
+    return completedLocal === todayStr;
   };
 
   // Helper: verifica se uma tarefa deve ser visível baseado no estado de filtros
