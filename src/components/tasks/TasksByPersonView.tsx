@@ -911,6 +911,22 @@ export function TasksByPersonView({
                       })}
                     </TableBody>
                   </Table>
+                  
+                  {/* Link para ver tarefas concluídas ocultas */}
+                  {!showCompleted && !hasActiveDateFilter && completedCount > 0 && (
+                    <div className="border-t border-border">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowCompleted(true);
+                        }}
+                        className="w-full py-3 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        + {completedCount} tarefa{completedCount > 1 ? 's' : ''} concluída{completedCount > 1 ? 's' : ''}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </CollapsibleContent>
             </div>
