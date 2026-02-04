@@ -162,26 +162,34 @@ export default function Tarefas() {
   const error = tabView === "team" ? teamError : myTasksError;
 
   // Função helper para verificar se a tarefa está no período selecionado
-  // Para tarefas concluídas, usa completed_at; para pendentes, usa due_date
+  // Para tarefas concluídas, usa completed_at; para pendentes, usa due_date.
+  // IMPORTANTE: completed_at é timestamp (com timezone). Para evitar bugs de UTC vs horário local,
+  // transformamos o timestamp na data (yyyy-MM-dd) do fuso local antes de comparar.
   const toDateOnly = (value: string | null): string | null => {
     if (!value) return null;
-    // Aceita tanto 'YYYY-MM-DD', quanto 'YYYY-MM-DDTHH:mm:ss...', quanto 'YYYY-MM-DD HH:mm:ss...'
+    // Se já vier como 'YYYY-MM-DD'
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+    // Tenta converter timestamp para Date (aceita ISO e formatos retornados pelo backend)
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return format(parsed, "yyyy-MM-dd"); // data local
+    }
+
+    // Fallback: extrai 'YYYY-MM-DD' de strings como 'YYYY-MM-DD HH:mm:ss...'
     const match = value.match(/^\d{4}-\d{2}-\d{2}/);
     return match ? match[0] : null;
   };
 
   const getRelevantDateForTask = (task: TaskWithSubtasks): string | null => {
-    if (task.completed) {
-      return toDateOnly(task.completed_at);
-    }
+    if (task.completed) return toDateOnly(task.completed_at);
     return toDateOnly(task.due_date);
   };
 
   const isInDateRange = (taskDate: string | null, range: string): boolean => {
     if (!taskDate || range === "all") return true;
     
-    // Normaliza a data para comparação (apenas YYYY-MM-DD, sem timezone)
-    // Isso evita problemas com UTC vs local
+    // Normaliza a data para comparação (apenas YYYY-MM-DD, no fuso local quando aplicável)
     const taskDateStr = toDateOnly(taskDate);
     if (!taskDateStr) return false;
 
