@@ -1,205 +1,129 @@
 
 
-# Plano: Melhorias na Ferramenta Mentoria BORA Acelerar
+# Plano: Exibir Tarefas Concluídas por Data de Conclusão
 
-## Resumo das Correções e Melhorias
-
-Este plano aborda 4 pontos principais:
-1. Criar sub-aba de "Documentos Gerais" similar ao Guia de Sobrevivência
-2. Tornar o botão "Replicar para Mentorado" mais evidente
-3. Melhorar a visualização do Kanban para mentorados
-4. Corrigir erros de drag-and-drop no Kanban
+## Resumo
+Corrigir a lógica de exibição para que tarefas concluídas apareçam no dia em que foram finalizadas (usando `completed_at`), permitindo que administradores vejam quem fez o quê em determinado dia.
 
 ---
 
-## 1. Correção do Kanban (Drag-and-Drop)
+## Problemas Identificados
 
-**Problema identificado**: 
-- As colunas do Kanban não estão usando `useDroppable` para receber itens arrastados
-- O componente `Badge` está recebendo ref mas não suporta `forwardRef`, causando warning no console
+### Problema 1: Filtro de data ignora tarefas concluídas
+Na aba "Time" (`/tarefas`), o filtro de data foi ajustado para usar `completed_at` das tarefas concluídas. Porém, o componente `TasksByPersonView` descarta todas as concluídas **antes** de listá-las quando `showCompleted = false` (padrão).
 
-**Solução**:
-- Refatorar `MentoriaKanban.tsx` para usar `useDroppable` em cada coluna (como feito em `SponsorKanban.tsx`)
-- Separar a lógica de colunas em um componente `KanbanColumn` dedicado
-- Adicionar `DragOverlay` para melhor feedback visual durante arraste
-- Manter o Card como elemento principal que recebe o ref (já está correto)
+**Resultado:** Mesmo que a tarefa passe pelo filtro de data, ela é removida no componente filho.
+
+### Problema 2: Dashboard não filtra concluídas por data
+No widget "Minhas Tarefas" do dashboard (`TodaysTasks.tsx`), todas as tarefas concluídas vão para o grupo `completed` sem distinção de quando foram concluídas. Uma tarefa concluída há meses aparece junto com as concluídas hoje.
 
 ---
 
-## 2. Botão "Replicar para Mentorado" Mais Evidente
+## Solução
 
-**Estado atual**: O botão está escondido no menu dropdown (3 pontinhos) de cada processo
+### Parte 1: Aba Time (TasksByPersonView)
 
-**Solução**:
-- Adicionar um botão destacado no cabeçalho do painel direito quando uma etapa está selecionada
-- Usar estilo visual chamativo (cor primária, ícone de usuário)
-- Manter a opção também no dropdown para acesso rápido
+**Lógica proposta:**
+Quando houver filtro de data ativo ("Hoje", "Esta semana", etc.), exibir automaticamente as tarefas concluídas **que foram concluídas dentro do período filtrado**, mesmo com `showCompleted = false`.
 
-**Nova posição**: No header do Kanban, ao lado do nome da etapa
+Isso garante que:
+- Ao filtrar "Hoje", o admin vê tarefas pendentes de hoje + tarefas concluídas hoje
+- Ao desativar o filtro de data ("Todos"), volta ao comportamento atual (só mostra concluídas com o botão)
 
----
+**Implementação:**
+1. Passar o filtro de data ativo (`filterDateRange`) como prop para `TasksByPersonView`
+2. Adicionar lógica: se `filterDateRange !== "all"`, incluir automaticamente concluídas que passaram pelo filtro de data
+3. Ajustar contadores para refletir corretamente
 
-## 3. Visualização Diferenciada para Mentorados
+### Parte 2: Dashboard (TodaysTasks)
 
-**Melhoria**: Destacar visualmente as tarefas que pertencem a um mentorado específico
+**Lógica proposta:**
+Mostrar apenas tarefas concluídas **hoje** no grupo "Concluídas", não todo o histórico.
 
-**Implementação**:
-- Cards de tarefas com `mentorado_nome` recebem borda colorida destacada
-- Badge do mentorado com cor mais vibrante (amber/gold)
-- Opção de filtrar por mentorado no header do Kanban
-- Contador visual de tarefas por mentorado
-
----
-
-## 4. Sub-aba de Documentos Gerais
-
-**Implementação**: Criar uma nova aba "Documentos" no painel principal, similar ao Guia de Sobrevivência
-
-**Estrutura do banco de dados**:
-- Reutilizar a tabela `documents` existente, adicionando um campo `mentoria_processo_id` (nullable)
-- Documentos com esse campo preenchido aparecem apenas na mentoria
-- OU criar uma nova tabela `mentoria_documentos` específica (mais isolado)
-
-**Opção escolhida**: Nova tabela `mentoria_documentos` para manter separação clara
-
-**Nova tabela**: `mentoria_documentos`
-- `id` (UUID, PK)
-- `processo_id` (UUID, FK -> mentoria_processos, nullable) - para docs gerais, deixar null
-- `title` (text)
-- `content` (text)
-- `icon` (text, default '📄')
-- `google_docs_url` (text, nullable)
-- `is_favorite` (boolean, default false)
-- `category` (text, nullable) - para pastas internas
-- `created_at`, `updated_at`
-- `created_by` (UUID)
-
----
-
-## Componentes a Criar/Modificar
-
-**Novos arquivos**:
-- `src/components/mentoria/MentoriaDocumentos.tsx` - Componente de documentos (baseado no GuiaView)
-- `src/components/mentoria/KanbanColumn.tsx` - Coluna individual do Kanban com useDroppable
-
-**Arquivos a modificar**:
-- `src/components/mentoria/MentoriaKanban.tsx` - Corrigir drag-and-drop, adicionar filtros
-- `src/components/mentoria/MentoriaTaskCard.tsx` - Melhorar visual para mentorados
-- `src/pages/MentoriaView.tsx` - Adicionar aba de documentos, botão de replicar destacado
-- `src/hooks/useMentoria.ts` - Adicionar hooks para documentos
-
----
-
-## Sequência de Implementação
-
-1. **Migração de banco**: Criar tabela `mentoria_documentos` com políticas RLS
-2. **Correção do Kanban**: 
-   - Extrair `KanbanColumn` com `useDroppable`
-   - Adicionar `DragOverlay`
-   - Testar drag-and-drop entre colunas
-3. **Visual de mentorados**:
-   - Melhorar cards com borda colorida
-   - Adicionar filtro por mentorado
-4. **Botão de replicar**:
-   - Adicionar botão destacado no header
-5. **Aba de documentos**:
-   - Criar `MentoriaDocumentos` baseado no GuiaView
-   - Integrar na página principal
+**Implementação:**
+1. Adicionar uma função `wasCompletedToday(task)` que verifica se `completed_at` é hoje
+2. Filtrar o grupo `completed` para mostrar apenas tarefas concluídas hoje
+3. Atualizar o label para "Concluídas hoje" para clareza
 
 ---
 
 ## Detalhes Técnicos
 
-### Correção do Kanban (código-chave)
+### Arquivo: `src/pages/Tarefas.tsx`
 
-```typescript
-// KanbanColumn com useDroppable
-function KanbanColumn({ column, tarefas, ... }: KanbanColumnProps) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: column.id,
-  });
+```text
+Mudança: Passar filterDateRange como prop para TasksByPersonView
+Linha: ~1061
 
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "flex flex-col rounded-lg border-2 p-3 transition-colors",
-        column.color,
-        isOver && "ring-2 ring-primary bg-primary/5"
-      )}
-    >
-      ...
-    </div>
-  );
-}
+<TasksByPersonView
+  tasks={tasks}
+  users={users}
+  isLoading={isLoading}
+  onToggleComplete={handleToggleComplete}
+  onViewDetail={handleOpenDetail}
+  onToggleDoing={handleToggleDoing}
+  onDeleteTask={handleDeleteTask}
+  onAddTaskForPerson={handleAddTaskForPerson}
+  activeDateFilter={filterDateRange}  // NOVA PROP
+/>
 ```
 
-### Visual diferenciado para mentorados
+### Arquivo: `src/components/tasks/TasksByPersonView.tsx`
 
-```typescript
-// No MentoriaTaskCard
-<Card
-  className={cn(
-    "cursor-pointer hover:shadow-md transition-shadow",
-    tarefa.mentorado_nome && "border-l-4 border-l-amber-500"
-  )}
->
-  {tarefa.mentorado_nome && (
-    <Badge className="bg-amber-500/20 text-amber-700 border-amber-500">
-      <User className="h-3 w-3 mr-1" />
-      {tarefa.mentorado_nome}
-    </Badge>
-  )}
-</Card>
+```text
+Mudanças:
+1. Adicionar prop "activeDateFilter" à interface
+2. Alterar lógica de filtragem:
+   - Se activeDateFilter !== "all": mostrar concluídas que estão na lista (já passaram pelo filtro de data)
+   - Se activeDateFilter === "all" ou undefined: manter comportamento atual (só com botão showCompleted)
+3. Atualizar contadores para refletir tarefas concluídas visíveis
+
+Lógica resumida:
+const shouldShowTask = (task) => {
+  if (!task.completed) return true; // Pendentes sempre visíveis
+  // Para concluídas: mostrar se showCompleted OU se há filtro de data ativo
+  return showCompleted || (activeDateFilter && activeDateFilter !== "all");
+};
 ```
 
-### Botão de replicar destacado
+### Arquivo: `src/components/dashboard/TodaysTasks.tsx`
 
-```typescript
-// No header do Kanban
-<div className="flex items-center justify-between mb-4">
-  <h2 className="text-lg font-semibold">{etapaName}</h2>
-  <div className="flex items-center gap-2">
-    <Button 
-      onClick={onReplicarProcesso}
-      className="bg-amber-500 hover:bg-amber-600 text-white"
-    >
-      <UserPlus className="h-4 w-4 mr-2" />
-      Replicar para Mentorado
-    </Button>
-    <Button size="sm" onClick={onCreateTarefa}>
-      <Plus className="h-4 w-4 mr-2" />
-      Nova Tarefa
-    </Button>
-  </div>
-</div>
+```text
+Mudanças:
+1. Adicionar helper para verificar se tarefa foi concluída hoje
+2. Filtrar grupo "completed" para mostrar apenas concluídas hoje
+3. Atualizar label de "Concluídas" para "Concluídas hoje"
+
+Lógica:
+const wasCompletedToday = (task) => {
+  if (!task.completed_at) return false;
+  const completedDate = task.completed_at.match(/^\d{4}-\d{2}-\d{2}/)?.[0];
+  const today = format(new Date(), "yyyy-MM-dd");
+  return completedDate === today;
+};
+
+const groupedTasks = {
+  // ... outros grupos
+  completed: tasks.filter((t) => t.completed && wasCompletedToday(t)),
+};
 ```
 
 ---
 
-## Interface Final Esperada
+## Comportamento Esperado Após Implementação
 
-```
-+--------------------------------+----------------------------------------+
-|  SIDEBAR (Processos)           |  PAINEL PRINCIPAL                      |
-+--------------------------------+----------------------------------------+
-| [+ Novo Processo]              |  [Tarefas] [Documentos]                |
-| [Buscar...]                    |                                        |
-|                                |  Etapa: Processo Padrão                |
-| ▼ Onboarding MBA 2025          |  [🔄 Replicar para Mentorado] [+ Nova] |
-|   └ Processo Padrão ●          |                                        |
-| ▼ Offboarding MBA2025          |  KANBAN:                               |
-|   └ Processo Padrão            |  ┌──────────┐ ┌──────────┐ ┌──────────┐|
-| ▼ Entrega Padrão               |  │ A Fazer  │ │Em Andamen│ │ Concluído│|
-|   └ Pré-encontro               |  ├──────────┤ ├──────────┤ ├──────────┤|
-|   └ Encontro                   |  │ [Task 1] │ │          │ │ [Task 3] │|
-|                                |  │ [Task 2] │ │          │ │          │|
-|                                |  │ ▌João▐   │ │          │ │          │|
-|                                |  └──────────┘ └──────────┘ └──────────┘|
-+--------------------------------+----------------------------------------+
-```
+| Cenário | Antes | Depois |
+|---------|-------|--------|
+| Aba Time, filtro "Hoje" | Só tarefas pendentes | Pendentes + concluídas hoje |
+| Aba Time, sem filtro | Só pendentes (ou todas se clicar botão) | Mantém igual |
+| Dashboard "Concluídas" | Todas as concluídas históricas | Apenas concluídas hoje |
+| Tarefa recorrente concluída | Some da tela | Aparece como concluída do dia |
 
-**Legenda visual**:
-- `▌João▐` = Badge colorido do mentorado
-- Cards com borda lateral colorida = tarefas de mentorados
+---
+
+## Arquivos a Modificar
+
+1. `src/pages/Tarefas.tsx` - Passar prop do filtro
+2. `src/components/tasks/TasksByPersonView.tsx` - Lógica de exibição automática
+3. `src/components/dashboard/TodaysTasks.tsx` - Filtrar por data de conclusão
 
