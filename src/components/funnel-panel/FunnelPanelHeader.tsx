@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Copy, Globe, Lock, Pencil } from "lucide-react";
+import { ArrowLeft, Copy, Globe, Lock, Pencil, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -40,6 +40,14 @@ export function FunnelPanelHeader({ funnel, onUpdate }: FunnelPanelHeaderProps) 
     navigator.clipboard.writeText(url);
     toast.success("Link copiado!");
   };
+
+  const copyReportLink = () => {
+    const url = `${window.location.origin}/relatorio-funil/${funnel.id}`;
+    navigator.clipboard.writeText(url);
+    toast.success("Link do relatório copiado!");
+  };
+
+  const isHighTicket = funnel.category === "High ticket";
 
   const toggleVisibility = async () => {
     const newVisibility = funnel.visibility === "public" ? "private" : "public";
@@ -112,6 +120,12 @@ export function FunnelPanelHeader({ funnel, onUpdate }: FunnelPanelHeaderProps) 
               <Copy className="h-4 w-4" />
               <span className="hidden sm:inline">Copiar Link</span>
             </Button>
+            {isHighTicket && (
+              <Button variant="outline" size="sm" onClick={copyReportLink} className="gap-2">
+                <Share2 className="h-4 w-4" />
+                <span className="hidden sm:inline">Link Relatório</span>
+              </Button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
