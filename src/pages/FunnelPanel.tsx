@@ -165,11 +165,6 @@ export default function FunnelPanel() {
             {isLaunchCategory && <FunnelKeyDates funnel={funnel} />}
           </div>
 
-          {/* Card de Funil de Conversão - só para High Ticket */}
-          {isHighTicket && (
-            <FunnelStagesCard funnelId={funnel.id} />
-          )}
-
           {/* Faturamento e Links lado a lado */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Card de Faturamento dos Produtos */}
@@ -208,6 +203,7 @@ export default function FunnelPanel() {
         {/* Tab: Relatório - só para High Ticket */}
         {isHighTicket && (
           <TabsContent value="relatorio" className="space-y-6">
+            <FunnelStagesCard funnelId={funnel.id} />
             <FunnelDailyReport funnel={funnel} onUpdate={fetchFunnel} />
           </TabsContent>
         )}
