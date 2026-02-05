@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,18 +6,26 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ClipboardList, Save, User, Calendar } from "lucide-react";
-import { format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { ClipboardList, Save, User, Calendar as CalendarIcon, ArrowUpDown, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { format, subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useFunnelDailyReports, useTodayReport, useCreateDailyReport, useUpdateFunnelResponsible } from "@/hooks/useFunnelDailyReports";
 import { useQuery } from "@tanstack/react-query";
 import { FunnelData } from "./types";
+import { cn } from "@/lib/utils";
 
 interface FunnelDailyReportProps {
   funnel: FunnelData;
   onUpdate: () => void;
 }
+
+type SortField = "report_date" | "contacts" | "followups" | "reschedules" | "meetings_scheduled" | "meetings_held" | "no_shows" | "sales";
+type SortDirection = "asc" | "desc";
+
+const ITEMS_PER_PAGE = 30;
 
 export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) {
   const today = new Date().toISOString().split("T")[0];
@@ -35,6 +43,20 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
     no_shows: 0,
     sales: 0,
     summary: "",
+  });
+
+  // Sorting state
+  const [sortField, setSortField] = useState<SortField>("report_date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Date filter state
+  const [dateFilter, setDateFilter] = useState<"30d" | "7d" | "custom">("30d");
+  const [customDateRange, setCustomDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: subDays(new Date(), 30),
+    to: new Date(),
   });
 
   // Load today's report data if exists
@@ -67,6 +89,83 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
     },
   });
 
+  // Filter and sort reports
+  const filteredAndSortedReports = useMemo(() => {
+    if (!reports) return [];
+
+    let filtered = [...reports];
+
+    // Apply date filter
+    const now = new Date();
+    let startDate: Date;
+    let endDate: Date = endOfDay(now);
+
+    if (dateFilter === "7d") {
+      startDate = startOfDay(subDays(now, 7));
+    } else if (dateFilter === "30d") {
+      startDate = startOfDay(subDays(now, 30));
+    } else {
+      startDate = customDateRange.from ? startOfDay(customDateRange.from) : startOfDay(subDays(now, 30));
+      endDate = customDateRange.to ? endOfDay(customDateRange.to) : endOfDay(now);
+    }
+
+    filtered = filtered.filter((report) => {
+      const reportDate = new Date(report.report_date);
+      return isWithinInterval(reportDate, { start: startDate, end: endDate });
+    });
+
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue: any = a[sortField];
+      let bValue: any = b[sortField];
+
+      if (sortField === "report_date") {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      }
+
+      if (sortDirection === "asc") {
+        return aValue > bValue ? 1 : -1;
+      }
+      return aValue < bValue ? 1 : -1;
+    });
+
+    return filtered;
+  }, [reports, sortField, sortDirection, dateFilter, customDateRange]);
+
+  // Paginate
+  const totalPages = Math.ceil(filteredAndSortedReports.length / ITEMS_PER_PAGE);
+  const paginatedReports = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAndSortedReports.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredAndSortedReports, currentPage]);
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    return filteredAndSortedReports.reduce(
+      (acc, report) => ({
+        contacts: acc.contacts + report.contacts,
+        followups: acc.followups + report.followups,
+        reschedules: acc.reschedules + report.reschedules,
+        meetings_scheduled: acc.meetings_scheduled + report.meetings_scheduled,
+        meetings_held: acc.meetings_held + report.meetings_held,
+        no_shows: acc.no_shows + report.no_shows,
+        sales: acc.sales + report.sales,
+      }),
+      { contacts: 0, followups: 0, reschedules: 0, meetings_scheduled: 0, meetings_held: 0, no_shows: 0, sales: 0 }
+    );
+  }, [filteredAndSortedReports]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("desc");
+    }
+    setCurrentPage(1);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await createReport.mutateAsync({
@@ -84,6 +183,18 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
     });
     onUpdate();
   };
+
+  const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
+    <TableHead
+      className="text-center cursor-pointer hover:bg-muted/50 select-none"
+      onClick={() => handleSort(field)}
+    >
+      <div className="flex items-center justify-center gap-1">
+        {children}
+        <ArrowUpDown className={cn("h-3 w-3", sortField === field && "text-primary")} />
+      </div>
+    </TableHead>
+  );
 
   return (
     <div className="space-y-6">
@@ -119,7 +230,7 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-lg">
-            <Calendar className="h-5 w-5" />
+            <CalendarIcon className="h-5 w-5" />
             Relatório do Dia ({format(new Date(), "dd/MM/yyyy", { locale: ptBR })})
           </CardTitle>
         </CardHeader>
@@ -220,52 +331,145 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
       {/* Histórico */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <ClipboardList className="h-5 w-5" />
-            Histórico de Relatórios
-          </CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <ClipboardList className="h-5 w-5" />
+              Histórico de Relatórios
+            </CardTitle>
+
+            {/* Filtros de data */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Período:</span>
+              </div>
+              <div className="flex gap-1">
+                <Button
+                  variant={dateFilter === "7d" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => { setDateFilter("7d"); setCurrentPage(1); }}
+                >
+                  7 dias
+                </Button>
+                <Button
+                  variant={dateFilter === "30d" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => { setDateFilter("30d"); setCurrentPage(1); }}
+                >
+                  30 dias
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={dateFilter === "custom" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setDateFilter("custom")}
+                    >
+                      <CalendarIcon className="h-4 w-4 mr-1" />
+                      Personalizado
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="range"
+                      selected={{ from: customDateRange.from, to: customDateRange.to }}
+                      onSelect={(range) => {
+                        setCustomDateRange({ from: range?.from, to: range?.to });
+                        setCurrentPage(1);
+                      }}
+                      locale={ptBR}
+                      numberOfMonths={2}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loadingReports ? (
             <div className="text-center py-4 text-muted-foreground">Carregando...</div>
-          ) : reports && reports.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead className="text-center">Contatos</TableHead>
-                    <TableHead className="text-center">Follow-ups</TableHead>
-                    <TableHead className="text-center">Reagend.</TableHead>
-                    <TableHead className="text-center">Agendadas</TableHead>
-                    <TableHead className="text-center">Realizadas</TableHead>
-                    <TableHead className="text-center">No-show</TableHead>
-                    <TableHead className="text-center">Vendas</TableHead>
-                    <TableHead>Resumo</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {reports.map((report) => (
-                    <TableRow key={report.id}>
-                      <TableCell className="font-medium whitespace-nowrap">
-                        {format(new Date(report.report_date), "dd/MM/yyyy", { locale: ptBR })}
-                      </TableCell>
-                      <TableCell className="text-center">{report.contacts}</TableCell>
-                      <TableCell className="text-center">{report.followups}</TableCell>
-                      <TableCell className="text-center">{report.reschedules}</TableCell>
-                      <TableCell className="text-center">{report.meetings_scheduled}</TableCell>
-                      <TableCell className="text-center">{report.meetings_held}</TableCell>
-                      <TableCell className="text-center">{report.no_shows}</TableCell>
-                      <TableCell className="text-center">{report.sales}</TableCell>
-                      <TableCell className="max-w-xs truncate">{report.summary || "-"}</TableCell>
+          ) : filteredAndSortedReports.length > 0 ? (
+            <div className="space-y-4">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <SortableHeader field="report_date">Data</SortableHeader>
+                      <SortableHeader field="contacts">Contatos</SortableHeader>
+                      <SortableHeader field="followups">Follow-ups</SortableHeader>
+                      <SortableHeader field="reschedules">Reagend.</SortableHeader>
+                      <SortableHeader field="meetings_scheduled">Agendadas</SortableHeader>
+                      <SortableHeader field="meetings_held">Realizadas</SortableHeader>
+                      <SortableHeader field="no_shows">No-show</SortableHeader>
+                      <SortableHeader field="sales">Vendas</SortableHeader>
+                      <TableHead>Resumo</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedReports.map((report) => (
+                      <TableRow key={report.id}>
+                        <TableCell className="font-medium whitespace-nowrap text-center">
+                          {format(new Date(report.report_date), "dd/MM/yyyy", { locale: ptBR })}
+                        </TableCell>
+                        <TableCell className="text-center">{report.contacts}</TableCell>
+                        <TableCell className="text-center">{report.followups}</TableCell>
+                        <TableCell className="text-center">{report.reschedules}</TableCell>
+                        <TableCell className="text-center">{report.meetings_scheduled}</TableCell>
+                        <TableCell className="text-center">{report.meetings_held}</TableCell>
+                        <TableCell className="text-center">{report.no_shows}</TableCell>
+                        <TableCell className="text-center">{report.sales}</TableCell>
+                        <TableCell className="max-w-xs truncate">{report.summary || "-"}</TableCell>
+                      </TableRow>
+                    ))}
+                    {/* Totals row */}
+                    <TableRow className="bg-muted/50 font-bold">
+                      <TableCell className="text-center">TOTAL</TableCell>
+                      <TableCell className="text-center">{totals.contacts}</TableCell>
+                      <TableCell className="text-center">{totals.followups}</TableCell>
+                      <TableCell className="text-center">{totals.reschedules}</TableCell>
+                      <TableCell className="text-center">{totals.meetings_scheduled}</TableCell>
+                      <TableCell className="text-center">{totals.meetings_held}</TableCell>
+                      <TableCell className="text-center">{totals.no_shows}</TableCell>
+                      <TableCell className="text-center">{totals.sales}</TableCell>
+                      <TableCell>-</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-4">
+                  <span className="text-sm text-muted-foreground">
+                    Página {currentPage} de {totalPages} ({filteredAndSortedReports.length} registros)
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Anterior
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Próximo
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              Nenhum relatório registrado ainda
+              Nenhum relatório no período selecionado
             </div>
           )}
         </CardContent>
