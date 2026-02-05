@@ -17,9 +17,10 @@ import {
   FunnelProducts,
   FunnelRevenue,
   FunnelMatchedSales,
+  FunnelDailyReport,
 } from "@/components/funnel-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutDashboard, Settings, BookOpen, AlertTriangle, ClipboardList, Sparkles } from "lucide-react";
+import { LayoutDashboard, Settings, BookOpen, AlertTriangle, ClipboardList, Sparkles, FileText } from "lucide-react";
 import { FunnelCopyAgent } from "@/components/funnel-panel/FunnelCopyAgent";
 import { useQuery } from "@tanstack/react-query";
 
@@ -94,17 +95,21 @@ export default function FunnelPanel() {
   const LAUNCH_CATEGORIES = ["Lançamento", "Meteórico", "Reabertura", "Evento presencial"];
   const isLaunchCategory = LAUNCH_CATEGORIES.includes(funnel.category || "");
   const isEventoPresencial = funnel.category === "Evento presencial";
+  const isHighTicket = funnel.category === "High ticket";
+
+  // Número de tabs dinâmico baseado na categoria
+  const tabCount = isHighTicket ? 4 : 5;
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Alerta de Pontos de Atenção */}
-      {pendingChecklistCount > 0 && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700 p-4">
+      {/* Alerta de Pontos de Atenção - só para não High Ticket */}
+      {!isHighTicket && pendingChecklistCount > 0 && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
           <div className="flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <AlertTriangle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
             <div>
-              <h3 className="font-semibold text-amber-800 dark:text-amber-300">Pontos de Atenção</h3>
-              <ul className="mt-1 text-sm text-amber-700 dark:text-amber-400 list-disc list-inside">
+              <h3 className="font-semibold text-foreground">Pontos de Atenção</h3>
+              <ul className="mt-1 text-sm text-muted-foreground list-disc list-inside">
                 <li>Existem {pendingChecklistCount} itens pendentes no checklist de configuração</li>
               </ul>
             </div>
@@ -117,7 +122,7 @@ export default function FunnelPanel() {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 h-12">
+        <TabsList className={`grid w-full h-12`} style={{ gridTemplateColumns: `repeat(${tabCount}, 1fr)` }}>
           <TabsTrigger value="overview" className="gap-2">
             <LayoutDashboard className="h-4 w-4" />
             <span className="hidden sm:inline">Visão Geral</span>
@@ -126,18 +131,28 @@ export default function FunnelPanel() {
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Configuração</span>
           </TabsTrigger>
-          <TabsTrigger value="checklist" className="gap-2">
-            <ClipboardList className="h-4 w-4" />
-            <span className="hidden sm:inline">Checklist</span>
-          </TabsTrigger>
+          {!isHighTicket && (
+            <TabsTrigger value="checklist" className="gap-2">
+              <ClipboardList className="h-4 w-4" />
+              <span className="hidden sm:inline">Checklist</span>
+            </TabsTrigger>
+          )}
+          {isHighTicket && (
+            <TabsTrigger value="relatorio" className="gap-2">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Relatório</span>
+            </TabsTrigger>
+          )}
           <TabsTrigger value="copy-agent" className="gap-2">
             <Sparkles className="h-4 w-4" />
             <span className="hidden sm:inline">Agente de Copy</span>
           </TabsTrigger>
-          <TabsTrigger value="diary" className="gap-2">
-            <BookOpen className="h-4 w-4" />
-            <span className="hidden sm:inline">Deu Bom & Deu Mole</span>
-          </TabsTrigger>
+          {!isHighTicket && (
+            <TabsTrigger value="diary" className="gap-2">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Deu Bom & Deu Mole</span>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Tab: Visão Geral */}
@@ -177,20 +192,31 @@ export default function FunnelPanel() {
           {isLaunchCategory && <FunnelOperationalDates funnel={funnel} onUpdate={fetchFunnel} />}
         </TabsContent>
 
-        {/* Tab: Checklist */}
-        <TabsContent value="checklist" className="space-y-6">
-          <FunnelChecklist funnelId={funnel.id} funnelCategory={funnel.category || undefined} />
-        </TabsContent>
+        {/* Tab: Checklist - só para não High Ticket */}
+        {!isHighTicket && (
+          <TabsContent value="checklist" className="space-y-6">
+            <FunnelChecklist funnelId={funnel.id} funnelCategory={funnel.category || undefined} />
+          </TabsContent>
+        )}
+
+        {/* Tab: Relatório - só para High Ticket */}
+        {isHighTicket && (
+          <TabsContent value="relatorio" className="space-y-6">
+            <FunnelDailyReport funnel={funnel} onUpdate={fetchFunnel} />
+          </TabsContent>
+        )}
 
         {/* Tab: Agente de Copy */}
         <TabsContent value="copy-agent" className="space-y-6">
           <FunnelCopyAgent funnel={funnel} />
         </TabsContent>
 
-        {/* Tab: Diário */}
-        <TabsContent value="diary" className="space-y-6">
-          <FunnelDiary funnelId={funnel.id} />
-        </TabsContent>
+        {/* Tab: Diário - só para não High Ticket */}
+        {!isHighTicket && (
+          <TabsContent value="diary" className="space-y-6">
+            <FunnelDiary funnelId={funnel.id} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

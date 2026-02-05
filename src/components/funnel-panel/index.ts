@@ -12,3 +12,5 @@ export { FunnelDiary } from "./FunnelDiary";
 export { FunnelChecklist } from "./FunnelChecklist";
 export { FunnelProducts } from "./FunnelProducts";
 export { FunnelRevenue } from "./FunnelRevenue";
+export { FunnelDailyReport } from "./FunnelDailyReport";
+export { DailyReportPopup } from "./DailyReportPopup";

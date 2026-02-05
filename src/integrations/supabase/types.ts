@@ -689,6 +689,69 @@ export type Database = {
           },
         ]
       }
+      funnel_daily_reports: {
+        Row: {
+          contacts: number
+          created_at: string
+          created_by: string | null
+          followups: number
+          funnel_id: string
+          id: string
+          meetings_held: number
+          meetings_scheduled: number
+          no_shows: number
+          report_date: string
+          reschedules: number
+          sales: number
+          summary: string | null
+        }
+        Insert: {
+          contacts?: number
+          created_at?: string
+          created_by?: string | null
+          followups?: number
+          funnel_id: string
+          id?: string
+          meetings_held?: number
+          meetings_scheduled?: number
+          no_shows?: number
+          report_date: string
+          reschedules?: number
+          sales?: number
+          summary?: string | null
+        }
+        Update: {
+          contacts?: number
+          created_at?: string
+          created_by?: string | null
+          followups?: number
+          funnel_id?: string
+          id?: string
+          meetings_held?: number
+          meetings_scheduled?: number
+          no_shows?: number
+          report_date?: string
+          reschedules?: number
+          sales?: number
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_daily_reports_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_daily_reports_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funnel_diary: {
         Row: {
           author_id: string | null
@@ -898,6 +961,7 @@ export type Database = {
           name: string
           predicted_investment: number | null
           product_name: string | null
+          responsible_user_id: string | null
           status: string | null
           ticket_medio: number | null
           updated_at: string
@@ -937,6 +1001,7 @@ export type Database = {
           name: string
           predicted_investment?: number | null
           product_name?: string | null
+          responsible_user_id?: string | null
           status?: string | null
           ticket_medio?: number | null
           updated_at?: string
@@ -976,12 +1041,21 @@ export type Database = {
           name?: string
           predicted_investment?: number | null
           product_name?: string | null
+          responsible_user_id?: string | null
           status?: string | null
           ticket_medio?: number | null
           updated_at?: string
           visibility?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "funnels_responsible_user_id_fkey"
+            columns: ["responsible_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hotmart_sync_logs: {
         Row: {
