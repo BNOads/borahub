@@ -9,6 +9,7 @@ export interface FunnelData {
   category?: string | null;
   product_name?: string | null;
   predicted_investment?: number | null;
+  responsible_user_id?: string | null;
 
   // Verba por etapa (PORCENTAGEM - 0 a 100)
   budget_captacao_percent?: number | null;

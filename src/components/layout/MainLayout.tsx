@@ -4,6 +4,7 @@ import { Header } from "./Header";
 import { BottomNav } from "./BottomNav";
 import { NotificationPopup } from "@/components/notifications/NotificationPopup";
 import { FloatingNoteButton } from "@/components/notes/FloatingNoteButton";
+import { DailyReportPopup } from "@/components/funnel-panel/DailyReportPopup";
 
 export function MainLayout() {
   const [isDark, setIsDark] = useState(() => {
@@ -34,6 +35,7 @@ export function MainLayout() {
       <BottomNav />
       <NotificationPopup />
       <FloatingNoteButton />
+      <DailyReportPopup />
     </div>
   );
 }
