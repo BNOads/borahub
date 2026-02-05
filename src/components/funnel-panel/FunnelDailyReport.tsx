@@ -28,9 +28,11 @@ type SortDirection = "asc" | "desc";
 const ITEMS_PER_PAGE = 30;
 
 export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) {
-  const today = new Date().toISOString().split("T")[0];
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const selectedDateStr = selectedDate.toISOString().split("T")[0];
+  
   const { data: reports, isLoading: loadingReports } = useFunnelDailyReports(funnel.id);
-  const { data: todayReport } = useTodayReport(funnel.id);
+  const { data: existingReport } = useTodayReport(funnel.id, selectedDateStr);
   const createReport = useCreateDailyReport();
   const updateResponsible = useUpdateFunnelResponsible();
 
@@ -59,21 +61,33 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
     to: new Date(),
   });
 
-  // Load today's report data if exists
+  // Load existing report data for selected date
   useEffect(() => {
-    if (todayReport) {
+    if (existingReport) {
       setFormData({
-        contacts: todayReport.contacts,
-        followups: todayReport.followups,
-        reschedules: todayReport.reschedules,
-        meetings_scheduled: todayReport.meetings_scheduled,
-        meetings_held: todayReport.meetings_held,
-        no_shows: todayReport.no_shows,
-        sales: todayReport.sales,
-        summary: todayReport.summary || "",
+        contacts: existingReport.contacts,
+        followups: existingReport.followups,
+        reschedules: existingReport.reschedules,
+        meetings_scheduled: existingReport.meetings_scheduled,
+        meetings_held: existingReport.meetings_held,
+        no_shows: existingReport.no_shows,
+        sales: existingReport.sales,
+        summary: existingReport.summary || "",
+      });
+    } else {
+      // Reset form when changing to a date without report
+      setFormData({
+        contacts: 0,
+        followups: 0,
+        reschedules: 0,
+        meetings_scheduled: 0,
+        meetings_held: 0,
+        no_shows: 0,
+        sales: 0,
+        summary: "",
       });
     }
-  }, [todayReport]);
+  }, [existingReport, selectedDateStr]);
 
   // Fetch users for responsible selector
   const { data: users } = useQuery({
@@ -171,7 +185,7 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
     await createReport.mutateAsync({
       funnel_id: funnel.id,
       funnel_name: funnel.name,
-      report_date: today,
+      report_date: selectedDateStr,
       ...formData,
     });
   };
@@ -229,10 +243,30 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
       {/* Formulário do dia */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <CalendarIcon className="h-5 w-5" />
-            Relatório do Dia ({format(new Date(), "dd/MM/yyyy", { locale: ptBR })})
-          </CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <CalendarIcon className="h-5 w-5" />
+              Relatório do Dia
+            </CardTitle>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 w-fit">
+                  <CalendarIcon className="h-4 w-4" />
+                  {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                  locale={ptBR}
+                  disabled={(date) => date > new Date()}
+                  className="pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -322,7 +356,7 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
 
             <Button type="submit" disabled={createReport.isPending} className="w-full md:w-auto">
               <Save className="h-4 w-4 mr-2" />
-              {todayReport ? "Atualizar Relatório" : "Salvar Relatório"}
+              {existingReport ? "Atualizar Relatório" : "Salvar Relatório"}
             </Button>
           </form>
         </CardContent>

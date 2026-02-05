@@ -50,17 +50,17 @@ export function useFunnelDailyReports(funnelId: string) {
   });
 }
 
-export function useTodayReport(funnelId: string) {
-  const today = new Date().toISOString().split("T")[0];
+export function useTodayReport(funnelId: string, reportDate?: string) {
+  const dateToUse = reportDate || new Date().toISOString().split("T")[0];
   
   return useQuery({
-    queryKey: ["funnel-daily-report-today", funnelId, today],
+    queryKey: ["funnel-daily-report-today", funnelId, dateToUse],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("funnel_daily_reports")
         .select("*")
         .eq("funnel_id", funnelId)
-        .eq("report_date", today)
+        .eq("report_date", dateToUse)
         .maybeSingle();
 
       if (error) throw error;
