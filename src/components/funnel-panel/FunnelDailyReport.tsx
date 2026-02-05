@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { ClipboardList, Save, User, Calendar as CalendarIcon, ArrowUpDown, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ClipboardList, Save, User, Calendar as CalendarIcon, ArrowUpDown, ChevronLeft, ChevronRight, Filter, Pencil } from "lucide-react";
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
-import { useFunnelDailyReports, useTodayReport, useCreateDailyReport, useUpdateFunnelResponsible } from "@/hooks/useFunnelDailyReports";
+import { useFunnelDailyReports, useTodayReport, useCreateDailyReport, useUpdateFunnelResponsible, useUpdateDailyReport, FunnelDailyReport as FunnelDailyReportType } from "@/hooks/useFunnelDailyReports";
 import { useQuery } from "@tanstack/react-query";
 import { FunnelData } from "./types";
 import { cn } from "@/lib/utils";
@@ -34,7 +35,20 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
   const { data: reports, isLoading: loadingReports } = useFunnelDailyReports(funnel.id);
   const { data: existingReport } = useTodayReport(funnel.id, selectedDateStr);
   const createReport = useCreateDailyReport();
+  const updateReport = useUpdateDailyReport();
   const updateResponsible = useUpdateFunnelResponsible();
+
+  const [editingReport, setEditingReport] = useState<FunnelDailyReportType | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    contacts: 0,
+    followups: 0,
+    reschedules: 0,
+    meetings_scheduled: 0,
+    meetings_held: 0,
+    no_shows: 0,
+    sales: 0,
+    summary: "",
+  });
 
   const [formData, setFormData] = useState({
     contacts: 0,
@@ -196,6 +210,32 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
       userId: userId === "none" ? null : userId,
     });
     onUpdate();
+  };
+
+  const openEditModal = (report: FunnelDailyReportType) => {
+    setEditingReport(report);
+    setEditFormData({
+      contacts: report.contacts,
+      followups: report.followups,
+      reschedules: report.reschedules,
+      meetings_scheduled: report.meetings_scheduled,
+      meetings_held: report.meetings_held,
+      no_shows: report.no_shows,
+      sales: report.sales,
+      summary: report.summary || "",
+    });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingReport) return;
+    
+    await updateReport.mutateAsync({
+      id: editingReport.id,
+      funnel_id: funnel.id,
+      ...editFormData,
+    });
+    setEditingReport(null);
   };
 
   const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
@@ -438,6 +478,7 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
                       <SortableHeader field="no_shows">No-show</SortableHeader>
                       <SortableHeader field="sales">Vendas</SortableHeader>
                       <TableHead>Resumo</TableHead>
+                      <TableHead className="w-[60px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -454,6 +495,16 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
                         <TableCell className="text-center">{report.no_shows}</TableCell>
                         <TableCell className="text-center">{report.sales}</TableCell>
                         <TableCell className="max-w-xs truncate">{report.summary || "-"}</TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditModal(report)}
+                            className="h-8 w-8"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                     {/* Totals row */}
@@ -467,6 +518,7 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
                       <TableCell className="text-center">{totals.no_shows}</TableCell>
                       <TableCell className="text-center">{totals.sales}</TableCell>
                       <TableCell>-</TableCell>
+                      <TableCell></TableCell>
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -508,6 +560,104 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de edição */}
+      <Dialog open={!!editingReport} onOpenChange={(open) => !open && setEditingReport(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Editar Relatório - {editingReport && format(new Date(editingReport.report_date), "dd/MM/yyyy", { locale: ptBR })}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <Label>Contatos</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editFormData.contacts}
+                  onChange={(e) => setEditFormData({ ...editFormData, contacts: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Follow-ups</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editFormData.followups}
+                  onChange={(e) => setEditFormData({ ...editFormData, followups: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Reagendamentos</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editFormData.reschedules}
+                  onChange={(e) => setEditFormData({ ...editFormData, reschedules: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Reuniões Agendadas</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editFormData.meetings_scheduled}
+                  onChange={(e) => setEditFormData({ ...editFormData, meetings_scheduled: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Reuniões Realizadas</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editFormData.meetings_held}
+                  onChange={(e) => setEditFormData({ ...editFormData, meetings_held: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>No-shows</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editFormData.no_shows}
+                  onChange={(e) => setEditFormData({ ...editFormData, no_shows: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Vendas</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={editFormData.sales}
+                  onChange={(e) => setEditFormData({ ...editFormData, sales: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Resumo do dia</Label>
+              <Textarea
+                placeholder="Descreva as principais atividades e observações do dia..."
+                value={editFormData.summary}
+                onChange={(e) => setEditFormData({ ...editFormData, summary: e.target.value })}
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditingReport(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={updateReport.isPending}>
+                <Save className="h-4 w-4 mr-2" />
+                Salvar Alterações
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
