@@ -131,6 +131,48 @@ export function useCreateDailyReport() {
   });
 }
 
+export interface UpdateDailyReportInput {
+  id: string;
+  funnel_id: string;
+  contacts: number;
+  followups: number;
+  reschedules: number;
+  meetings_scheduled: number;
+  meetings_held: number;
+  no_shows: number;
+  sales: number;
+  summary: string;
+}
+
+export function useUpdateDailyReport() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: UpdateDailyReportInput) => {
+      const { id, funnel_id, ...updateData } = input;
+      
+      const { data, error } = await supabase
+        .from("funnel_daily_reports")
+        .update(updateData)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, funnel_id };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["funnel-daily-reports", result.funnel_id] });
+      queryClient.invalidateQueries({ queryKey: ["funnel-daily-report-today", result.funnel_id] });
+      toast.success("Relatório atualizado com sucesso!");
+    },
+    onError: (error) => {
+      console.error("Error updating daily report:", error);
+      toast.error("Erro ao atualizar relatório");
+    },
+  });
+}
+
 export function usePendingDailyReports() {
   const { user } = useAuth();
   const today = new Date().toISOString().split("T")[0];
