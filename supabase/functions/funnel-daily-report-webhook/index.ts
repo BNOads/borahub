@@ -61,8 +61,19 @@ serve(async (req) => {
 
     if (!webhookResponse.ok) {
       const errorText = await webhookResponse.text();
-      console.error("Webhook error:", errorText);
-      throw new Error(`Webhook failed: ${webhookResponse.status}`);
+      console.error("Webhook returned error:", webhookResponse.status, errorText);
+      // Don't throw - webhook failure shouldn't fail the whole operation
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: "Report saved but webhook notification failed",
+          webhook_error: `${webhookResponse.status}: ${errorText}`
+        }),
+        { 
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200 
+        }
+      );
     }
 
     console.log("Webhook sent successfully");
