@@ -6,6 +6,7 @@ import {
   FunnelData,
   FunnelPanelHeader,
   FunnelBudgetOverview,
+  FunnelStagesCard,
   FunnelNextMilestone,
   FunnelKeyDates,
   FunnelGeneralInfo,
@@ -163,6 +164,11 @@ export default function FunnelPanel() {
             {isLaunchCategory && <FunnelNextMilestone funnel={funnel} />}
             {isLaunchCategory && <FunnelKeyDates funnel={funnel} />}
           </div>
+
+          {/* Card de Funil de Conversão - só para High Ticket */}
+          {isHighTicket && (
+            <FunnelStagesCard funnelId={funnel.id} />
+          )}
 
           {/* Faturamento e Links lado a lado */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

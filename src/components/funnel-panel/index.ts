@@ -2,6 +2,7 @@ export * from "./types";
 export * from "./FunnelMatchedSales";
 export { FunnelPanelHeader } from "./FunnelPanelHeader";
 export { FunnelBudgetOverview } from "./FunnelBudgetOverview";
+export { FunnelStagesCard } from "./FunnelStagesCard";
 export { FunnelNextMilestone } from "./FunnelNextMilestone";
 export { FunnelKeyDates } from "./FunnelKeyDates";
 export { FunnelGeneralInfo } from "./FunnelGeneralInfo";
