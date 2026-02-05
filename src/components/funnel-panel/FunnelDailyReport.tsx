@@ -9,9 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ClipboardList, Save, User, Calendar as CalendarIcon, ArrowUpDown, ChevronLeft, ChevronRight, Filter, Pencil, Download, FileSpreadsheet } from "lucide-react";
+import { ClipboardList, Save, User, Calendar as CalendarIcon, ArrowUpDown, ChevronLeft, ChevronRight, Pencil, Download, FileSpreadsheet } from "lucide-react";
 import jsPDF from "jspdf";
-import { format, subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
+import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useFunnelDailyReports, useTodayReport, useCreateDailyReport, useUpdateFunnelResponsible, useUpdateDailyReport, FunnelDailyReport as FunnelDailyReportType } from "@/hooks/useFunnelDailyReports";
@@ -69,12 +69,8 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Date filter state
-  const [dateFilter, setDateFilter] = useState<"30d" | "7d" | "custom">("30d");
-  const [customDateRange, setCustomDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: subDays(new Date(), 30),
-    to: new Date(),
-  });
+  // Date filter state - por padrão, ontem
+  const [historyDate, setHistoryDate] = useState<Date>(subDays(new Date(), 1));
 
   // Load existing report data for selected date
   useEffect(() => {
@@ -122,25 +118,11 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
   const filteredAndSortedReports = useMemo(() => {
     if (!reports) return [];
 
-    let filtered = [...reports];
-
-    // Apply date filter
-    const now = new Date();
-    let startDate: Date;
-    let endDate: Date = endOfDay(now);
-
-    if (dateFilter === "7d") {
-      startDate = startOfDay(subDays(now, 7));
-    } else if (dateFilter === "30d") {
-      startDate = startOfDay(subDays(now, 30));
-    } else {
-      startDate = customDateRange.from ? startOfDay(customDateRange.from) : startOfDay(subDays(now, 30));
-      endDate = customDateRange.to ? endOfDay(customDateRange.to) : endOfDay(now);
-    }
-
-    filtered = filtered.filter((report) => {
-      const reportDate = new Date(report.report_date);
-      return isWithinInterval(reportDate, { start: startDate, end: endDate });
+    // Filtrar apenas pela data selecionada
+    let filtered = reports.filter((report) => {
+      const reportDate = new Date(report.report_date).toISOString().split("T")[0];
+      const selectedHistoryDate = historyDate.toISOString().split("T")[0];
+      return reportDate === selectedHistoryDate;
     });
 
     // Apply sorting
@@ -160,7 +142,7 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
     });
 
     return filtered;
-  }, [reports, sortField, sortDirection, dateFilter, customDateRange]);
+  }, [reports, sortField, sortDirection, historyDate]);
 
   // Paginate
   const totalPages = Math.ceil(filteredAndSortedReports.length / ITEMS_PER_PAGE);
@@ -539,52 +521,31 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
               Histórico de Relatórios
             </CardTitle>
 
-            {/* Filtros de data */}
+            {/* Seletor de data */}
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Período:</span>
-              </div>
-              <div className="flex gap-1">
-                <Button
-                  variant={dateFilter === "7d" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => { setDateFilter("7d"); setCurrentPage(1); }}
-                >
-                  7 dias
-                </Button>
-                <Button
-                  variant={dateFilter === "30d" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => { setDateFilter("30d"); setCurrentPage(1); }}
-                >
-                  30 dias
-                </Button>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={dateFilter === "custom" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setDateFilter("custom")}
-                    >
-                      <CalendarIcon className="h-4 w-4 mr-1" />
-                      Personalizado
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                      mode="range"
-                      selected={{ from: customDateRange.from, to: customDateRange.to }}
-                      onSelect={(range) => {
-                        setCustomDateRange({ from: range?.from, to: range?.to });
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-2">
+                    <CalendarIcon className="h-4 w-4" />
+                    {format(historyDate, "dd/MM/yyyy", { locale: ptBR })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={historyDate}
+                    onSelect={(date) => {
+                      if (date) {
+                        setHistoryDate(date);
                         setCurrentPage(1);
-                      }}
-                      locale={ptBR}
-                      numberOfMonths={2}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+                      }
+                    }}
+                    locale={ptBR}
+                    disabled={(date) => date > new Date()}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
 
               {/* Botões de exportação */}
               <div className="flex gap-1">
