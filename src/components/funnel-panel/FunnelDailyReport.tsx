@@ -9,7 +9,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ClipboardList, Save, User, Calendar as CalendarIcon, ArrowUpDown, ChevronLeft, ChevronRight, Filter, Pencil } from "lucide-react";
+import { ClipboardList, Save, User, Calendar as CalendarIcon, ArrowUpDown, ChevronLeft, ChevronRight, Filter, Pencil, Download, FileSpreadsheet } from "lucide-react";
+import jsPDF from "jspdf";
 import { format, subDays, startOfDay, endOfDay, isWithinInterval } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -238,6 +239,133 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
     setEditingReport(null);
   };
 
+  const exportToCSV = () => {
+    const headers = ["Data", "Contatos", "Follow-ups", "Reagendamentos", "Reuniões Agendadas", "Reuniões Realizadas", "No-shows", "Vendas", "Resumo"];
+    const rows = filteredAndSortedReports.map((report) => [
+      format(new Date(report.report_date), "dd/MM/yyyy"),
+      report.contacts,
+      report.followups,
+      report.reschedules,
+      report.meetings_scheduled,
+      report.meetings_held,
+      report.no_shows,
+      report.sales,
+      `"${(report.summary || "").replace(/"/g, '""')}"`,
+    ]);
+
+    // Add totals row
+    rows.push([
+      "TOTAL",
+      totals.contacts,
+      totals.followups,
+      totals.reschedules,
+      totals.meetings_scheduled,
+      totals.meetings_held,
+      totals.no_shows,
+      totals.sales,
+      "",
+    ]);
+
+    const csvContent = [headers.join(";"), ...rows.map((row) => row.join(";"))].join("\n");
+    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `relatorio-${funnel.name.replace(/\s+/g, "-").toLowerCase()}-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportToPDF = () => {
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    let y = 20;
+
+    // Header
+    pdf.setFontSize(16);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`Relatório Diário - ${funnel.name}`, pageWidth / 2, y, { align: "center" });
+    y += 10;
+
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, pageWidth / 2, y, { align: "center" });
+    y += 15;
+
+    // Table headers
+    const colWidths = [25, 18, 18, 18, 20, 20, 18, 18, 40];
+    const headers = ["Data", "Contatos", "Follow-ups", "Reagend.", "Agend.", "Realiz.", "No-show", "Vendas", "Resumo"];
+    
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    let x = 10;
+    headers.forEach((header, i) => {
+      pdf.text(header, x, y);
+      x += colWidths[i];
+    });
+    y += 5;
+
+    // Divider line
+    pdf.setDrawColor(200);
+    pdf.line(10, y, pageWidth - 10, y);
+    y += 5;
+
+    // Table rows
+    pdf.setFont("helvetica", "normal");
+    filteredAndSortedReports.forEach((report) => {
+      if (y > 270) {
+        pdf.addPage();
+        y = 20;
+      }
+
+      x = 10;
+      const row = [
+        format(new Date(report.report_date), "dd/MM/yyyy"),
+        String(report.contacts),
+        String(report.followups),
+        String(report.reschedules),
+        String(report.meetings_scheduled),
+        String(report.meetings_held),
+        String(report.no_shows),
+        String(report.sales),
+        (report.summary || "-").substring(0, 25),
+      ];
+
+      row.forEach((cell, i) => {
+        pdf.text(cell, x, y);
+        x += colWidths[i];
+      });
+      y += 6;
+    });
+
+    // Totals row
+    y += 3;
+    pdf.setFont("helvetica", "bold");
+    x = 10;
+    const totalRow = [
+      "TOTAL",
+      String(totals.contacts),
+      String(totals.followups),
+      String(totals.reschedules),
+      String(totals.meetings_scheduled),
+      String(totals.meetings_held),
+      String(totals.no_shows),
+      String(totals.sales),
+      "",
+    ];
+    totalRow.forEach((cell, i) => {
+      pdf.text(cell, x, y);
+      x += colWidths[i];
+    });
+
+    // Footer
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "italic");
+    pdf.text("Gerado pelo BORA Hub", pageWidth / 2, pdf.internal.pageSize.getHeight() - 10, { align: "center" });
+
+    pdf.save(`relatorio-${funnel.name.replace(/\s+/g, "-").toLowerCase()}-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+  };
+
   const SortableHeader = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <TableHead
       className="text-center cursor-pointer hover:bg-muted/50 select-none"
@@ -456,6 +584,18 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
                     />
                   </PopoverContent>
                 </Popover>
+              </div>
+
+              {/* Botões de exportação */}
+              <div className="flex gap-1">
+                <Button variant="outline" size="sm" onClick={exportToCSV} disabled={filteredAndSortedReports.length === 0}>
+                  <FileSpreadsheet className="h-4 w-4 mr-1" />
+                  CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportToPDF} disabled={filteredAndSortedReports.length === 0}>
+                  <Download className="h-4 w-4 mr-1" />
+                  PDF
+                </Button>
               </div>
             </div>
           </div>
