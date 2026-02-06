@@ -80,7 +80,7 @@ export function WelcomeSection() {
     queryFn: async () => {
       const { data } = await supabase
         .from("bora_news")
-        .select("id, titulo")
+        .select("id, titulo, resumo")
         .eq("status_publicacao", "publicado")
         .order("data_publicacao", { ascending: false })
         .limit(1)
@@ -114,9 +114,14 @@ export function WelcomeSection() {
               to={`/bora-news/${latestNews.id}`}
               className="mt-2 flex items-center gap-2 text-sm text-accent hover:underline group w-fit"
             >
-              <Newspaper className="h-3.5 w-3.5" />
-              <span className="truncate max-w-[300px]">{latestNews.titulo}</span>
-              <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <Newspaper className="h-3.5 w-3.5 flex-shrink-0" />
+              <div className="flex flex-col">
+                <span className="truncate max-w-[300px] font-medium">{latestNews.titulo}</span>
+                {latestNews.resumo && (
+                  <span className="truncate max-w-[300px] text-xs text-muted-foreground">{latestNews.resumo}</span>
+                )}
+              </div>
+              <ArrowRight className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
           )}
         </div>
