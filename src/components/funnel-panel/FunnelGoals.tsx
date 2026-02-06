@@ -3,15 +3,42 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Save, Target, Percent } from "lucide-react";
+import { Save, Target, Percent, Plus, Trash2, Loader2 } from "lucide-react";
 import { FunnelData, formatCurrency } from "./types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  useFunnelBudgetCategories,
+  useCreateBudgetCategory,
+  useUpdateBudgetCategory,
+  useDeleteBudgetCategory,
+} from "@/hooks/useFunnelBudgetCategories";
 
 interface FunnelGoalsProps {
   funnel: FunnelData;
   onUpdate: () => void;
 }
+
+const COLOR_OPTIONS = [
+  { value: "bg-gray-500", label: "Cinza" },
+  { value: "bg-red-500", label: "Vermelho" },
+  { value: "bg-orange-500", label: "Laranja" },
+  { value: "bg-amber-500", label: "Âmbar" },
+  { value: "bg-yellow-500", label: "Amarelo" },
+  { value: "bg-lime-500", label: "Lima" },
+  { value: "bg-green-500", label: "Verde" },
+  { value: "bg-emerald-500", label: "Esmeralda" },
+  { value: "bg-teal-500", label: "Teal" },
+  { value: "bg-cyan-500", label: "Ciano" },
+  { value: "bg-sky-500", label: "Céu" },
+  { value: "bg-blue-500", label: "Azul" },
+  { value: "bg-indigo-500", label: "Índigo" },
+  { value: "bg-violet-500", label: "Violeta" },
+  { value: "bg-purple-500", label: "Roxo" },
+  { value: "bg-fuchsia-500", label: "Fúcsia" },
+  { value: "bg-pink-500", label: "Rosa" },
+  { value: "bg-rose-500", label: "Rosé" },
+];
 
 export function FunnelGoals({ funnel, onUpdate }: FunnelGoalsProps) {
   const [formData, setFormData] = useState({
@@ -34,6 +61,14 @@ export function FunnelGoals({ funnel, onUpdate }: FunnelGoalsProps) {
   });
 
   const [saving, setSaving] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+
+  // Custom budget categories
+  const { data: customCategories = [] } = useFunnelBudgetCategories(funnel.id);
+  const createCategory = useCreateBudgetCategory();
+  const updateCategory = useUpdateBudgetCategory();
+  const deleteCategory = useDeleteBudgetCategory();
 
   const handleCurrencyChange = (field: keyof typeof displayValues, rawValue: string) => {
     const numericStr = rawValue.replace(/\D/g, "");
@@ -52,13 +87,16 @@ export function FunnelGoals({ funnel, onUpdate }: FunnelGoalsProps) {
     setFormData({ ...formData, [field]: clampedValue });
   };
 
-  const totalPercent =
+  const fixedPercent =
     formData.budget_captacao_percent +
     formData.budget_aquecimento_percent +
     formData.budget_evento_percent +
     formData.budget_venda_percent +
     formData.budget_lembrete_percent +
     formData.budget_impulsionamento_percent;
+
+  const customPercent = customCategories.reduce((sum, c) => sum + (c.percent || 0), 0);
+  const totalPercent = fixedPercent + customPercent;
 
   const handleSave = async () => {
     setSaving(true);
@@ -80,6 +118,61 @@ export function FunnelGoals({ funnel, onUpdate }: FunnelGoalsProps) {
 
   const getValueFromPercent = (percent: number) => {
     return (formData.predicted_investment * percent) / 100;
+  };
+
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+
+    try {
+      await createCategory.mutateAsync({
+        funnel_id: funnel.id,
+        name,
+        percent: 0,
+        color: COLOR_OPTIONS[Math.floor(Math.random() * COLOR_OPTIONS.length)].value,
+        order_index: customCategories.length,
+      });
+      setNewCategoryName("");
+      setAddingCategory(false);
+      toast.success("Categoria criada!");
+    } catch {
+      toast.error("Erro ao criar categoria");
+    }
+  };
+
+  const handleUpdateCategoryPercent = async (id: string, value: string) => {
+    const numericValue = Math.min(100, Math.max(0, parseFloat(value) || 0));
+    try {
+      await updateCategory.mutateAsync({
+        id,
+        funnelId: funnel.id,
+        percent: numericValue,
+      });
+    } catch {
+      toast.error("Erro ao atualizar");
+    }
+  };
+
+  const handleUpdateCategoryName = async (id: string, name: string) => {
+    if (!name.trim()) return;
+    try {
+      await updateCategory.mutateAsync({
+        id,
+        funnelId: funnel.id,
+        name: name.trim(),
+      });
+    } catch {
+      toast.error("Erro ao atualizar nome");
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    try {
+      await deleteCategory.mutateAsync({ id, funnelId: funnel.id });
+      toast.success("Categoria removida!");
+    } catch {
+      toast.error("Erro ao remover");
+    }
   };
 
   return (
@@ -135,124 +228,136 @@ export function FunnelGoals({ funnel, onUpdate }: FunnelGoalsProps) {
             </Label>
             <span className={`text-sm font-bold ${
               totalPercent === 100
-                ? "text-green-500"
+                ? "text-primary"
                 : totalPercent > 100
-                ? "text-red-500"
-                : "text-yellow-500"
+                ? "text-destructive"
+                : "text-muted-foreground"
             }`}>
               Total: {totalPercent}%
             </span>
           </div>
+
+          {/* Categorias fixas */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Captação</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.budget_captacao_percent || ""}
-                  onChange={(e) => handlePercentChange("budget_captacao_percent", e.target.value)}
-                  placeholder="0"
-                  className="h-9 text-sm pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+            {[
+              { key: "budget_captacao_percent", label: "Captação" },
+              { key: "budget_aquecimento_percent", label: "Aquecimento" },
+              { key: "budget_evento_percent", label: "Evento" },
+              { key: "budget_venda_percent", label: "Venda" },
+              { key: "budget_lembrete_percent", label: "Lembrete" },
+              { key: "budget_impulsionamento_percent", label: "Impulsionamento" },
+            ].map((item) => (
+              <div key={item.key} className="space-y-1">
+                <Label className="text-xs text-muted-foreground">{item.label}</Label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={(formData as any)[item.key] || ""}
+                    onChange={(e) => handlePercentChange(item.key, e.target.value)}
+                    placeholder="0"
+                    className="h-9 text-sm pr-8"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {formatCurrency(getValueFromPercent((formData as any)[item.key]))}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {formatCurrency(getValueFromPercent(formData.budget_captacao_percent))}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Aquecimento</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.budget_aquecimento_percent || ""}
-                  onChange={(e) => handlePercentChange("budget_aquecimento_percent", e.target.value)}
-                  placeholder="0"
-                  className="h-9 text-sm pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {formatCurrency(getValueFromPercent(formData.budget_aquecimento_percent))}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Evento</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.budget_evento_percent || ""}
-                  onChange={(e) => handlePercentChange("budget_evento_percent", e.target.value)}
-                  placeholder="0"
-                  className="h-9 text-sm pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {formatCurrency(getValueFromPercent(formData.budget_evento_percent))}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Venda</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.budget_venda_percent || ""}
-                  onChange={(e) => handlePercentChange("budget_venda_percent", e.target.value)}
-                  placeholder="0"
-                  className="h-9 text-sm pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {formatCurrency(getValueFromPercent(formData.budget_venda_percent))}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Lembrete</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.budget_lembrete_percent || ""}
-                  onChange={(e) => handlePercentChange("budget_lembrete_percent", e.target.value)}
-                  placeholder="0"
-                  className="h-9 text-sm pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {formatCurrency(getValueFromPercent(formData.budget_lembrete_percent))}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Impulsionamento</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={formData.budget_impulsionamento_percent || ""}
-                  onChange={(e) => handlePercentChange("budget_impulsionamento_percent", e.target.value)}
-                  placeholder="0"
-                  className="h-9 text-sm pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {formatCurrency(getValueFromPercent(formData.budget_impulsionamento_percent))}
-              </p>
-            </div>
+            ))}
           </div>
+
+          {/* Categorias customizadas */}
+          {customCategories.length > 0 && (
+            <div className="mt-4 pt-4 border-t">
+              <Label className="text-xs text-muted-foreground mb-3 block">Categorias Personalizadas</Label>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {customCategories.map((cat) => (
+                  <div key={cat.id} className="space-y-1 group relative">
+                    <div className="flex items-center gap-1">
+                      <div className={`w-2 h-2 rounded-full ${cat.color} flex-shrink-0`} />
+                      <Input
+                        defaultValue={cat.name}
+                        onBlur={(e) => handleUpdateCategoryName(cat.id, e.target.value)}
+                        className="h-5 text-xs border-none p-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex-shrink-0"
+                        onClick={() => handleDeleteCategory(cat.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        type="number"
+                        min="0"
+                        max="100"
+                        defaultValue={cat.percent || ""}
+                        onBlur={(e) => handleUpdateCategoryPercent(cat.id, e.target.value)}
+                        placeholder="0"
+                        className="h-9 text-sm pr-8"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {formatCurrency(getValueFromPercent(cat.percent || 0))}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Adicionar nova categoria */}
+          <div className="mt-3">
+            {addingCategory ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  autoFocus
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder="Nome da categoria..."
+                  className="h-8 text-sm max-w-[200px]"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleAddCategory();
+                    if (e.key === "Escape") { setAddingCategory(false); setNewCategoryName(""); }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  className="h-8 gap-1"
+                  onClick={handleAddCategory}
+                  disabled={!newCategoryName.trim() || createCategory.isPending}
+                >
+                  {createCategory.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                  Criar
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => { setAddingCategory(false); setNewCategoryName(""); }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAddingCategory(true)}
+                className="gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Nova Categoria de Gasto
+              </Button>
+            )}
+          </div>
+
           {totalPercent !== 100 && formData.predicted_investment > 0 && (
             <p className="text-xs text-muted-foreground mt-2">
               {totalPercent < 100
