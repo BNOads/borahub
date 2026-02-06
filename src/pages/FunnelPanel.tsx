@@ -162,7 +162,7 @@ export default function FunnelPanel() {
           <div className={`grid grid-cols-1 ${isLaunchCategory ? "md:grid-cols-3" : "md:grid-cols-1"} gap-4`}>
             <FunnelBudgetOverview funnel={funnel} />
             {isLaunchCategory && <FunnelNextMilestone funnel={funnel} />}
-            {isLaunchCategory && <FunnelKeyDates funnel={funnel} />}
+            {isLaunchCategory && <FunnelKeyDates funnel={funnel} onUpdate={fetchFunnel} />}
           </div>
 
           {/* Faturamento e Links lado a lado */}

@@ -46,6 +46,9 @@ export interface FunnelData {
   dashboard_link?: string | null;
   briefing_link?: string | null;
 
+  // Labels customizados para datas
+  date_labels?: Record<string, string> | null;
+
   created_at: string;
   updated_at: string;
 }

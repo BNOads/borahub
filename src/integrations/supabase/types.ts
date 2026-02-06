@@ -730,6 +730,50 @@ export type Database = {
           },
         ]
       }
+      funnel_custom_dates: {
+        Row: {
+          bg_color: string
+          color: string
+          created_at: string
+          date: string
+          funnel_id: string
+          id: string
+          name: string
+          order_index: number
+          updated_at: string
+        }
+        Insert: {
+          bg_color?: string
+          color?: string
+          created_at?: string
+          date: string
+          funnel_id: string
+          id?: string
+          name: string
+          order_index?: number
+          updated_at?: string
+        }
+        Update: {
+          bg_color?: string
+          color?: string
+          created_at?: string
+          date?: string
+          funnel_id?: string
+          id?: string
+          name?: string
+          order_index?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_custom_dates_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funnel_daily_reports: {
         Row: {
           contacts: number
@@ -989,6 +1033,7 @@ export type Database = {
           cpl_start: string | null
           created_at: string
           dashboard_link: string | null
+          date_labels: Json | null
           drive_link: string | null
           fechamento_date: string | null
           funnel_type: string | null
@@ -1029,6 +1074,7 @@ export type Database = {
           cpl_start?: string | null
           created_at?: string
           dashboard_link?: string | null
+          date_labels?: Json | null
           drive_link?: string | null
           fechamento_date?: string | null
           funnel_type?: string | null
@@ -1069,6 +1115,7 @@ export type Database = {
           cpl_start?: string | null
           created_at?: string
           dashboard_link?: string | null
+          date_labels?: Json | null
           drive_link?: string | null
           fechamento_date?: string | null
           funnel_type?: string | null
