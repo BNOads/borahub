@@ -1,8 +1,11 @@
-import { Sparkles, MessageCircle, Calendar, FileText, Receipt, Loader2 } from "lucide-react";
+import { Sparkles, MessageCircle, Calendar, FileText, Receipt, Newspaper, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Link } from "react-router-dom";
 import { useTodaysTasks } from "@/hooks/useTasks";
 import { useActiveFunnelsCount } from "@/hooks/useFunnels";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const quickActions = [
   {
@@ -72,6 +75,20 @@ export function WelcomeSection() {
   const { data: tasks = [], isLoading: tasksLoading, isError: tasksError } = useTodaysTasks();
   const { data: activeFunnelsCount = 0, isLoading: funnelsLoading, isError: funnelsError } = useActiveFunnelsCount();
   
+  const { data: latestNews } = useQuery({
+    queryKey: ['latest-bora-news'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("bora_news")
+        .select("id, titulo")
+        .eq("status_publicacao", "publicado")
+        .order("data_publicacao", { ascending: false })
+        .limit(1)
+        .single();
+      return data;
+    },
+  });
+
   const pendingTasks = tasks?.filter(task => !task.completed) ?? [];
   const pendingCount = pendingTasks.length;
   
@@ -91,6 +108,17 @@ export function WelcomeSection() {
           <p className="text-muted-foreground text-sm">
             Sua central de tarefas, eventos e atalhos de operação.
           </p>
+
+          {latestNews && (
+            <Link 
+              to={`/bora-news/${latestNews.id}`}
+              className="mt-2 flex items-center gap-2 text-sm text-accent hover:underline group w-fit"
+            >
+              <Newspaper className="h-3.5 w-3.5" />
+              <span className="truncate max-w-[300px]">{latestNews.titulo}</span>
+              <ArrowRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2">
