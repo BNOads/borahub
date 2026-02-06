@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser, RefreshCcw, User, Calendar } from "lucide-react";
+import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser, RefreshCcw, User, Calendar, Pencil, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -232,6 +232,9 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
   const [newItem, setNewItem] = useState("");
   const [newCategoryItem, setNewCategoryItem] = useState<Record<string, string>>({});
   const [addingInCategory, setAddingInCategory] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editingCategoryName, setEditingCategoryName] = useState("");
+  const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
   const [isAddingDefaults, setIsAddingDefaults] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [convertModalOpen, setConvertModalOpen] = useState(false);
@@ -426,22 +429,98 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
     setConvertModalOpen(true);
   };
 
-  const getItemCategory = (title: string): string => {
-    if (title.includes("[Diário]")) return "diario";
+  const getItemCategory = (item: { title: string; description?: string | null }): string => {
+    // Prioriza o campo description se existir e for uma chave válida
+    if (item.description && (CATEGORIES[item.description] || customCategoryLabels[item.description])) {
+      return item.description;
+    }
+    if (item.title.includes("[Diário]")) return "diario";
     // Primeiro verifica nos itens de evento presencial
-    const eventoItem = EVENTO_PRESENCIAL_ITEMS.find(i => i.title === title);
+    const eventoItem = EVENTO_PRESENCIAL_ITEMS.find(i => i.title === item.title);
     if (eventoItem) return eventoItem.category;
     // Depois nos itens padrão
-    const defaultItem = DEFAULT_CHECKLIST_ITEMS.find(i => i.title === title);
-    return defaultItem?.category || "custom";
+    const defaultItem = DEFAULT_CHECKLIST_ITEMS.find(i => i.title === item.title);
+    return defaultItem?.category || item.description || "custom";
+  };
+
+  // Labels customizados para categorias renomeadas (derivados dos items)
+  const customCategoryLabels = items.reduce((acc, item) => {
+    if (item.description && !CATEGORIES[item.description]) {
+      acc[item.description] = item.description;
+    }
+    return acc;
+  }, {} as Record<string, string>);
+
+  // Todas as categorias (padrão + customizadas)
+  const allCategories: Record<string, { label: string; color: string }> = {
+    ...CATEGORIES,
+    ...Object.fromEntries(
+      Object.entries(customCategoryLabels).map(([key]) => [key, { label: key, color: "bg-gray-500" }])
+    ),
   };
 
   const groupedItems = items.reduce((acc, item) => {
-    const category = getItemCategory(item.title);
+    const category = getItemCategory(item);
     if (!acc[category]) acc[category] = [];
     acc[category].push(item);
     return acc;
   }, {} as Record<string, typeof items>);
+
+  // Funções de editar e apagar categorias
+  const startEditCategory = (categoryKey: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const label = allCategories[categoryKey]?.label || categoryKey;
+    setEditingCategory(categoryKey);
+    setEditingCategoryName(label);
+  };
+
+  const saveEditCategory = async () => {
+    if (!editingCategory || !editingCategoryName.trim()) return;
+    const newName = editingCategoryName.trim();
+    const oldKey = editingCategory;
+
+    // Se o nome não mudou, só fecha
+    const currentLabel = allCategories[oldKey]?.label || oldKey;
+    if (newName === currentLabel) {
+      setEditingCategory(null);
+      return;
+    }
+
+    try {
+      // Atualiza description de todos os itens dessa categoria para o novo nome
+      const categoryItemIds = (groupedItems[oldKey] || []).map(i => i.id);
+      if (categoryItemIds.length > 0) {
+        const { error } = await supabase
+          .from("funnel_checklist")
+          .update({ description: newName })
+          .in("id", categoryItemIds);
+        if (error) throw error;
+      }
+      toast.success("Categoria renomeada!");
+      setEditingCategory(null);
+      refetch();
+    } catch {
+      toast.error("Erro ao renomear categoria");
+    }
+  };
+
+  const deleteCategoryItems = async (categoryKey: string) => {
+    const categoryItemIds = (groupedItems[categoryKey] || []).map(i => i.id);
+    if (categoryItemIds.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from("funnel_checklist")
+        .delete()
+        .in("id", categoryItemIds);
+      if (error) throw error;
+      toast.success("Categoria removida!");
+      setDeletingCategory(null);
+      refetch();
+    } catch {
+      toast.error("Erro ao remover categoria");
+    }
+  };
 
   const completedCount = items.filter((i) => i.is_completed).length;
   const progress = items.length > 0 ? Math.round((completedCount / items.length) * 100) : 0;
@@ -546,11 +625,12 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
           </div>
         ) : (
           <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
-            {Object.entries(CATEGORIES).map(([categoryKey, categoryInfo]) => {
+            {Object.entries(allCategories).map(([categoryKey, categoryInfo]) => {
               const categoryItems = groupedItems[categoryKey] || [];
               if (categoryItems.length === 0) return null;
 
               const completedInCategory = categoryItems.filter(i => i.is_completed).length;
+              const isEditing = editingCategory === categoryKey;
 
               return (
                 <Collapsible
@@ -558,19 +638,99 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
                   open={expandedCategories.has(categoryKey)}
                   onOpenChange={() => toggleCategory(categoryKey)}
                 >
-                  <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 rounded-lg hover:bg-accent/5 transition-colors">
-                    {expandedCategories.has(categoryKey) ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
+                  <div className="flex items-center gap-1 group/cat">
+                    <CollapsibleTrigger className="flex items-center gap-2 flex-1 p-2 rounded-lg hover:bg-accent/5 transition-colors">
+                      {expandedCategories.has(categoryKey) ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      {isEditing ? (
+                        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                          <Input
+                            autoFocus
+                            value={editingCategoryName}
+                            onChange={(e) => setEditingCategoryName(e.target.value)}
+                            className="h-6 text-xs w-40 px-1.5"
+                            onKeyDown={(e) => {
+                              e.stopPropagation();
+                              if (e.key === "Enter") saveEditCategory();
+                              if (e.key === "Escape") setEditingCategory(null);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-primary hover:text-primary/80"
+                            onClick={(e) => { e.stopPropagation(); saveEditCategory(); }}
+                          >
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            onClick={(e) => { e.stopPropagation(); setEditingCategory(null); }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Badge className={cn("text-white text-[10px]", categoryInfo.color)}>
+                          {categoryInfo.label}
+                        </Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {completedInCategory}/{categoryItems.length}
+                      </span>
+                    </CollapsibleTrigger>
+                    {!isEditing && (
+                      <div className="flex items-center opacity-0 group-hover/cat:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          onClick={(e) => startEditCategory(categoryKey, e)}
+                          title="Renomear categoria"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        {deletingCategory === categoryKey ? (
+                          <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-destructive hover:text-destructive"
+                              onClick={() => deleteCategoryItems(categoryKey)}
+                              title="Confirmar exclusão"
+                            >
+                              <Check className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => setDeletingCategory(null)}
+                              title="Cancelar"
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); setDeletingCategory(categoryKey); }}
+                            title="Excluir categoria"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     )}
-                    <Badge className={cn("text-white text-[10px]", categoryInfo.color)}>
-                      {categoryInfo.label}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      {completedInCategory}/{categoryItems.length}
-                    </span>
-                  </CollapsibleTrigger>
+                  </div>
                   <CollapsibleContent className="space-y-1 mt-1 ml-4">
                     {categoryItems.map((item) => {
                       const hasTask = !!item.assigned_to || !!item.task_due_date;
