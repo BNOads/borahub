@@ -235,6 +235,8 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editingCategoryName, setEditingCategoryName] = useState("");
   const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [isAddingDefaults, setIsAddingDefaults] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [convertModalOpen, setConvertModalOpen] = useState(false);
@@ -522,6 +524,31 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
     }
   };
 
+  const createNewCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+
+    try {
+      const maxOrder = items.length > 0 ? Math.max(...items.map((i) => i.order_index || 0)) : -1;
+      // Cria um primeiro item placeholder na nova categoria
+      await createItem.mutateAsync({
+        funnel_id: funnelId,
+        title: `Novo item em ${name}`,
+        description: name,
+        order_index: maxOrder + 1,
+      });
+      setNewCategoryName("");
+      setCreatingCategory(false);
+      // Expande a nova categoria automaticamente
+      setExpandedCategories(prev => new Set([...prev, name]));
+      // Ativa o modo de adicionar item inline na nova categoria
+      setAddingInCategory(name);
+      toast.success(`Categoria "${name}" criada!`);
+    } catch {
+      toast.error("Erro ao criar categoria");
+    }
+  };
+
   const completedCount = items.filter((i) => i.is_completed).length;
   const progress = items.length > 0 ? Math.round((completedCount / items.length) * 100) : 0;
 
@@ -609,6 +636,51 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
             )}
           </Button>
         </div>
+
+        {/* Criar nova categoria */}
+        {creatingCategory ? (
+          <div className="flex items-center gap-2 mb-4 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+            <ListTodo className="h-4 w-4 text-primary flex-shrink-0" />
+            <Input
+              autoFocus
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="Nome da nova categoria..."
+              className="h-8 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") createNewCategory();
+                if (e.key === "Escape") { setCreatingCategory(false); setNewCategoryName(""); }
+              }}
+            />
+            <Button
+              size="sm"
+              className="h-8 gap-1"
+              onClick={createNewCategory}
+              disabled={!newCategoryName.trim() || createItem.isPending}
+            >
+              {createItem.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              Criar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8"
+              onClick={() => { setCreatingCategory(false); setNewCategoryName(""); }}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCreatingCategory(true)}
+            className="gap-1.5 mb-4"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Nova Categoria
+          </Button>
+        )}
 
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
