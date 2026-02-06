@@ -5,24 +5,20 @@ import { toast } from "sonner";
 import {
   FunnelData,
   FunnelPanelHeader,
-  FunnelBudgetOverview,
   FunnelStagesCard,
-  FunnelNextMilestone,
-  FunnelKeyDates,
   FunnelGeneralInfo,
   FunnelGoals,
   FunnelOperationalDates,
-  FunnelLinksList,
   FunnelDiary,
   FunnelChecklist,
   FunnelProducts,
-  FunnelRevenue,
   FunnelMatchedSales,
   FunnelDailyReport,
 } from "@/components/funnel-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LayoutDashboard, Settings, BookOpen, AlertTriangle, ClipboardList, Sparkles, FileText } from "lucide-react";
 import { FunnelCopyAgent } from "@/components/funnel-panel/FunnelCopyAgent";
+import { FunnelOverviewCards } from "@/components/funnel-panel/FunnelOverviewCards";
 import { useQuery } from "@tanstack/react-query";
 
 export default function FunnelPanel() {
@@ -158,21 +154,11 @@ export default function FunnelPanel() {
 
         {/* Tab: Visão Geral */}
         <TabsContent value="overview" className="space-y-6">
-          {/* Cards de Overview - Próximo Evento e Datas-chave só para lançamentos */}
-          <div className={`grid grid-cols-1 ${isLaunchCategory ? "md:grid-cols-3" : "md:grid-cols-1"} gap-4`}>
-            <FunnelBudgetOverview funnel={funnel} />
-            {isLaunchCategory && <FunnelNextMilestone funnel={funnel} />}
-            {isLaunchCategory && <FunnelKeyDates funnel={funnel} onUpdate={fetchFunnel} />}
-          </div>
-
-          {/* Faturamento e Links lado a lado */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Card de Faturamento dos Produtos */}
-            <FunnelRevenue funnel={funnel} />
-
-            {/* Links Úteis */}
-            <FunnelLinksList funnelId={funnel.id} />
-          </div>
+          <FunnelOverviewCards
+            funnel={funnel}
+            isLaunchCategory={isLaunchCategory}
+            onUpdate={fetchFunnel}
+          />
         </TabsContent>
 
         {/* Tab: Configuração */}
