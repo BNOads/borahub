@@ -5,7 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser, RefreshCcw, User, Calendar, Pencil, Check, X } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser, RefreshCcw, User, Calendar, Pencil, Check, X, List } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
@@ -237,6 +239,10 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
   const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
   const [creatingCategory, setCreatingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkCategory, setBulkCategory] = useState("custom");
+  const [isBulkAdding, setIsBulkAdding] = useState(false);
   const [isAddingDefaults, setIsAddingDefaults] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [convertModalOpen, setConvertModalOpen] = useState(false);
@@ -330,6 +336,53 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
       toast.success("Item adicionado!");
     } catch {
       toast.error("Erro ao adicionar item");
+    }
+  };
+
+  const addBulkItems = async () => {
+    const lines = bulkText
+      .split("\n")
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
+
+    if (lines.length === 0) {
+      toast.error("Digite pelo menos um item");
+      return;
+    }
+
+    setIsBulkAdding(true);
+    try {
+      const maxOrder = items.length > 0 ? Math.max(...items.map((i) => i.order_index || 0)) : -1;
+      const categoryKey = bulkCategory;
+
+      // Monta prefixo baseado na categoria
+      let prefix = "";
+      if (categoryKey === "diario") prefix = "[Diário] ";
+      else if (["carrinho", "evento", "captacao"].includes(categoryKey)) prefix = "[Pontual] ";
+
+      const { error } = await supabase
+        .from("funnel_checklist")
+        .insert(
+          lines.map((line, index) => ({
+            funnel_id: funnelId,
+            title: prefix + line,
+            description: categoryKey === "custom" ? undefined : categoryKey,
+            order_index: maxOrder + 1 + index,
+          }))
+        );
+
+      if (error) throw error;
+
+      toast.success(`${lines.length} itens adicionados!`);
+      setBulkText("");
+      setBulkMode(false);
+      // Expande a categoria onde os itens foram adicionados
+      setExpandedCategories(prev => new Set([...prev, categoryKey]));
+      refetch();
+    } catch (error: any) {
+      toast.error("Erro ao adicionar itens: " + error.message);
+    } finally {
+      setIsBulkAdding(false);
     }
   };
 
@@ -617,69 +670,138 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
         <Progress value={progress} className="h-2 mt-2" />
       </CardHeader>
       <CardContent>
-        <div className="flex gap-2 mb-4">
-          <Input
-            value={newItem}
-            onChange={(e) => setNewItem(e.target.value)}
-            placeholder="Adicionar item personalizado..."
-            onKeyDown={(e) => e.key === "Enter" && addItem()}
-          />
-          <Button 
-            size="icon" 
-            onClick={addItem} 
-            disabled={!newItem.trim() || createItem.isPending}
-          >
-            {createItem.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-
-        {/* Criar nova categoria */}
-        {creatingCategory ? (
-          <div className="flex items-center gap-2 mb-4 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
-            <ListTodo className="h-4 w-4 text-primary flex-shrink-0" />
-            <Input
+        {/* Modo normal vs em massa */}
+        {bulkMode ? (
+          <div className="mb-4 p-3 rounded-lg border border-dashed border-accent/30 bg-accent/5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium flex items-center gap-2">
+                <List className="h-4 w-4 text-accent" />
+                Adicionar em massa
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7"
+                onClick={() => { setBulkMode(false); setBulkText(""); }}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <Select value={bulkCategory} onValueChange={setBulkCategory}>
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="custom">Personalizados</SelectItem>
+                {Object.entries(allCategories)
+                  .filter(([key]) => key !== "custom")
+                  .map(([key, info]) => (
+                    <SelectItem key={key} value={key}>{info.label}</SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <Textarea
               autoFocus
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="Nome da nova categoria..."
-              className="h-8 text-sm"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") createNewCategory();
-                if (e.key === "Escape") { setCreatingCategory(false); setNewCategoryName(""); }
-              }}
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              placeholder={"Digite um item por linha:\nItem 1\nItem 2\nItem 3"}
+              className="min-h-[120px] text-sm"
             />
-            <Button
-              size="sm"
-              className="h-8 gap-1"
-              onClick={createNewCategory}
-              disabled={!newCategoryName.trim() || createItem.isPending}
-            >
-              {createItem.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-              Criar
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8"
-              onClick={() => { setCreatingCategory(false); setNewCategoryName(""); }}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                {bulkText.split("\n").filter(l => l.trim()).length} itens
+              </span>
+              <Button
+                size="sm"
+                onClick={addBulkItems}
+                disabled={!bulkText.trim() || isBulkAdding}
+                className="gap-1.5"
+              >
+                {isBulkAdding ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" />
+                )}
+                Adicionar todos
+              </Button>
+            </div>
           </div>
         ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCreatingCategory(true)}
-            className="gap-1.5 mb-4"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Nova Categoria
-          </Button>
+          <div className="flex gap-2 mb-4">
+            <Input
+              value={newItem}
+              onChange={(e) => setNewItem(e.target.value)}
+              placeholder="Adicionar item personalizado..."
+              onKeyDown={(e) => e.key === "Enter" && addItem()}
+            />
+            <Button 
+              size="icon" 
+              onClick={addItem} 
+              disabled={!newItem.trim() || createItem.isPending}
+              title="Adicionar item"
+            >
+              {createItem.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setBulkMode(true)}
+              title="Adicionar em massa"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
+        {/* Criar nova categoria */}
+        {!bulkMode && (
+          creatingCategory ? (
+            <div className="flex items-center gap-2 mb-4 p-3 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+              <ListTodo className="h-4 w-4 text-primary flex-shrink-0" />
+              <Input
+                autoFocus
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Nome da nova categoria..."
+                className="h-8 text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") createNewCategory();
+                  if (e.key === "Escape") { setCreatingCategory(false); setNewCategoryName(""); }
+                }}
+              />
+              <Button
+                size="sm"
+                className="h-8 gap-1"
+                onClick={createNewCategory}
+                disabled={!newCategoryName.trim() || createItem.isPending}
+              >
+                {createItem.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                Criar
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8"
+                onClick={() => { setCreatingCategory(false); setNewCategoryName(""); }}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCreatingCategory(true)}
+              className="gap-1.5 mb-4"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Nova Categoria
+            </Button>
+          )
         )}
 
         {isLoading ? (
