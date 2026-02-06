@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Folder, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { ExternalLink, Folder, Pencil, Trash2, AlertTriangle, ArrowUpDown, CalendarClock, DollarSign, SortAsc } from "lucide-react";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -28,8 +29,11 @@ interface ActiveFunnelsTableProps {
     onUpdate: () => void;
 }
 
+type SortOption = 'pending' | 'date' | 'investment' | 'alpha';
+
 export function ActiveFunnelsTable({ funnels, onUpdate }: ActiveFunnelsTableProps) {
     const navigate = useNavigate();
+    const [sortBy, setSortBy] = useState<SortOption>('pending');
 
     // Fetch pending checklist items for all funnels
     const { data: funnelChecklistPending = {} } = useQuery({
@@ -56,10 +60,47 @@ export function ActiveFunnelsTable({ funnels, onUpdate }: ActiveFunnelsTableProp
         staleTime: 2 * 60 * 1000,
     });
 
-    // Sort funnels by pending count (descending)
-    const sortedFunnels = [...funnels].sort((a, b) => 
-        (funnelChecklistPending[b.id] || 0) - (funnelChecklistPending[a.id] || 0)
-    );
+    const getClosestDate = (funnel: Funnel): Date | null => {
+        const now = new Date();
+        const dates = [
+            funnel.captacao_start,
+            funnel.captacao_end,
+            funnel.aquecimento_start,
+            funnel.aquecimento_end,
+            funnel.carrinho_start,
+            funnel.fechamento_date,
+            funnel.cpl_start,
+            funnel.cpl_end,
+            funnel.lembrete_start,
+        ]
+            .filter(Boolean)
+            .map(d => new Date(d!))
+            .filter(d => d >= now)
+            .sort((a, b) => a.getTime() - b.getTime());
+
+        return dates.length > 0 ? dates[0] : null;
+    };
+
+    // Sort funnels based on selected option
+    const sortedFunnels = [...funnels].sort((a, b) => {
+        switch (sortBy) {
+            case 'date': {
+                const dateA = getClosestDate(a);
+                const dateB = getClosestDate(b);
+                if (!dateA && !dateB) return 0;
+                if (!dateA) return 1;
+                if (!dateB) return -1;
+                return dateA.getTime() - dateB.getTime();
+            }
+            case 'investment':
+                return (b.predicted_investment || 0) - (a.predicted_investment || 0);
+            case 'alpha':
+                return a.name.localeCompare(b.name, 'pt-BR');
+            case 'pending':
+            default:
+                return (funnelChecklistPending[b.id] || 0) - (funnelChecklistPending[a.id] || 0);
+        }
+    });
 
     const handleToggleActive = async (id: string, currentStatus: boolean, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -100,8 +141,33 @@ export function ActiveFunnelsTable({ funnels, onUpdate }: ActiveFunnelsTableProp
         if (url) window.open(url, "_blank");
     };
 
+    const sortOptions: { value: SortOption; label: string; icon: React.ReactNode }[] = [
+        { value: 'pending', label: 'Pendências', icon: <AlertTriangle className="h-3.5 w-3.5" /> },
+        { value: 'date', label: 'Data próxima', icon: <CalendarClock className="h-3.5 w-3.5" /> },
+        { value: 'investment', label: 'Investimento', icon: <DollarSign className="h-3.5 w-3.5" /> },
+        { value: 'alpha', label: 'A-Z', icon: <SortAsc className="h-3.5 w-3.5" /> },
+    ];
+
     return (
-        <div className="rounded-md border">
+        <div className="space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+                <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground mr-1">Ordenar:</span>
+                {sortOptions.map((opt) => (
+                    <Button
+                        key={opt.value}
+                        variant={sortBy === opt.value ? "default" : "outline"}
+                        size="sm"
+                        className="gap-1.5 h-8"
+                        onClick={() => setSortBy(opt.value)}
+                    >
+                        {opt.icon}
+                        {opt.label}
+                    </Button>
+                ))}
+            </div>
+
+            <div className="rounded-md border">
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -228,6 +294,7 @@ export function ActiveFunnelsTable({ funnels, onUpdate }: ActiveFunnelsTableProp
                     )}
                 </TableBody>
             </Table>
+            </div>
         </div>
     );
 }
