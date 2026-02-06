@@ -21,6 +21,9 @@ import {
   AlertCircle,
   Loader2,
   Trash2,
+  Pencil,
+  Save,
+  X,
 } from "lucide-react";
 import { FunnelLink } from "./types";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +55,8 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
   const [customLinkName, setCustomLinkName] = useState("");
   const [customLinkUrl, setCustomLinkUrl] = useState("");
   const [addingCustom, setAddingCustom] = useState(false);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editNameValue, setEditNameValue] = useState("");
 
   const ensureLinksExist = async () => {
     try {
@@ -112,30 +117,51 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
     setEditingUrls(prev => ({ ...prev, [linkId]: url }));
   };
 
-  const handleAddUrl = async (linkId: string) => {
-    const url = editingUrls[linkId];
-    if (!url?.trim()) {
-      toast.error("Digite uma URL válida");
-      return;
-    }
+  const handleSaveUrl = async (linkId: string) => {
+    const url = editingUrls[linkId]?.trim() || "";
     
     setSavingId(linkId);
     try {
       const { error } = await supabase
         .from("funnel_links")
-        .update({ url: url.trim() })
+        .update({ url: url || null })
         .eq("id", linkId);
 
       if (error) throw error;
-      toast.success("Link adicionado!");
+      toast.success(url ? "Link salvo!" : "Link removido!");
 
       setLinks(prev => prev.map(l =>
-        l.id === linkId ? { ...l, url: url.trim() } : l
+        l.id === linkId ? { ...l, url: url || null } : l
       ));
     } catch (error: any) {
       toast.error("Erro: " + error.message);
     } finally {
       setSavingId(null);
+    }
+  };
+
+  const isUrlChanged = (linkId: string) => {
+    const link = links.find(l => l.id === linkId);
+    const current = editingUrls[linkId] || "";
+    return current !== (link?.url || "");
+  };
+
+  const handleSaveName = async (linkId: string) => {
+    const name = editNameValue.trim();
+    if (!name) { setEditingNameId(null); return; }
+
+    try {
+      const { error } = await supabase
+        .from("funnel_links")
+        .update({ name })
+        .eq("id", linkId);
+
+      if (error) throw error;
+      toast.success("Nome atualizado!");
+      setLinks(prev => prev.map(l => l.id === linkId ? { ...l, name } : l));
+      setEditingNameId(null);
+    } catch {
+      toast.error("Erro ao atualizar nome");
     }
   };
 
@@ -329,32 +355,78 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
             {/* Standard Links */}
             {LINK_CATEGORIES.map((category) => {
               const link = getLinkByType(category.type);
-              const hasUrl = link?.url;
+              const hasUrl = !!link?.url;
               const currentUrl = link ? (editingUrls[link.id] || "") : "";
+              const changed = link ? isUrlChanged(link.id) : false;
 
               return (
                 <div
                   key={category.type}
-                  className="p-4 rounded-xl border bg-background transition-all"
+                  className="p-4 rounded-xl border bg-background transition-all group"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex items-center pt-2">
                       <GripVertical className="h-4 w-4 text-muted-foreground/50" />
                     </div>
                     <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{category.label}</span>
-                        {hasUrl ? (
-                          <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-[10px] px-2 py-0.5 gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Configurado
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[10px] px-2 py-0.5 gap-1">
-                            <AlertCircle className="h-3 w-3" />
-                            Pendente
-                          </Badge>
-                        )}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {editingNameId === link?.id ? (
+                            <div className="flex items-center gap-1">
+                              <Input
+                                autoFocus
+                                value={editNameValue}
+                                onChange={(e) => setEditNameValue(e.target.value)}
+                                onBlur={() => link && handleSaveName(link.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && link) handleSaveName(link.id);
+                                  if (e.key === "Escape") setEditingNameId(null);
+                                }}
+                                className="h-7 text-sm w-48"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-sm font-medium">{link?.name || category.label}</span>
+                          )}
+                          {hasUrl ? (
+                            <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white text-[10px] px-2 py-0.5 gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Configurado
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-500 hover:bg-amber-500 text-white text-[10px] px-2 py-0.5 gap-1">
+                              <AlertCircle className="h-3 w-3" />
+                              Pendente
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {link && editingNameId !== link.id && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                setEditingNameId(link.id);
+                                setEditNameValue(link.name || category.label);
+                              }}
+                              title="Editar nome"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          {link && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeleteLink(link.id)}
+                              title="Excluir link"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       
                       {link && (
@@ -365,7 +437,21 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
                             placeholder="Cole a URL aqui..."
                             className="h-9 text-sm bg-muted/50 border-muted"
                           />
-                          {hasUrl ? (
+                          {changed ? (
+                            <Button
+                              onClick={() => handleSaveUrl(link.id)}
+                              disabled={savingId === link.id}
+                              className="h-9 px-3 gap-1.5"
+                              size="sm"
+                            >
+                              {savingId === link.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Save className="h-4 w-4" />
+                              )}
+                              Salvar
+                            </Button>
+                          ) : hasUrl ? (
                             <div className="flex items-center gap-1">
                               <Button
                                 variant="ghost"
@@ -386,20 +472,7 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
                                 <ExternalLink className="h-4 w-4" />
                               </Button>
                             </div>
-                          ) : (
-                            <Button
-                              onClick={() => handleAddUrl(link.id)}
-                              disabled={savingId === link.id || !currentUrl.trim()}
-                              className="h-9 px-4 bg-primary hover:bg-primary/90 gap-2"
-                            >
-                              {savingId === link.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Plus className="h-4 w-4" />
-                              )}
-                              Add
-                            </Button>
-                          )}
+                          ) : null}
                         </div>
                       )}
                     </div>
@@ -410,13 +483,14 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
 
             {/* Custom Links */}
             {customLinks.map((link) => {
-              const hasUrl = link.url;
+              const hasUrl = !!link.url;
               const currentUrl = editingUrls[link.id] || "";
+              const changed = isUrlChanged(link.id);
 
               return (
                 <div
                   key={link.id}
-                  className="p-4 rounded-xl border bg-background transition-all border-primary/20"
+                  className="p-4 rounded-xl border bg-background transition-all border-primary/20 group"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex items-center pt-2">
@@ -425,7 +499,21 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{link.name}</span>
+                          {editingNameId === link.id ? (
+                            <Input
+                              autoFocus
+                              value={editNameValue}
+                              onChange={(e) => setEditNameValue(e.target.value)}
+                              onBlur={() => handleSaveName(link.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSaveName(link.id);
+                                if (e.key === "Escape") setEditingNameId(null);
+                              }}
+                              className="h-7 text-sm w-48"
+                            />
+                          ) : (
+                            <span className="text-sm font-medium">{link.name}</span>
+                          )}
                           <Badge variant="secondary" className="text-[10px] px-2 py-0.5">
                             Personalizado
                           </Badge>
@@ -441,14 +529,31 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
                             </Badge>
                           )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-destructive hover:text-destructive"
-                          onClick={() => handleDeleteLink(link.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {editingNameId !== link.id && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                setEditingNameId(link.id);
+                                setEditNameValue(link.name);
+                              }}
+                              title="Editar nome"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={() => handleDeleteLink(link.id)}
+                            title="Excluir link"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </div>
                       
                       <div className="flex items-center gap-2">
@@ -458,7 +563,21 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
                           placeholder="Cole a URL aqui..."
                           className="h-9 text-sm bg-muted/50 border-muted"
                         />
-                        {hasUrl ? (
+                        {changed ? (
+                          <Button
+                            onClick={() => handleSaveUrl(link.id)}
+                            disabled={savingId === link.id}
+                            className="h-9 px-3 gap-1.5"
+                            size="sm"
+                          >
+                            {savingId === link.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Save className="h-4 w-4" />
+                            )}
+                            Salvar
+                          </Button>
+                        ) : hasUrl ? (
                           <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
@@ -479,20 +598,7 @@ export function FunnelLinksList({ funnelId, compact = false }: FunnelLinksListPr
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           </div>
-                        ) : (
-                          <Button
-                            onClick={() => handleAddUrl(link.id)}
-                            disabled={savingId === link.id || !currentUrl.trim()}
-                            className="h-9 px-4 bg-primary hover:bg-primary/90 gap-2"
-                          >
-                            {savingId === link.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Plus className="h-4 w-4" />
-                            )}
-                            Add
-                          </Button>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>
