@@ -632,6 +632,47 @@ export type Database = {
           },
         ]
       }
+      funnel_budget_categories: {
+        Row: {
+          color: string
+          created_at: string
+          funnel_id: string
+          id: string
+          name: string
+          order_index: number
+          percent: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          funnel_id: string
+          id?: string
+          name: string
+          order_index?: number
+          percent?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          funnel_id?: string
+          id?: string
+          name?: string
+          order_index?: number
+          percent?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_budget_categories_funnel_id_fkey"
+            columns: ["funnel_id"]
+            isOneToOne: false
+            referencedRelation: "funnels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funnel_checklist: {
         Row: {
           assigned_to: string | null
