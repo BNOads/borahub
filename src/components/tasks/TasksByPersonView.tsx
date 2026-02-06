@@ -145,8 +145,9 @@ export function TasksByPersonView({
   const hasActiveDateFilter = activeDateFilter && activeDateFilter !== "all";
   const shouldShowTask = (task: Task) => {
     if (!task.completed) return true; // Pendentes sempre visíveis
-    // Para concluídas: mostrar se showCompleted OU se há filtro de data ativo OU se foi concluída hoje
-    return showCompleted || hasActiveDateFilter || wasCompletedToday(task);
+    // Para concluídas: respeitar o botão de ocultar; se filtro de data ativo, sempre mostrar
+    if (hasActiveDateFilter) return true;
+    return showCompleted;
   };
 
   // Função para alternar ordenação de coluna
