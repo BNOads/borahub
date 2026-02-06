@@ -1,4 +1,5 @@
-import { ArrowRight, Rocket, TrendingUp, Calendar, Clock, DollarSign, AlertTriangle } from "lucide-react";
+import { useState } from "react";
+import { ArrowRight, Rocket, TrendingUp, Calendar, Clock, DollarSign, AlertTriangle, ArrowUpDown, CalendarClock, SortAsc } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -9,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { differenceInDays, parseISO, isAfter } from "date-fns";
 
 type Funnel = Database["public"]["Tables"]["funnels"]["Row"];
+type SortOption = 'pending' | 'date' | 'investment' | 'alpha';
 
 const categoryColors: Record<string, string> = {
   "E-book": "border-blue-500 text-blue-500 bg-blue-500/10",
@@ -56,6 +58,7 @@ function getNextMilestone(funnel: Funnel): { name: string; daysUntil: number } |
 
 export function ActiveLaunches() {
   const { authReady, session, isAdmin } = useAuth();
+  const [sortBy, setSortBy] = useState<SortOption>('pending');
   const { data: funnels = [], isLoading: loading } = useQuery({
     queryKey: ['funnels', 'active', session?.user?.id],
     queryFn: async () => {
@@ -210,10 +213,50 @@ export function ActiveLaunches() {
           Nenhum funil ativo no momento.
         </div>
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
-          {/* Ordenar funis por quantidade de pendências (maior primeiro) e limitar a 10 */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground mr-1">Ordenar:</span>
+            {([
+              { value: 'pending' as SortOption, label: 'Pendências', icon: <AlertTriangle className="h-3.5 w-3.5" /> },
+              { value: 'date' as SortOption, label: 'Data próxima', icon: <CalendarClock className="h-3.5 w-3.5" /> },
+              { value: 'investment' as SortOption, label: 'Investimento', icon: <DollarSign className="h-3.5 w-3.5" /> },
+              { value: 'alpha' as SortOption, label: 'A-Z', icon: <SortAsc className="h-3.5 w-3.5" /> },
+            ]).map((opt) => (
+              <Button
+                key={opt.value}
+                variant={sortBy === opt.value ? "default" : "outline"}
+                size="sm"
+                className="gap-1.5 h-7 text-xs"
+                onClick={() => setSortBy(opt.value)}
+              >
+                {opt.icon}
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+
+          <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide">
           {[...funnels]
-            .sort((a, b) => (funnelChecklistPending[b.id] || 0) - (funnelChecklistPending[a.id] || 0))
+            .sort((a, b) => {
+              switch (sortBy) {
+                case 'date': {
+                  const dateA = getNextMilestone(a);
+                  const dateB = getNextMilestone(b);
+                  if (!dateA && !dateB) return 0;
+                  if (!dateA) return 1;
+                  if (!dateB) return -1;
+                  return dateA.daysUntil - dateB.daysUntil;
+                }
+                case 'investment':
+                  return (b.predicted_investment || 0) - (a.predicted_investment || 0);
+                case 'alpha':
+                  return a.name.localeCompare(b.name, 'pt-BR');
+                case 'pending':
+                default:
+                  return (funnelChecklistPending[b.id] || 0) - (funnelChecklistPending[a.id] || 0);
+              }
+            })
             .slice(0, 10)
             .map((funnel) => {
             const nextMilestone = getNextMilestone(funnel);
@@ -302,6 +345,7 @@ export function ActiveLaunches() {
               </div>
             );
           })}
+          </div>
         </div>
       )}
     </div>
