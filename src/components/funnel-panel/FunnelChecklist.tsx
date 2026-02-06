@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser, RefreshCcw, User, Calendar, Pencil, Check, X, List } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -226,6 +227,7 @@ const CATEGORIES: Record<string, { label: string; color: string }> = {
 };
 
 export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistProps) {
+  const navigate = useNavigate();
   const { data: items = [], isLoading, refetch } = useFunnelChecklist(funnelId);
   const createItem = useCreateChecklistItem();
   const updateItem = useUpdateChecklistItem();
@@ -928,6 +930,7 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
                   <CollapsibleContent className="space-y-1 mt-1 ml-4">
                     {categoryItems.map((item) => {
                       const hasTask = !!item.assigned_to || !!item.task_due_date;
+                      const hasLinkedTask = !!item.linked_task_id;
                       
                       return (
                         <div
@@ -943,12 +946,24 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
                             className="mt-0.5"
                           />
                           <div className="flex-1 min-w-0">
-                            <span className={cn(
-                              "text-sm",
-                              item.is_completed && "line-through text-muted-foreground"
-                            )}>
-                              {item.title.replace(/^\[(Diário|Pontual)\]\s*/i, "")}
-                            </span>
+                            {hasLinkedTask ? (
+                              <button
+                                onClick={() => navigate(`/tarefas/${item.linked_task_id}`)}
+                                className={cn(
+                                  "text-sm text-left hover:underline text-primary cursor-pointer",
+                                  item.is_completed && "line-through text-muted-foreground"
+                                )}
+                              >
+                                {item.title.replace(/^\[(Diário|Pontual)\]\s*/i, "")}
+                              </button>
+                            ) : (
+                              <span className={cn(
+                                "text-sm",
+                                item.is_completed && "line-through text-muted-foreground"
+                              )}>
+                                {item.title.replace(/^\[(Diário|Pontual)\]\s*/i, "")}
+                              </span>
+                            )}
                             {hasTask && (
                               <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                                 {item.assigned_to && (
