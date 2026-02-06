@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toLocalDateString, isInDateRange as isInDateRangeUtil, type DateRangeFilter } from "@/lib/dateUtils";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -49,6 +49,8 @@ import {
   Play,
   Pause,
   ListPlus,
+  Download,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -68,6 +70,7 @@ import {
   useToggleTaskDoing,
 } from "@/hooks/useTasks";
 import { BulkTaskModal } from "@/components/tasks/BulkTaskModal";
+import jsPDF from "jspdf";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
 import { AdminTasksPanel } from "@/components/tasks/AdminTasksPanel";
 import { TaskKanban } from "@/components/tasks/TaskKanban";
@@ -115,6 +118,12 @@ export default function Tarefas() {
   const [customDateStart, setCustomDateStart] = useState<Date | undefined>(undefined);
   const [customDateEnd, setCustomDateEnd] = useState<Date | undefined>(undefined);
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+  // Filtro de data pessoal (aba Minhas Tarefas)
+  const [myDateRange, setMyDateRange] = useState<string>("all");
+  const [myCustomDateStart, setMyCustomDateStart] = useState<Date | undefined>(undefined);
+  const [myCustomDateEnd, setMyCustomDateEnd] = useState<Date | undefined>(undefined);
+  const [myDatePopoverOpen, setMyDatePopoverOpen] = useState(false);
+  const [isGeneratingMyPdf, setIsGeneratingMyPdf] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -201,6 +210,9 @@ export default function Tarefas() {
         if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
         if (filterPriority !== "all" && task.priority !== filterPriority) return false;
         if (filterCategory !== "all" && task.category !== filterCategory) return false;
+        // Filtro de data pessoal
+        const relevantDate = getRelevantDateForTask(task);
+        if (!isInDateRangeUtil(relevantDate, myDateRange as DateRangeFilter, myCustomDateStart, myCustomDateEnd)) return false;
         return true;
       });
 
@@ -443,6 +455,114 @@ export default function Tarefas() {
   const highPriorityCount = pendingTasks.filter(
     (t) => t.priority === "alta"
   ).length;
+
+  // PDF para "Minhas Tarefas"
+  const generateMyTasksPdf = async () => {
+    if (!profile) return;
+    setIsGeneratingMyPdf(true);
+    try {
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      let yPos = margin;
+
+      const userName = profile.display_name || profile.full_name;
+
+      // Título
+      pdf.setFontSize(18);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`Tarefas de ${userName}`, margin, yPos);
+      yPos += 8;
+
+      // Data de geração
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Gerado em: ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`, margin, yPos);
+      yPos += 4;
+
+      // Info do filtro
+      const dateLabels: Record<string, string> = { all: "Todas as datas", today: "Hoje", week: "Esta semana", month: "Este mês", overdue: "Atrasadas", custom: "Personalizado" };
+      pdf.text(`Filtro: ${dateLabels[myDateRange] || "Todas as datas"}`, margin, yPos);
+      yPos += 4;
+      pdf.text(`Total: ${pendingTasks.length} pendentes, ${completedTasks.length} concluídas`, margin, yPos);
+      yPos += 10;
+
+      // Helper para adicionar seção
+      const addSection = (title: string, sectionTasks: typeof tasks) => {
+        if (sectionTasks.length === 0) return;
+
+        if (yPos > pageHeight - 30) {
+          pdf.addPage();
+          yPos = margin;
+        }
+
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(margin, yPos - 4, pageWidth - margin * 2, 8, "F");
+        pdf.text(`${title} (${sectionTasks.length})`, margin + 2, yPos);
+        yPos += 10;
+
+        // Cabeçalho
+        pdf.setFontSize(9);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Tarefa", margin, yPos);
+        pdf.text("Prioridade", pageWidth - 80, yPos);
+        pdf.text("Prazo", pageWidth - 45, yPos);
+        pdf.text("Status", pageWidth - 25, yPos);
+        yPos += 5;
+        pdf.setDrawColor(200, 200, 200);
+        pdf.line(margin, yPos - 2, pageWidth - margin, yPos - 2);
+
+        pdf.setFont("helvetica", "normal");
+        sectionTasks.forEach((task) => {
+          if (yPos > pageHeight - 15) {
+            pdf.addPage();
+            yPos = margin;
+          }
+
+          const maxTitleWidth = pageWidth - 100;
+          let title = task.title;
+          while (pdf.getTextWidth(title) > maxTitleWidth && title.length > 3) {
+            title = title.slice(0, -4) + "...";
+          }
+
+          pdf.text(title, margin, yPos);
+          pdf.text(task.priority.charAt(0).toUpperCase() + task.priority.slice(1), pageWidth - 80, yPos);
+          pdf.text(task.due_date ? format(parseISO(task.due_date), "dd/MM/yy") : "-", pageWidth - 45, yPos);
+
+          const isDoing = !!(task as any).doing_since;
+          const overdue = isOverdue(task.due_date, task.completed);
+          const status = task.completed ? "Concluída" : isDoing ? "Fazendo" : overdue ? "Atrasada" : "Pendente";
+          pdf.text(status, pageWidth - 25, yPos);
+          yPos += 5;
+        });
+        yPos += 5;
+      };
+
+      addSection("Pendentes", pendingTasks);
+      addSection("Concluídas", completedTasks);
+
+      // Rodapé
+      const totalPages = pdf.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        pdf.setPage(i);
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "normal");
+        pdf.text("Gerado pelo BORA Hub", margin, pageHeight - 8);
+        pdf.text(`Página ${i} de ${totalPages}`, pageWidth - margin - 20, pageHeight - 8);
+      }
+
+      pdf.save(`minhas-tarefas-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+      toast({ title: "PDF gerado com sucesso!", description: "O download foi iniciado automaticamente." });
+    } catch (err) {
+      console.error("Erro ao gerar PDF:", err);
+      toast({ title: "Erro ao gerar PDF", description: "Tente novamente.", variant: "destructive" });
+    } finally {
+      setIsGeneratingMyPdf(false);
+    }
+  };
 
   if (error) {
     return (
@@ -777,7 +897,7 @@ export default function Tarefas() {
                 </SelectContent>
               </Select>
 
-              {/* Filtro por responsável - apenas na aba Time */}
+               {/* Filtro por responsável - apenas na aba Time */}
               {tabView === "team" && (
                 <>
                   <Select value={filterAssignee} onValueChange={setFilterAssignee}>
@@ -841,71 +961,25 @@ export default function Tarefas() {
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                       <div className="p-2 space-y-1 border-b">
-                        <Button
-                          variant={filterDateRange === "all" ? "secondary" : "ghost"}
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            setFilterDateRange("all");
-                            setCustomDateStart(undefined);
-                            setCustomDateEnd(undefined);
-                            setDatePopoverOpen(false);
-                          }}
-                        >
-                          Todas as datas
-                        </Button>
-                        <Button
-                          variant={filterDateRange === "today" ? "secondary" : "ghost"}
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            setFilterDateRange("today");
-                            setCustomDateStart(undefined);
-                            setCustomDateEnd(undefined);
-                            setDatePopoverOpen(false);
-                          }}
-                        >
-                          Hoje
-                        </Button>
-                        <Button
-                          variant={filterDateRange === "week" ? "secondary" : "ghost"}
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            setFilterDateRange("week");
-                            setCustomDateStart(undefined);
-                            setCustomDateEnd(undefined);
-                            setDatePopoverOpen(false);
-                          }}
-                        >
-                          Esta semana
-                        </Button>
-                        <Button
-                          variant={filterDateRange === "month" ? "secondary" : "ghost"}
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            setFilterDateRange("month");
-                            setCustomDateStart(undefined);
-                            setCustomDateEnd(undefined);
-                            setDatePopoverOpen(false);
-                          }}
-                        >
-                          Este mês
-                        </Button>
-                        <Button
-                          variant={filterDateRange === "overdue" ? "secondary" : "ghost"}
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            setFilterDateRange("overdue");
-                            setCustomDateStart(undefined);
-                            setCustomDateEnd(undefined);
-                            setDatePopoverOpen(false);
-                          }}
-                        >
-                          Atrasadas
-                        </Button>
+                        {["all", "today", "week", "month", "overdue"].map((range) => {
+                          const labels: Record<string, string> = { all: "Todas as datas", today: "Hoje", week: "Esta semana", month: "Este mês", overdue: "Atrasadas" };
+                          return (
+                            <Button
+                              key={range}
+                              variant={filterDateRange === range ? "secondary" : "ghost"}
+                              size="sm"
+                              className="w-full justify-start"
+                              onClick={() => {
+                                setFilterDateRange(range);
+                                setCustomDateStart(undefined);
+                                setCustomDateEnd(undefined);
+                                setDatePopoverOpen(false);
+                              }}
+                            >
+                              {labels[range]}
+                            </Button>
+                          );
+                        })}
                       </div>
                       <div className="p-3 space-y-3">
                         <p className="text-sm font-medium text-muted-foreground">Período personalizado</p>
@@ -955,6 +1029,105 @@ export default function Tarefas() {
                     </PopoverContent>
                   </Popover>
                 </>
+              )}
+
+              {/* Filtro de data - aba Minhas Tarefas */}
+              {tabView === "tasks" && (
+                <Popover open={myDatePopoverOpen} onOpenChange={setMyDatePopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-[180px] justify-start text-left font-normal gap-2",
+                        myDateRange !== "all" && "bg-accent text-accent-foreground border-accent hover:bg-accent/90 hover:text-accent-foreground"
+                      )}
+                    >
+                      <Calendar className="h-4 w-4" />
+                      {myDateRange === "all" && "Todas as datas"}
+                      {myDateRange === "today" && "Hoje"}
+                      {myDateRange === "week" && "Esta semana"}
+                      {myDateRange === "month" && "Este mês"}
+                      {myDateRange === "overdue" && "Atrasadas"}
+                      {myDateRange === "custom" && (
+                        myCustomDateStart && myCustomDateEnd 
+                          ? `${format(myCustomDateStart, "dd/MM")} - ${format(myCustomDateEnd, "dd/MM")}`
+                          : myCustomDateStart 
+                            ? `A partir de ${format(myCustomDateStart, "dd/MM")}`
+                            : myCustomDateEnd 
+                              ? `Até ${format(myCustomDateEnd, "dd/MM")}`
+                              : "Personalizado"
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <div className="p-2 space-y-1 border-b">
+                      {["all", "today", "week", "month", "overdue"].map((range) => {
+                        const labels: Record<string, string> = { all: "Todas as datas", today: "Hoje", week: "Esta semana", month: "Este mês", overdue: "Atrasadas" };
+                        return (
+                          <Button
+                            key={range}
+                            variant={myDateRange === range ? "secondary" : "ghost"}
+                            size="sm"
+                            className="w-full justify-start"
+                            onClick={() => {
+                              setMyDateRange(range);
+                              setMyCustomDateStart(undefined);
+                              setMyCustomDateEnd(undefined);
+                              setMyDatePopoverOpen(false);
+                            }}
+                          >
+                            {labels[range]}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <div className="p-3 space-y-3">
+                      <p className="text-sm font-medium text-muted-foreground">Período personalizado</p>
+                      <div className="flex gap-2 items-center">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">De</Label>
+                          <Input
+                            type="date"
+                            className="h-8 w-[130px]"
+                            value={myCustomDateStart ? format(myCustomDateStart, "yyyy-MM-dd") : ""}
+                            onChange={(e) => {
+                              const date = e.target.value ? new Date(e.target.value + "T00:00:00") : undefined;
+                              setMyCustomDateStart(date);
+                              setMyDateRange("custom");
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Até</Label>
+                          <Input
+                            type="date"
+                            className="h-8 w-[130px]"
+                            value={myCustomDateEnd ? format(myCustomDateEnd, "yyyy-MM-dd") : ""}
+                            onChange={(e) => {
+                              const date = e.target.value ? new Date(e.target.value + "T00:00:00") : undefined;
+                              setMyCustomDateEnd(date);
+                              setMyDateRange("custom");
+                            }}
+                          />
+                        </div>
+                      </div>
+                      {myDateRange === "custom" && (myCustomDateStart || myCustomDateEnd) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => {
+                            setMyCustomDateStart(undefined);
+                            setMyCustomDateEnd(undefined);
+                            setMyDateRange("all");
+                          }}
+                        >
+                          Limpar período
+                        </Button>
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               )}
             </div>
           </div>
@@ -1025,6 +1198,31 @@ export default function Tarefas() {
             />
           ) : (
             <div className="space-y-6">
+              {/* Botão PDF para Minhas Tarefas */}
+              {tabView === "tasks" && !isLoading && tasks.length > 0 && (
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={generateMyTasksPdf}
+                    disabled={isGeneratingMyPdf}
+                    className="gap-2"
+                  >
+                    {isGeneratingMyPdf ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Gerando...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4" />
+                        Baixar PDF
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
               {isLoading ? (
                 <div className="space-y-3">
                   {[1, 2, 3].map((i) => (
