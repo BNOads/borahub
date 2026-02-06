@@ -230,6 +230,8 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
   const deleteItem = useDeleteChecklistItem();
 
   const [newItem, setNewItem] = useState("");
+  const [newCategoryItem, setNewCategoryItem] = useState<Record<string, string>>({});
+  const [addingInCategory, setAddingInCategory] = useState<string | null>(null);
   const [isAddingDefaults, setIsAddingDefaults] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [convertModalOpen, setConvertModalOpen] = useState(false);
@@ -320,6 +322,34 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
         order_index: maxOrder + 1,
       });
       setNewItem("");
+      toast.success("Item adicionado!");
+    } catch {
+      toast.error("Erro ao adicionar item");
+    }
+  };
+
+  const addItemInCategory = async (categoryKey: string) => {
+    const text = newCategoryItem[categoryKey]?.trim();
+    if (!text) return;
+
+    // Monta o prefixo correto baseado na categoria
+    let prefix = "";
+    if (categoryKey === "diario") prefix = "[Diário] ";
+    else if (["carrinho", "evento", "captacao"].includes(categoryKey)) prefix = "[Pontual] ";
+
+    const title = prefix + text;
+
+    try {
+      const categoryItems = groupedItems[categoryKey] || [];
+      const maxOrder = items.length > 0 ? Math.max(...items.map((i) => i.order_index || 0)) : -1;
+      await createItem.mutateAsync({
+        funnel_id: funnelId,
+        title,
+        description: categoryKey === "custom" ? undefined : categoryKey,
+        order_index: maxOrder + 1,
+      });
+      setNewCategoryItem(prev => ({ ...prev, [categoryKey]: "" }));
+      setAddingInCategory(null);
       toast.success("Item adicionado!");
     } catch {
       toast.error("Erro ao adicionar item");
@@ -608,6 +638,38 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
                         </div>
                       );
                     })}
+                    {/* Inline add item within category */}
+                    {addingInCategory === categoryKey ? (
+                      <div className="flex gap-2 pt-1">
+                        <Input
+                          autoFocus
+                          value={newCategoryItem[categoryKey] || ""}
+                          onChange={(e) => setNewCategoryItem(prev => ({ ...prev, [categoryKey]: e.target.value }))}
+                          placeholder="Novo item..."
+                          className="h-8 text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") addItemInCategory(categoryKey);
+                            if (e.key === "Escape") setAddingInCategory(null);
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => addItemInCategory(categoryKey)}
+                          disabled={!newCategoryItem[categoryKey]?.trim() || createItem.isPending}
+                        >
+                          {createItem.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setAddingInCategory(categoryKey)}
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 px-2"
+                      >
+                        <Plus className="h-3 w-3" />
+                        Adicionar item
+                      </button>
+                    )}
                   </CollapsibleContent>
                 </Collapsible>
               );
