@@ -5,8 +5,10 @@ import { BottomNav } from "./BottomNav";
 import { NotificationPopup } from "@/components/notifications/NotificationPopup";
 import { FloatingNoteButton } from "@/components/notes/FloatingNoteButton";
 import { DailyReportPopup } from "@/components/funnel-panel/DailyReportPopup";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function MainLayout() {
+  const { isGuest } = useAuth();
   const [isDark, setIsDark] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark';
@@ -33,9 +35,13 @@ export function MainLayout() {
         <Outlet />
       </main>
       <BottomNav />
-      <NotificationPopup />
-      <FloatingNoteButton />
-      <DailyReportPopup />
+      {!isGuest && (
+        <>
+          <NotificationPopup />
+          <FloatingNoteButton />
+          <DailyReportPopup />
+        </>
+      )}
     </div>
   );
 }

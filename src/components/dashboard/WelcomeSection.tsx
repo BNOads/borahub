@@ -65,7 +65,7 @@ const isFeminineName = (name: string): boolean => {
 };
 
 export function WelcomeSection() {
-  const { profile } = useAuth();
+  const { profile, isGuest } = useAuth();
   const currentHour = new Date().getHours();
   const greeting = currentHour < 12 ? "Bom dia" : currentHour < 18 ? "Boa tarde" : "Boa noite";
   const userName = profile?.display_name || profile?.full_name?.split(' ')[0] || 'usuário';
@@ -126,22 +126,24 @@ export function WelcomeSection() {
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {quickActions.map((action) => (
-            <Button
-              key={action.label}
-              variant="outline"
-              size="sm"
-              className="border-accent/30 text-foreground hover:bg-accent hover:text-accent-foreground hover:border-accent text-xs"
-              asChild
-            >
-              <a href={action.href} target="_blank" rel="noopener noreferrer">
-                <action.icon className="h-3.5 w-3.5" />
-                {action.label}
-              </a>
-            </Button>
-          ))}
-        </div>
+        {!isGuest && (
+          <div className="flex flex-wrap gap-2">
+            {quickActions.map((action) => (
+              <Button
+                key={action.label}
+                variant="outline"
+                size="sm"
+                className="border-accent/30 text-foreground hover:bg-accent hover:text-accent-foreground hover:border-accent text-xs"
+                asChild
+              >
+                <a href={action.href} target="_blank" rel="noopener noreferrer">
+                  <action.icon className="h-3.5 w-3.5" />
+                  {action.label}
+                </a>
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
