@@ -13,7 +13,7 @@ interface CreateUserRequest {
   display_name?: string;
   department?: string;
   job_title?: string;
-  role: "admin" | "collaborator";
+  role: "admin" | "collaborator" | "guest";
   password?: string;
 }
 
