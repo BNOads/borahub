@@ -1,7 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
 import { Home, GraduationCap, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
-const tabs = [{
+import { useAuth } from "@/contexts/AuthContext";
+
+const fullTabs = [{
   name: "Início",
   href: "/",
   icon: Home
@@ -14,8 +16,18 @@ const tabs = [{
   href: "/acesso-rapido",
   icon: Wrench
 }];
+
+const guestTabs = [{
+  name: "Início",
+  href: "/",
+  icon: Home
+}];
+
 export function BottomNav() {
   const location = useLocation();
+  const { isGuest } = useAuth();
+  const tabs = isGuest ? guestTabs : fullTabs;
+
   return <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden pb-safe">
       {/* Glassmorphism background */}
       <div className="mx-3 mb-2 rounded-2xl bg-foreground/95 backdrop-blur-xl border border-border/10 shadow-2xl">
@@ -30,9 +42,6 @@ export function BottomNav() {
               </Link>;
         })}
         </div>
-        
-        {/* Home indicator line */}
-        
       </div>
     </nav>;
 }

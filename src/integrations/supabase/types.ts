@@ -3677,7 +3677,7 @@ export type Database = {
       is_finance_department: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "collaborator" | "manager"
+      app_role: "admin" | "collaborator" | "manager" | "guest"
       recurrence_type:
         | "none"
         | "daily"
@@ -3813,7 +3813,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "collaborator", "manager"],
+      app_role: ["admin", "collaborator", "manager", "guest"],
       recurrence_type: [
         "none",
         "daily",

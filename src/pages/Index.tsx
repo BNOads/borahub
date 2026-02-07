@@ -8,7 +8,22 @@ import { TeamPDIs } from "@/components/dashboard/TeamPDIs";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isGuest } = useAuth();
+
+  if (isGuest) {
+    return (
+      <div className="space-y-8">
+        <WelcomeSection />
+
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+          <UpcomingEvents />
+          <TodaysTasks />
+        </div>
+
+        <BoraNewsWidget />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

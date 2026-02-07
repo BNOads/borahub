@@ -2,6 +2,9 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
+// Rotas permitidas para convidados
+const GUEST_ALLOWED_ROUTES = ['/', '/perfil', '/troca-senha', '/bora-news'];
+
 interface ProtectedRouteProps {
     children: React.ReactNode;
     requireAdmin?: boolean;
@@ -11,7 +14,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     children,
     requireAdmin = false
 }) => {
-    const { user, profile, isLoading, isAdmin } = useAuth();
+    const { user, profile, isLoading, isAdmin, isGuest } = useAuth();
     const location = useLocation();
 
     if (isLoading) {
@@ -32,6 +35,15 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return <Navigate to="/conta-desativada" replace />;
     }
 
+    // Convidado - só pode acessar rotas permitidas
+    if (isGuest) {
+        const isAllowed = GUEST_ALLOWED_ROUTES.some(route => 
+            location.pathname === route || location.pathname.startsWith('/bora-news/')
+        );
+        if (!isAllowed) {
+            return <Navigate to="/" replace />;
+        }
+    }
 
     // Requer admin mas não é admin
     if (requireAdmin && !isAdmin) {
