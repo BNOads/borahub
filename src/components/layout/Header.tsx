@@ -26,10 +26,14 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { EnviarNotificacaoModal } from "@/components/admin/EnviarNotificacaoModal";
 
-const navigation = [
+const fullNavigation = [
   { name: "Inicio", href: "/" },
   { name: "Acesso Rapido", href: "/acesso-rapido" },
   { name: "Treinamentos", href: "/treinamentos" },
+];
+
+const guestNavigation = [
+  { name: "Inicio", href: "/" },
 ];
 
 interface HeaderProps {
@@ -54,7 +58,7 @@ const notificationTypeColors = {
 export function Header({ isDark, toggleTheme }: HeaderProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { profile, isAdmin, signOut } = useAuth();
+  const { profile, isAdmin, isGuest, signOut } = useAuth();
   const [showNotificationModal, setShowNotificationModal] = useState(false);
 
   const { data: notifications = [], isLoading: loadingNotifications } = useUnreadNotifications();
@@ -118,7 +122,7 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
 
           {/* Desktop Navigation */}
           <div className="hidden lg:flex lg:gap-1">
-            {navigation.map((item) => (
+            {(isGuest ? guestNavigation : fullNavigation).map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
@@ -252,6 +256,11 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
                         Admin
                       </Badge>
                     )}
+                    {isGuest && (
+                      <Badge className="text-[10px] px-1.5 py-0 h-4 bg-muted text-muted-foreground">
+                        Convidado
+                      </Badge>
+                    )}
                   </div>
                   <ChevronDown className="h-4 w-4 text-muted-foreground hidden sm:block" />
                 </Button>
@@ -264,6 +273,11 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
                     <Badge className="mt-2 text-xs bg-amber-500 hover:bg-amber-600">
                       <Shield className="w-3 h-3 mr-1" />
                       Admin
+                    </Badge>
+                  )}
+                  {isGuest && (
+                    <Badge className="mt-2 text-xs bg-muted text-muted-foreground">
+                      Convidado
                     </Badge>
                   )}
                 </div>

@@ -9,7 +9,7 @@ export interface Profile {
   full_name: string;
   display_name?: string;
   avatar_url?: string;
-  role: 'admin' | 'collaborator';
+  role: 'admin' | 'collaborator' | 'guest';
   department?: string;
   department_id?: string;
   job_title?: string;
@@ -34,6 +34,7 @@ interface AuthContextType {
   isLoading: boolean;
   authReady: boolean;
   isAdmin: boolean;
+  isGuest: boolean;
   signIn: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
@@ -60,6 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const { toast } = useToast();
 
   const isAdmin = profile?.role === 'admin' && profile?.is_active;
+  const isGuest = profile?.role === 'guest';
 
   // Função para buscar o perfil do usuário
   const fetchProfile = async (userId: string) => {
@@ -77,11 +79,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Buscar role do usuário via função RPC
-      let userRole: 'admin' | 'collaborator' = 'collaborator';
+      let userRole: 'admin' | 'collaborator' | 'guest' = 'collaborator';
       try {
         const { data: roleData } = await supabase.rpc('get_user_role', { _user_id: userId });
         if (roleData) {
-          userRole = roleData as 'admin' | 'collaborator';
+          userRole = roleData as 'admin' | 'collaborator' | 'guest';
         }
       } catch (roleError) {
         console.warn('Could not fetch user role, defaulting to collaborator:', roleError);
@@ -383,6 +385,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     authReady,
     isAdmin,
+    isGuest,
     signIn,
     signOut,
     updatePassword,
