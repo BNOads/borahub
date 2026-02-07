@@ -18,7 +18,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, User, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -52,7 +51,7 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
         display_name: '',
         department: '',
         job_title: '',
-        role: 'collaborator' as 'admin' | 'collaborator',
+        role: 'collaborator' as 'admin' | 'collaborator' | 'guest',
         password: '',
     });
 
@@ -365,16 +364,22 @@ export const NovoUsuarioModal: React.FC<NovoUsuarioModalProps> = ({
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between py-2">
-                            <Label htmlFor="role">Administrador</Label>
-                            <Switch
-                                id="role"
-                                checked={formData.role === 'admin'}
-                                onCheckedChange={(checked) =>
-                                    setFormData({ ...formData, role: checked ? 'admin' : 'collaborator' })
-                                }
+                        <div className="space-y-1">
+                            <Label htmlFor="role">Permissão</Label>
+                            <Select
+                                value={formData.role}
+                                onValueChange={(value) => setFormData({ ...formData, role: value as 'admin' | 'collaborator' | 'guest' })}
                                 disabled={isLoading}
-                            />
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="collaborator">Colaborador</SelectItem>
+                                    <SelectItem value="admin">Administrador</SelectItem>
+                                    <SelectItem value="guest">Convidado</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
 

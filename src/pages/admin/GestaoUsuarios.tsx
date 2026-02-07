@@ -25,7 +25,6 @@ import {
     Search,
     MoreVertical,
     Shield,
-    ShieldOff,
     UserX,
     UserCheck,
     KeyRound,
@@ -120,8 +119,8 @@ export default function GestaoUsuarios() {
         setFilteredUsuarios(filtered);
     }, [searchTerm, usuarios, departments]);
 
-    // Alternar permissão admin
-    const handleToggleAdmin = async (user: Profile) => {
+    // Alterar permissão do usuário
+    const handleChangeRole = async (user: Profile, newRole: 'admin' | 'collaborator' | 'guest') => {
         if (user.id === currentUser?.id) {
             toast({
                 title: 'Ação não permitida',
@@ -132,8 +131,6 @@ export default function GestaoUsuarios() {
         }
 
         try {
-            const newRole = user.role === 'admin' ? 'collaborator' : 'admin';
-
             // Update role in user_roles table
             const { error: deleteError } = await supabase
                 .from('user_roles')
@@ -159,14 +156,15 @@ export default function GestaoUsuarios() {
                     details: { new_role: newRole }
                 });
 
+            const roleLabel = newRole === 'admin' ? 'administrador' : newRole === 'guest' ? 'convidado' : 'colaborador';
             toast({
                 title: 'Permissão atualizada',
-                description: `${user.full_name} agora é ${newRole === 'admin' ? 'administrador' : 'colaborador'}.`,
+                description: `${user.full_name} agora é ${roleLabel}.`,
             });
 
             loadUsuarios();
         } catch (error) {
-            console.error('Error toggling admin:', error);
+            console.error('Error changing role:', error);
             toast({
                 title: 'Erro ao atualizar permissão',
                 description: 'Não foi possível atualizar a permissão do usuário.',
@@ -325,11 +323,11 @@ export default function GestaoUsuarios() {
                                         <TableCell>{user.job_title || '-'}</TableCell>
                                         <TableCell>
                                             <Badge
-                                                variant={user.role === 'admin' ? 'default' : 'secondary'}
+                                                variant={user.role === 'admin' ? 'default' : user.role === 'guest' ? 'outline' : 'secondary'}
                                                 className={user.role === 'admin' ? 'bg-amber-500 hover:bg-amber-600' : ''}
                                             >
                                                 {user.role === 'admin' && <Shield className="w-3 h-3 mr-1" />}
-                                                {user.role === 'admin' ? 'Admin' : 'Colaborador'}
+                                                {user.role === 'admin' ? 'Admin' : user.role === 'guest' ? 'Convidado' : 'Colaborador'}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
@@ -371,20 +369,27 @@ export default function GestaoUsuarios() {
                                                     </DropdownMenuItem>
 
                                                     <DropdownMenuItem
-                                                        onClick={() => handleToggleAdmin(user)}
-                                                        disabled={user.id === currentUser?.id}
+                                                        onClick={() => handleChangeRole(user, 'collaborator')}
+                                                        disabled={user.id === currentUser?.id || user.role === 'collaborator'}
                                                     >
-                                                        {user.role === 'admin' ? (
-                                                            <>
-                                                                <ShieldOff className="w-4 h-4 mr-2" />
-                                                                Remover Admin
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Shield className="w-4 h-4 mr-2" />
-                                                                Tornar Admin
-                                                            </>
-                                                        )}
+                                                        <UserCheck className="w-4 h-4 mr-2" />
+                                                        Colaborador
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleChangeRole(user, 'admin')}
+                                                        disabled={user.id === currentUser?.id || user.role === 'admin'}
+                                                    >
+                                                        <Shield className="w-4 h-4 mr-2" />
+                                                        Administrador
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuItem
+                                                        onClick={() => handleChangeRole(user, 'guest')}
+                                                        disabled={user.id === currentUser?.id || user.role === 'guest'}
+                                                    >
+                                                        <Users className="w-4 h-4 mr-2" />
+                                                        Convidado
                                                     </DropdownMenuItem>
 
                                                     <DropdownMenuItem
