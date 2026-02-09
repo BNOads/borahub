@@ -27,6 +27,7 @@ import { MonthCalendar } from "@/components/calendar/MonthCalendar";
 import { WeekCalendar } from "@/components/calendar/WeekCalendar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { Users } from "lucide-react";
 
 type ViewMode = "year" | "month" | "week";
 
@@ -48,7 +49,8 @@ const eventTypeLabels: Record<string, string> = {
 
 export default function Agenda() {
   const { toast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
+  const currentUserName = profile?.display_name || profile?.full_name || '';
   const [showEventModal, setShowEventModal] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -253,7 +255,10 @@ export default function Agenda() {
                     {selectedDateEvents.map((event) => (
                       <div
                         key={event.id}
-                        className="p-3 rounded-lg border bg-background hover:border-accent/50 transition-colors cursor-pointer group"
+                        className={cn(
+                          "p-3 rounded-lg border bg-background hover:border-accent/50 transition-colors cursor-pointer group",
+                          (event as any).participants?.includes(currentUserName) && "border-accent/60 bg-accent/5"
+                        )}
                         onClick={() => handleEdit(event)}
                       >
                         <div className="flex items-start justify-between gap-2">
@@ -288,6 +293,15 @@ export default function Agenda() {
                                     <span className="truncate">{event.location}</span>
                                   </>
                                 )}
+                              </div>
+                            )}
+
+                            {(event as any).participants?.length > 0 && (
+                              <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                                <Users className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">
+                                  {(event as any).participants.join(", ")}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -366,7 +380,10 @@ export default function Agenda() {
                     {upcomingEvents.map((event) => (
                       <div
                         key={event.id}
-                        className="p-3 rounded-lg border bg-background hover:border-accent/50 transition-colors cursor-pointer group"
+                        className={cn(
+                          "p-3 rounded-lg border bg-background hover:border-accent/50 transition-colors cursor-pointer group",
+                          (event as any).participants?.includes(currentUserName) && "border-accent/60 bg-accent/5"
+                        )}
                         onClick={() => {
                           setSelectedDate(event.event_date);
                           handleEdit(event);

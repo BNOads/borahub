@@ -18,8 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Users, X } from "lucide-react";
 import {
   useCreateEvent,
   useUpdateEvent,
@@ -28,6 +29,10 @@ import {
 } from "@/hooks/useEvents";
 import { useAuth } from "@/contexts/AuthContext";
 import { RecurrenceType, RECURRENCE_LABELS } from "@/types/tasks";
+import { supabase } from "@/integrations/supabase/client";
+import { useCreateTask } from "@/hooks/useTasks";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface EventModalProps {
   open: boolean;
@@ -45,6 +50,11 @@ const eventTypes = [
   { value: "outro", label: "Outro" },
 ];
 
+interface TeamMember {
+  id: string;
+  full_name: string;
+}
+
 export function EventModal({
   open,
   onOpenChange,
@@ -56,6 +66,10 @@ export function EventModal({
   const { user } = useAuth();
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();
+  const createTask = useCreateTask();
+
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
 
   const [formData, setFormData] = useState({
     title: "",
@@ -73,6 +87,20 @@ export function EventModal({
   const isLoading = createEvent.isPending || updateEvent.isPending;
   const isEditing = !!event;
 
+  // Load team members
+  useEffect(() => {
+    if (!open) return;
+    const loadMembers = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("is_active", true)
+        .order("full_name");
+      if (data) setTeamMembers(data.filter(m => m.full_name));
+    };
+    loadMembers();
+  }, [open]);
+
   useEffect(() => {
     if (event) {
       setFormData({
@@ -87,6 +115,7 @@ export function EventModal({
         recurrence: (event.recurrence as RecurrenceType) || "none",
         recurrence_end_date: event.recurrence_end_date || "",
       });
+      setSelectedParticipants((event as any).participants || []);
     } else {
       setFormData({
         title: "",
@@ -100,8 +129,15 @@ export function EventModal({
         recurrence: "none",
         recurrence_end_date: "",
       });
+      setSelectedParticipants([]);
     }
   }, [event, defaultDate, open]);
+
+  const toggleParticipant = (name: string) => {
+    setSelectedParticipants(prev =>
+      prev.includes(name) ? prev.filter(p => p !== name) : [...prev, name]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,7 +164,10 @@ export function EventModal({
         created_by: user?.id || null,
         recurrence: formData.recurrence,
         recurrence_end_date: formData.recurrence_end_date || null,
+        participants: selectedParticipants,
       };
+
+      const previousParticipants = (event as any)?.participants || [];
 
       if (isEditing && event) {
         await updateEvent.mutateAsync({
@@ -147,6 +186,28 @@ export function EventModal({
         });
       }
 
+      // Create tasks for NEW participants
+      const newParticipants = selectedParticipants.filter(
+        p => !previousParticipants.includes(p)
+      );
+
+      for (const participantName of newParticipants) {
+        try {
+          const member = teamMembers.find(m => m.full_name === participantName);
+          await createTask.mutateAsync({
+            title: `📅 ${formData.title.trim()}`,
+            description: `Participação no evento: ${formData.title.trim()}\nData: ${formData.event_date}\nHorário: ${formData.event_time}${formData.location ? `\nLocal: ${formData.location}` : ''}${formData.meeting_link ? `\nLink: ${formData.meeting_link}` : ''}`,
+            assignee: participantName,
+            due_date: formData.event_date,
+            due_time: formData.event_time + ":00",
+            priority: "media",
+            category: "Agenda",
+          });
+        } catch (err) {
+          console.error("Error creating task for participant:", participantName, err);
+        }
+      }
+
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -160,7 +221,7 @@ export function EventModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit}>
           <DialogHeader className="pb-2">
             <DialogTitle>
@@ -339,6 +400,46 @@ export function EventModal({
                   />
                 </div>
               )}
+            </div>
+
+            {/* Participants Section */}
+            <div className="space-y-2">
+              <Label className="text-xs flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" />
+                Participantes
+              </Label>
+              {selectedParticipants.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedParticipants.map(name => (
+                    <Badge key={name} variant="secondary" className="gap-1 pr-1">
+                      {name}
+                      <button
+                        type="button"
+                        onClick={() => toggleParticipant(name)}
+                        className="ml-0.5 hover:bg-muted rounded-full p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <ScrollArea className="max-h-[120px] rounded-md border p-2">
+                <div className="space-y-1">
+                  {teamMembers.map(member => (
+                    <label
+                      key={member.id}
+                      className="flex items-center gap-2 py-1 px-1 rounded hover:bg-muted/50 cursor-pointer text-sm"
+                    >
+                      <Checkbox
+                        checked={selectedParticipants.includes(member.full_name)}
+                        onCheckedChange={() => toggleParticipant(member.full_name)}
+                      />
+                      {member.full_name}
+                    </label>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
           </div>
 
