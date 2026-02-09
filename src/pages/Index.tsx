@@ -14,13 +14,7 @@ const Index = () => {
     return (
       <div className="space-y-8">
         <WelcomeSection />
-
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <UpcomingEvents />
-          <TodaysTasks />
-        </div>
-
-        <BoraNewsWidget />
+        <TodaysTasks />
       </div>
     );
   }

@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 // Rotas permitidas para convidados
-const GUEST_ALLOWED_ROUTES = ['/', '/perfil', '/troca-senha', '/bora-news'];
+const GUEST_ALLOWED_ROUTES = ['/', '/perfil', '/troca-senha', '/tarefas'];
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -38,7 +38,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     // Convidado - só pode acessar rotas permitidas
     if (isGuest) {
         const isAllowed = GUEST_ALLOWED_ROUTES.some(route => 
-            location.pathname === route || location.pathname.startsWith('/bora-news/')
+            location.pathname === route || location.pathname.startsWith('/tarefas/')
         );
         if (!isAllowed) {
             return <Navigate to="/" replace />;
