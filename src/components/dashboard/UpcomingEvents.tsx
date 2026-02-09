@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { useUpcomingEvents, type Event } from "@/hooks/useEvents";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { EventModal } from "@/components/events/EventModal";
 type ViewMode = "list" | "calendar";
 
@@ -51,7 +52,8 @@ const eventTypeLabels: Record<string, string> = {
 
 export function UpcomingEvents() {
   const { data: events = [], isLoading } = useUpcomingEvents(3);
-
+  const { profile } = useAuth();
+  const currentUserName = profile?.full_name || "";
   // Fetch profiles for participant avatars
   const allParticipants = events.flatMap((e) => e.participants || []);
   const uniqueParticipants = [...new Set(allParticipants)];
@@ -225,6 +227,7 @@ export function UpcomingEvents() {
                 <div className="space-y-2">
                   {groupedEvents[date].map((event) => {
                     const colors = eventTypeColors[event.event_type || "outro"] || eventTypeColors.outro;
+                    const isUserParticipant = currentUserName && event.participants?.includes(currentUserName);
                     
                     return (
                       <div
@@ -232,7 +235,7 @@ export function UpcomingEvents() {
                         className={cn(
                           "flex items-start gap-3 p-3 rounded-lg transition-colors border-l-4",
                           colors.bg,
-                          `border-l-${colors.dot.replace("bg-", "")}`
+                          isUserParticipant && "ring-2 ring-accent/50 animate-pulse"
                         )}
                         style={{ borderLeftColor: colors.dot.includes("blue") ? "#3b82f6" : 
                                  colors.dot.includes("purple") ? "#a855f7" :
