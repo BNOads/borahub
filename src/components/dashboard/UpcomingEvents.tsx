@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import {
   format,
   startOfMonth,
@@ -26,8 +28,9 @@ import {
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useUpcomingEvents, type Event } from "@/hooks/useEvents";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { EventModal } from "@/components/events/EventModal";
-
 type ViewMode = "list" | "calendar";
 
 const eventTypeColors: Record<string, { bg: string; text: string; dot: string }> = {
@@ -48,6 +51,28 @@ const eventTypeLabels: Record<string, string> = {
 
 export function UpcomingEvents() {
   const { data: events = [], isLoading } = useUpcomingEvents(3);
+
+  // Fetch profiles for participant avatars
+  const allParticipants = events.flatMap((e) => e.participants || []);
+  const uniqueParticipants = [...new Set(allParticipants)];
+
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["profiles-avatars", uniqueParticipants.join(",")],
+    queryFn: async () => {
+      if (uniqueParticipants.length === 0) return [];
+      const { data } = await supabase
+        .from("profiles")
+        .select("full_name, display_name, avatar_url")
+        .in("full_name", uniqueParticipants);
+      return data || [];
+    },
+    enabled: uniqueParticipants.length > 0,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const getProfileForName = (name: string) =>
+    profiles.find((p) => p.full_name === name);
+
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showEventModal, setShowEventModal] = useState(false);
@@ -252,6 +277,43 @@ export function UpcomingEvents() {
                               </span>
                             ) : null}
                           </div>
+                          {event.participants && event.participants.length > 0 && (
+                            <TooltipProvider>
+                              <div className="flex items-center gap-1 mt-1.5">
+                                <div className="flex -space-x-2">
+                                  {event.participants.slice(0, 4).map((name, i) => {
+                                    const profile = getProfileForName(name);
+                                    const initials = name
+                                      .split(" ")
+                                      .map((n) => n[0])
+                                      .slice(0, 2)
+                                      .join("")
+                                      .toUpperCase();
+                                    return (
+                                      <Tooltip key={i}>
+                                        <TooltipTrigger asChild>
+                                          <Avatar className="h-6 w-6 border-2 border-background">
+                                            <AvatarImage src={profile?.avatar_url || ""} alt={name} />
+                                            <AvatarFallback className="text-[9px] bg-muted">
+                                              {initials}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="bottom" className="text-xs">
+                                          {name}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    );
+                                  })}
+                                </div>
+                                {event.participants.length > 4 && (
+                                  <span className="text-[10px] text-muted-foreground ml-1">
+                                    +{event.participants.length - 4}
+                                  </span>
+                                )}
+                              </div>
+                            </TooltipProvider>
+                          )}
                         </div>
                       </div>
                     );
