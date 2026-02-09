@@ -579,6 +579,7 @@ export type Database = {
           location: string | null
           meeting_link: string | null
           parent_event_id: string | null
+          participants: string[] | null
           recurrence: Database["public"]["Enums"]["recurrence_type"] | null
           recurrence_end_date: string | null
           title: string
@@ -598,6 +599,7 @@ export type Database = {
           location?: string | null
           meeting_link?: string | null
           parent_event_id?: string | null
+          participants?: string[] | null
           recurrence?: Database["public"]["Enums"]["recurrence_type"] | null
           recurrence_end_date?: string | null
           title: string
@@ -617,6 +619,7 @@ export type Database = {
           location?: string | null
           meeting_link?: string | null
           parent_event_id?: string | null
+          participants?: string[] | null
           recurrence?: Database["public"]["Enums"]["recurrence_type"] | null
           recurrence_end_date?: string | null
           title?: string
