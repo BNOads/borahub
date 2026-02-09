@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { Subtask, SubtaskWithChildren } from "@/types/tasks";
 import {
   useCreateSubtask,
+  useUpdateSubtask,
   useToggleSubtaskComplete,
   useDeleteSubtask,
 } from "@/hooks/useSubtasks";
@@ -86,10 +87,13 @@ function SubtaskItem({ subtask, taskId, level, allSubtasks }: SubtaskItemProps) 
   const [isOpen, setIsOpen] = useState(true);
   const [showAddChild, setShowAddChild] = useState(false);
   const [newChildTitle, setNewChildTitle] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState(subtask.title);
 
   const createSubtask = useCreateSubtask();
   const toggleSubtask = useToggleSubtaskComplete();
   const deleteSubtask = useDeleteSubtask();
+  const updateSubtask = useUpdateSubtask();
 
   const hasChildren = subtask.children.length > 0;
   const maxLevel = 5; // Limit nesting depth
@@ -145,12 +149,42 @@ function SubtaskItem({ subtask, taskId, level, allSubtasks }: SubtaskItemProps) 
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDownChild = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleAddChild();
     } else if (e.key === "Escape") {
       setShowAddChild(false);
       setNewChildTitle("");
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    const trimmed = editTitle.trim();
+    if (!trimmed || trimmed === subtask.title) {
+      setEditTitle(subtask.title);
+      setIsEditing(false);
+      return;
+    }
+    try {
+      await updateSubtask.mutateAsync({
+        id: subtask.id,
+        taskId,
+        updates: { title: trimmed },
+      });
+      setIsEditing(false);
+    } catch {
+      toast({ title: "Erro ao renomear subtarefa", variant: "destructive" });
+      setEditTitle(subtask.title);
+      setIsEditing(false);
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSaveEdit();
+    } else if (e.key === "Escape") {
+      setEditTitle(subtask.title);
+      setIsEditing(false);
     }
   };
 
@@ -183,14 +217,30 @@ function SubtaskItem({ subtask, taskId, level, allSubtasks }: SubtaskItemProps) 
             onCheckedChange={handleToggle}
           />
 
-          <span
-            className={cn(
-              "flex-1 text-sm",
-              subtask.completed && "line-through text-muted-foreground"
-            )}
-          >
-            {subtask.title}
-          </span>
+          {isEditing ? (
+            <Input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              onBlur={handleSaveEdit}
+              className="flex-1 h-7 text-sm"
+              autoFocus
+            />
+          ) : (
+            <span
+              className={cn(
+                "flex-1 text-sm cursor-pointer",
+                subtask.completed && "line-through text-muted-foreground"
+              )}
+              onDoubleClick={() => {
+                setEditTitle(subtask.title);
+                setIsEditing(true);
+              }}
+              title="Duplo clique para editar"
+            >
+              {subtask.title}
+            </span>
+          )}
 
           {level < maxLevel && (
             <Button
@@ -223,7 +273,7 @@ function SubtaskItem({ subtask, taskId, level, allSubtasks }: SubtaskItemProps) 
               placeholder="Nova sub-subtarefa..."
               value={newChildTitle}
               onChange={(e) => setNewChildTitle(e.target.value)}
-              onKeyDown={handleKeyDown}
+              onKeyDown={handleKeyDownChild}
               className="flex-1 h-8 text-sm"
               autoFocus
             />
