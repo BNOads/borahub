@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Users, X } from "lucide-react";
+import { Loader2, Users, X, Search } from "lucide-react";
 import {
   useCreateEvent,
   useUpdateEvent,
@@ -70,6 +70,7 @@ export function EventModal({
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const [participantSearch, setParticipantSearch] = useState("");
 
   const [formData, setFormData] = useState({
     title: "",
@@ -424,9 +425,20 @@ export function EventModal({
                   ))}
                 </div>
               )}
-              <ScrollArea className="max-h-[120px] rounded-md border p-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar participante..."
+                  value={participantSearch}
+                  onChange={(e) => setParticipantSearch(e.target.value)}
+                  className="h-8 pl-8 text-sm"
+                />
+              </div>
+              <ScrollArea className="h-[150px] rounded-md border p-2">
                 <div className="space-y-1">
-                  {teamMembers.map(member => (
+                  {teamMembers
+                    .filter(m => m.full_name.toLowerCase().includes(participantSearch.toLowerCase()))
+                    .map(member => (
                     <label
                       key={member.id}
                       className="flex items-center gap-2 py-1 px-1 rounded hover:bg-muted/50 cursor-pointer text-sm"
