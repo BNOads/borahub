@@ -235,7 +235,7 @@ export function UpcomingEvents() {
                         className={cn(
                           "flex items-start gap-3 p-3 rounded-lg transition-colors border-l-4",
                           colors.bg,
-                          isUserParticipant && "ring-2 ring-accent/50 animate-pulse"
+                          isUserParticipant && "ring-2 ring-accent/50"
                         )}
                         style={{ borderLeftColor: colors.dot.includes("blue") ? "#3b82f6" : 
                                  colors.dot.includes("purple") ? "#a855f7" :
