@@ -109,7 +109,7 @@ export function WelcomeSection() {
             Sua central de tarefas, eventos e atalhos de operação.
           </p>
 
-          {latestNews && (
+          {latestNews && !isGuest && (
             <Link 
               to={`/bora-news/${latestNews.id}`}
               className="mt-2 flex items-center gap-2 text-sm text-accent hover:underline group w-fit"
