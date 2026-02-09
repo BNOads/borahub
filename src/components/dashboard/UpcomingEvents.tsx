@@ -257,6 +257,11 @@ export function UpcomingEvents() {
                             >
                               {eventTypeLabels[event.event_type || "outro"]}
                             </Badge>
+                            {isUserParticipant && (
+                              <Badge className="text-[10px] px-1.5 py-0 bg-accent text-accent-foreground animate-pulse">
+                                Participante
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
