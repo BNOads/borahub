@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Save, CalendarDays } from "lucide-react";
+import { Save, CalendarDays, Pencil, Check, X } from "lucide-react";
 import { FunnelData } from "./types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -13,7 +13,33 @@ interface FunnelOperationalDatesProps {
   onUpdate: () => void;
 }
 
+const DATE_SECTIONS = [
+  { groupKey: "captacao", defaultLabel: "Captação", fields: [
+    { key: "captacao_start", subLabel: "Início" },
+    { key: "captacao_end", subLabel: "Fim" },
+  ]},
+  { groupKey: "aquecimento", defaultLabel: "Aquecimento", fields: [
+    { key: "aquecimento_start", subLabel: "Início" },
+    { key: "aquecimento_end", subLabel: "Fim" },
+  ]},
+  { groupKey: "cpl", defaultLabel: "CPL", fields: [
+    { key: "cpl_start", subLabel: "Início" },
+    { key: "cpl_end", subLabel: "Fim" },
+  ]},
+  { groupKey: "lembrete", defaultLabel: "Lembrete", fields: [
+    { key: "lembrete_start", subLabel: "Início" },
+  ]},
+  { groupKey: "carrinho", defaultLabel: "Carrinho", fields: [
+    { key: "carrinho_start", subLabel: "Início" },
+  ]},
+  { groupKey: "fechamento", defaultLabel: "Fechamento", fields: [
+    { key: "fechamento_date", subLabel: "Data" },
+  ]},
+];
+
 export function FunnelOperationalDates({ funnel, onUpdate }: FunnelOperationalDatesProps) {
+  const dateLabels: Record<string, string> = (funnel as any).date_labels || {};
+
   const [formData, setFormData] = useState({
     captacao_start: funnel.captacao_start || "",
     captacao_end: funnel.captacao_end || "",
@@ -26,6 +52,30 @@ export function FunnelOperationalDates({ funnel, onUpdate }: FunnelOperationalDa
     fechamento_date: funnel.fechamento_date || "",
   });
   const [saving, setSaving] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<string | null>(null);
+  const [editLabelValue, setEditLabelValue] = useState("");
+
+  const getLabel = (groupKey: string, defaultLabel: string) => dateLabels[`op_${groupKey}`] || defaultLabel;
+
+  const handleSaveLabel = async (groupKey: string) => {
+    const newLabel = editLabelValue.trim();
+    if (!newLabel) { setEditingGroup(null); return; }
+
+    try {
+      const updatedLabels = { ...dateLabels, [`op_${groupKey}`]: newLabel };
+      const { error } = await supabase
+        .from("funnels")
+        .update({ date_labels: updatedLabels })
+        .eq("id", funnel.id);
+
+      if (error) throw error;
+      toast.success("Nome atualizado!");
+      setEditingGroup(null);
+      onUpdate();
+    } catch {
+      toast.error("Erro ao atualizar nome");
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -59,122 +109,61 @@ export function FunnelOperationalDates({ funnel, onUpdate }: FunnelOperationalDa
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Captação */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Captação</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Início</Label>
-                <Input
-                  type="date"
-                  value={formData.captacao_start}
-                  onChange={(e) => setFormData({ ...formData, captacao_start: e.target.value })}
-                  className="h-9"
-                />
+          {DATE_SECTIONS.map((section) => (
+            <div key={section.groupKey} className="space-y-3">
+              <div className="flex items-center gap-1.5 group">
+                {editingGroup === section.groupKey ? (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      autoFocus
+                      value={editLabelValue}
+                      onChange={(e) => setEditLabelValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleSaveLabel(section.groupKey);
+                        if (e.key === "Escape") setEditingGroup(null);
+                      }}
+                      className="h-6 text-sm font-medium px-1 py-0 w-32"
+                    />
+                    <button onClick={() => handleSaveLabel(section.groupKey)} className="text-emerald-500 hover:text-emerald-600">
+                      <Check className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => setEditingGroup(null)} className="text-muted-foreground hover:text-foreground">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <Label className="text-sm font-medium">
+                      {getLabel(section.groupKey, section.defaultLabel)}
+                    </Label>
+                    <button
+                      onClick={() => {
+                        setEditingGroup(section.groupKey);
+                        setEditLabelValue(getLabel(section.groupKey, section.defaultLabel));
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                      title="Renomear"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                  </>
+                )}
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Fim</Label>
-                <Input
-                  type="date"
-                  value={formData.captacao_end}
-                  onChange={(e) => setFormData({ ...formData, captacao_end: e.target.value })}
-                  className="h-9"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Aquecimento */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Aquecimento</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Início</Label>
-                <Input
-                  type="date"
-                  value={formData.aquecimento_start}
-                  onChange={(e) => setFormData({ ...formData, aquecimento_start: e.target.value })}
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Fim</Label>
-                <Input
-                  type="date"
-                  value={formData.aquecimento_end}
-                  onChange={(e) => setFormData({ ...formData, aquecimento_end: e.target.value })}
-                  className="h-9"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* CPL */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">CPL</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Início</Label>
-                <Input
-                  type="date"
-                  value={formData.cpl_start}
-                  onChange={(e) => setFormData({ ...formData, cpl_start: e.target.value })}
-                  className="h-9"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Fim</Label>
-                <Input
-                  type="date"
-                  value={formData.cpl_end}
-                  onChange={(e) => setFormData({ ...formData, cpl_end: e.target.value })}
-                  className="h-9"
-                />
+              <div className={`grid grid-cols-${section.fields.length > 1 ? 2 : 1} gap-2`}>
+                {section.fields.map((field) => (
+                  <div key={field.key} className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">{field.subLabel}</Label>
+                    <Input
+                      type="date"
+                      value={(formData as any)[field.key]}
+                      onChange={(e) => setFormData({ ...formData, [field.key]: e.target.value })}
+                      className="h-9"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
-
-          {/* Lembrete */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Lembrete</Label>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Início</Label>
-              <Input
-                type="date"
-                value={formData.lembrete_start}
-                onChange={(e) => setFormData({ ...formData, lembrete_start: e.target.value })}
-                className="h-9"
-              />
-            </div>
-          </div>
-
-          {/* Carrinho */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Carrinho</Label>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Início</Label>
-              <Input
-                type="date"
-                value={formData.carrinho_start}
-                onChange={(e) => setFormData({ ...formData, carrinho_start: e.target.value })}
-                className="h-9"
-              />
-            </div>
-          </div>
-
-          {/* Fechamento */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Fechamento</Label>
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Data</Label>
-              <Input
-                type="date"
-                value={formData.fechamento_date}
-                onChange={(e) => setFormData({ ...formData, fechamento_date: e.target.value })}
-                className="h-9"
-              />
-            </div>
-          </div>
+          ))}
         </div>
 
         <div className="flex justify-end mt-6">
