@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, pointerWithin, rectIntersection, PointerSensor, useSensor, useSensors, CollisionDetection, UniqueIdentifier } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, DragOverEvent, pointerWithin, rectIntersection, closestCenter, PointerSensor, useSensor, useSensors, CollisionDetection, UniqueIdentifier } from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
 import { Plus, ClipboardList, UserPlus, GripVertical, User, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +19,7 @@ interface MentoriaKanbanProps {
   onCreateTarefa: () => void;
   onReplicarProcesso?: () => void;
   onOpenTaskDetail?: (tarefa: MentoriaTarefa) => void;
+  onReorderTarefas?: (reorderedIds: { id: string; position: number }[]) => void;
   etapaName: string;
   filtroMentoradoExterno?: string | null;
   onClearFiltroMentorado?: () => void;
@@ -38,6 +40,7 @@ export function MentoriaKanban({
   onCreateTarefa,
   onReplicarProcesso,
   onOpenTaskDetail,
+  onReorderTarefas,
   etapaName,
   filtroMentoradoExterno,
   onClearFiltroMentorado,
@@ -105,6 +108,24 @@ export function MentoriaKanban({
     const targetColumn = columns.find(col => col.id === over.id);
     if (targetColumn && tarefa.status !== targetColumn.id) {
       onUpdateTarefa(tarefa, targetColumn.id);
+      return;
+    }
+
+    // Check if dropped on another task in the same column (reorder)
+    const overTarefa = tarefas.find(t => t.id === over.id);
+    if (overTarefa && overTarefa.id !== tarefa.id && overTarefa.status === tarefa.status && onReorderTarefas) {
+      const columnTarefas = tarefasByStatus[tarefa.status];
+      const oldIndex = columnTarefas.findIndex(t => t.id === tarefa.id);
+      const newIndex = columnTarefas.findIndex(t => t.id === overTarefa.id);
+      
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(columnTarefas, oldIndex, newIndex);
+        const updates = reordered.map((t, idx) => ({ id: t.id, position: idx }));
+        onReorderTarefas(updates);
+      }
+    } else if (overTarefa && overTarefa.status !== tarefa.status) {
+      // Dropped on a task in a different column — change status
+      onUpdateTarefa(tarefa, overTarefa.status);
     }
   };
 
@@ -219,7 +240,7 @@ export function MentoriaKanban({
       {/* Kanban Board */}
       <DndContext
         sensors={sensors}
-        collisionDetection={rectIntersection}
+        collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >

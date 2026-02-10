@@ -288,6 +288,12 @@ export default function MentoriaView() {
     });
   };
 
+  const handleReorderTarefas = (updates: { id: string; position: number }[]) => {
+    updates.forEach(({ id, position }) => {
+      updateTarefa.mutate({ id, position });
+    });
+  };
+
   const handleOpenTaskDetail = (tarefa: MentoriaTarefa) => {
     setSelectedTaskForDetail(tarefa);
     setTaskDetailOpen(true);
@@ -377,6 +383,7 @@ export default function MentoriaView() {
                     onCreateTarefa={handleCreateTarefa}
                     onReplicarProcesso={selectedProcessoId ? () => handleReplicarProcesso(selectedProcessoId) : undefined}
                     onOpenTaskDetail={handleOpenTaskDetail}
+                    onReorderTarefas={handleReorderTarefas}
                     etapaName={selectedEtapa.name}
                     filtroMentoradoExterno={selectedMentorado}
                     onClearFiltroMentorado={() => setSelectedMentorado(null)}
