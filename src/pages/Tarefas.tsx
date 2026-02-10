@@ -658,8 +658,8 @@ export default function Tarefas() {
             </div>
           )}
 
-          {isAdmin && (
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            {isAdmin && (
               <Button 
                 variant="outline" 
                 className="gap-2"
@@ -668,13 +668,14 @@ export default function Tarefas() {
                 <ListPlus className="h-4 w-4" />
                 <span className="hidden sm:inline">Criar em Massa</span>
               </Button>
-              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Nova Tarefa
-                  </Button>
-                </DialogTrigger>
+            )}
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Nova Tarefa
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>
@@ -847,8 +848,7 @@ export default function Tarefas() {
               </div>
             </DialogContent>
           </Dialog>
-            </div>
-          )}
+          </div>
         </div>
       </div>
 
