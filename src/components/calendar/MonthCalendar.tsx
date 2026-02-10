@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Event } from "@/hooks/useEvents";
@@ -10,6 +10,9 @@ interface MonthCalendarProps {
   onDateChange: (date: Date) => void;
   onDateClick?: (date: string) => void;
   onEventClick?: (event: Event) => void;
+  currentUserName?: string;
+  favoriteDates?: string[];
+  onToggleFavorite?: (date: string) => void;
 }
 
 const WEEKDAY_NAMES = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -18,7 +21,7 @@ const MONTH_NAMES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
 ];
 
-export function MonthCalendar({ events, currentDate, onDateChange, onDateClick, onEventClick }: MonthCalendarProps) {
+export function MonthCalendar({ events, currentDate, onDateChange, onDateClick, onEventClick, currentUserName, favoriteDates = [], onToggleFavorite }: MonthCalendarProps) {
   const today = new Date().toISOString().split("T")[0];
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -96,6 +99,8 @@ export function MonthCalendar({ events, currentDate, onDateChange, onDateClick, 
             const dayEvents = eventsByDate.get(dateStr) || [];
             const isToday = dateStr === today;
             const isPast = dateStr < today;
+            const isFavorite = favoriteDates.includes(dateStr);
+            const hasParticipantEvent = currentUserName && dayEvents.some(e => (e as any).participants?.includes(currentUserName));
 
             return (
               <div
@@ -103,7 +108,9 @@ export function MonthCalendar({ events, currentDate, onDateChange, onDateClick, 
                 onClick={() => onDateClick?.(dateStr)}
                 className={cn(
                   "min-h-[100px] border-r border-b last:border-r-0 p-1 cursor-pointer hover:bg-accent/10 transition-colors",
-                  isPast && "bg-muted/5"
+                  isPast && "bg-muted/5",
+                  isFavorite && "bg-yellow-500/5",
+                  hasParticipantEvent && "ring-1 ring-inset ring-accent/40"
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -116,23 +123,41 @@ export function MonthCalendar({ events, currentDate, onDateChange, onDateClick, 
                   >
                     {day}
                   </span>
+                  <div className="flex items-center gap-0.5">
+                    {isFavorite && <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />}
+                    {onToggleFavorite && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onToggleFavorite(dateStr); }}
+                        className={cn("h-4 w-4 flex items-center justify-center rounded-full opacity-0 group-hover:opacity-100 hover:!opacity-100 transition-opacity", !isFavorite && "hover:text-yellow-500")}
+                        style={{ opacity: isFavorite ? 1 : undefined }}
+                      >
+                        <Star className={cn("h-2.5 w-2.5", isFavorite ? "text-yellow-500 fill-yellow-500" : "")} />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-0.5">
-                  {dayEvents.slice(0, 3).map((event) => (
-                    <div
-                      key={event.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEventClick?.(event);
-                      }}
-                      className="text-[10px] px-1.5 py-0.5 rounded truncate text-white cursor-pointer hover:opacity-80 transition-opacity"
-                      style={{ backgroundColor: event.color || '#6366f1' }}
-                      title={event.title}
-                    >
-                      {event.title}
-                    </div>
-                  ))}
+                  {dayEvents.slice(0, 3).map((event) => {
+                    const isParticipant = currentUserName && (event as any).participants?.includes(currentUserName);
+                    return (
+                      <div
+                        key={event.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEventClick?.(event);
+                        }}
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded truncate text-white cursor-pointer hover:opacity-80 transition-opacity",
+                          isParticipant && "ring-1 ring-white/50 font-semibold"
+                        )}
+                        style={{ backgroundColor: event.color || '#6366f1' }}
+                        title={event.title}
+                      >
+                        {isParticipant && "👤 "}{event.title}
+                      </div>
+                    );
+                  })}
                   {dayEvents.length > 3 && (
                     <div className="text-[10px] text-muted-foreground px-1">
                       +{dayEvents.length - 3} mais

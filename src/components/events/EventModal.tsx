@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/use-toast";
+import { cn } from "@/lib/utils";
 import { Loader2, Users, X, Search } from "lucide-react";
 import {
   useCreateEvent,
@@ -83,6 +84,7 @@ export function EventModal({
     event_type: "reuniao",
     recurrence: "none" as RecurrenceType,
     recurrence_end_date: "",
+    color: "#6366f1",
   });
 
   const isLoading = createEvent.isPending || updateEvent.isPending;
@@ -115,6 +117,7 @@ export function EventModal({
         event_type: event.event_type || "reuniao",
         recurrence: (event.recurrence as RecurrenceType) || "none",
         recurrence_end_date: event.recurrence_end_date || "",
+        color: event.color || "#6366f1",
       });
       setSelectedParticipants((event as any).participants || []);
     } else {
@@ -129,6 +132,7 @@ export function EventModal({
         event_type: "reuniao",
         recurrence: "none",
         recurrence_end_date: "",
+        color: "#6366f1",
       });
       setSelectedParticipants([]);
     }
@@ -166,6 +170,7 @@ export function EventModal({
         recurrence: formData.recurrence,
         recurrence_end_date: formData.recurrence_end_date || null,
         participants: selectedParticipants,
+        color: formData.color || null,
       };
 
       const previousParticipants = (event as any)?.participants || [];
@@ -345,6 +350,30 @@ export function EventModal({
                   disabled={isLoading}
                   className="h-9"
                 />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs">Cor do evento</Label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  "#6366f1", "#3b82f6", "#06b6d4", "#10b981", "#84cc16",
+                  "#eab308", "#f97316", "#ef4444", "#ec4899", "#8b5cf6",
+                  "#64748b", "#0ea5e9",
+                ].map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, color })}
+                    className={cn(
+                      "w-7 h-7 rounded-full border-2 transition-all",
+                      formData.color === color
+                        ? "border-foreground scale-110"
+                        : "border-transparent hover:scale-105"
+                    )}
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
               </div>
             </div>
 

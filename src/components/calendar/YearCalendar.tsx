@@ -8,6 +8,8 @@ interface YearCalendarProps {
   events: Event[];
   onDateClick?: (date: string) => void;
   onEventClick?: (event: Event) => void;
+  currentUserName?: string;
+  favoriteDates?: string[];
 }
 
 const MONTH_NAMES = [
@@ -25,7 +27,7 @@ const eventTypeColors: Record<string, string> = {
   outro: "bg-gray-500",
 };
 
-export function YearCalendar({ events, onDateClick, onEventClick }: YearCalendarProps) {
+export function YearCalendar({ events, onDateClick, onEventClick, currentUserName, favoriteDates = [] }: YearCalendarProps) {
   const [year, setYear] = useState(new Date().getFullYear());
   const today = new Date().toISOString().split("T")[0];
 
@@ -86,6 +88,8 @@ export function YearCalendar({ events, onDateClick, onEventClick }: YearCalendar
             const hasEvents = dayEvents.length > 0;
             const isToday = dateStr === today;
             const isPast = dateStr < today;
+            const isFavorite = favoriteDates.includes(dateStr);
+            const hasParticipantEvent = currentUserName && dayEvents.some(e => (e as any).participants?.includes(currentUserName));
 
             return (
               <button
@@ -102,7 +106,9 @@ export function YearCalendar({ events, onDateClick, onEventClick }: YearCalendar
                   isToday && "bg-accent text-accent-foreground font-bold",
                   !isToday && isPast && "text-muted-foreground/40",
                   !isToday && !isPast && "hover:bg-accent/20",
-                  hasEvents && !isToday && "font-semibold"
+                  hasEvents && !isToday && "font-semibold",
+                  isFavorite && !isToday && "bg-yellow-500/15",
+                  hasParticipantEvent && !isToday && "ring-1 ring-accent/60 rounded-full"
                 )}
                 title={hasEvents ? `${dayEvents.length} evento(s)` : undefined}
               >
