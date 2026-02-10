@@ -18,6 +18,7 @@ import {
   CalendarDays,
   CalendarRange,
   LayoutGrid,
+  Star,
 } from "lucide-react";
 import { RecurrenceType, RECURRENCE_LABELS } from "@/types/tasks";
 import { useToast } from "@/components/ui/use-toast";
@@ -57,6 +58,17 @@ export default function Agenda() {
   const [defaultDate, setDefaultDate] = useState<string | undefined>();
   const [viewMode, setViewMode] = useState<ViewMode>("year");
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [favoriteDates, setFavoriteDates] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("agenda-favorite-dates") || "[]"); } catch { return []; }
+  });
+
+  const toggleFavoriteDate = (date: string) => {
+    setFavoriteDates(prev => {
+      const next = prev.includes(date) ? prev.filter(d => d !== date) : [...prev, date];
+      localStorage.setItem("agenda-favorite-dates", JSON.stringify(next));
+      return next;
+    });
+  };
 
   const { data: events = [], isLoading } = useEvents();
   const deleteEvent = useDeleteEvent();
@@ -189,6 +201,8 @@ export default function Agenda() {
               events={events}
               onDateClick={handleDateClick}
               onEventClick={handleEventClick}
+              currentUserName={currentUserName}
+              favoriteDates={favoriteDates}
             />
           )}
           {viewMode === "month" && (
@@ -198,6 +212,9 @@ export default function Agenda() {
               onDateChange={setCurrentDate}
               onDateClick={handleDateClick}
               onEventClick={handleEventClick}
+              currentUserName={currentUserName}
+              favoriteDates={favoriteDates}
+              onToggleFavorite={toggleFavoriteDate}
             />
           )}
           {viewMode === "week" && (
@@ -207,6 +224,7 @@ export default function Agenda() {
               onDateChange={setCurrentDate}
               onDateClick={handleDateClick}
               onEventClick={handleEventClick}
+              currentUserName={currentUserName}
             />
           )}
         </div>
@@ -221,14 +239,25 @@ export default function Agenda() {
                   <p className="text-xs text-muted-foreground">Eventos em</p>
                   <p className="font-semibold text-sm">{formatDate(selectedDate)}</p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setSelectedDate(null)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => toggleFavoriteDate(selectedDate)}
+                    title={favoriteDates.includes(selectedDate) ? "Remover favorito" : "Favoritar data"}
+                  >
+                    <Star className={cn("h-4 w-4", favoriteDates.includes(selectedDate) ? "text-yellow-500 fill-yellow-500" : "")} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setSelectedDate(null)}
+                  >
+                    <X className="h-4 w-4" />
+                   </Button>
+                </div>
               </div>
 
               <ScrollArea className="h-[400px]">

@@ -10,6 +10,7 @@ interface WeekCalendarProps {
   onDateChange: (date: Date) => void;
   onDateClick?: (date: string) => void;
   onEventClick?: (event: Event) => void;
+  currentUserName?: string;
 }
 
 const WEEKDAY_NAMES = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
@@ -25,7 +26,7 @@ function formatDateShort(date: Date): string {
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
-export function WeekCalendar({ events, currentDate, onDateChange, onDateClick, onEventClick }: WeekCalendarProps) {
+export function WeekCalendar({ events, currentDate, onDateChange, onDateClick, onEventClick, currentUserName }: WeekCalendarProps) {
   const today = new Date().toISOString().split("T")[0];
   const weekStart = getWeekStart(currentDate);
 
@@ -129,24 +130,30 @@ export function WeekCalendar({ events, currentDate, onDateChange, onDateClick, o
                   <div className="space-y-1">
                     {dayEvents
                       .sort((a, b) => a.event_time.localeCompare(b.event_time))
-                      .map((event) => (
-                        <div
-                          key={event.id}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onEventClick?.(event);
-                          }}
-                          className="p-2 rounded text-white cursor-pointer hover:opacity-80 transition-opacity"
-                          style={{ backgroundColor: event.color || '#6366f1' }}
-                        >
-                          <div className="text-[10px] opacity-80">
-                            {event.event_time.slice(0, 5)}
+                      .map((event) => {
+                        const isParticipant = currentUserName && (event as any).participants?.includes(currentUserName);
+                        return (
+                          <div
+                            key={event.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEventClick?.(event);
+                            }}
+                            className={cn(
+                              "p-2 rounded text-white cursor-pointer hover:opacity-80 transition-opacity",
+                              isParticipant && "ring-2 ring-white/50"
+                            )}
+                            style={{ backgroundColor: event.color || '#6366f1' }}
+                          >
+                            <div className="text-[10px] opacity-80">
+                              {isParticipant && "👤 "}{event.event_time.slice(0, 5)}
+                            </div>
+                            <div className="text-xs font-medium truncate">
+                              {event.title}
+                            </div>
                           </div>
-                          <div className="text-xs font-medium truncate">
-                            {event.title}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                   </div>
                 </div>
               </div>
