@@ -7,7 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser, RefreshCcw, User, Calendar, Pencil, Check, X, List } from "lucide-react";
+import { CheckSquare, Plus, Trash2, Loader2, Wand2, ChevronDown, ChevronRight, ListTodo, Eraser, RefreshCcw, User, Calendar, Pencil, Check, X, List, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,7 @@ import {
   useDeleteChecklistItem 
 } from "@/hooks/useFunnelExtras";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { ConvertToTaskModal } from "./ConvertToTaskModal";
 import {
@@ -249,6 +250,44 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
   const [isDeletingAll, setIsDeletingAll] = useState(false);
   const [convertModalOpen, setConvertModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ id: string; title: string } | null>(null);
+  const [colorPickerOpen, setColorPickerOpen] = useState<string | null>(null);
+
+  // Cores customizadas por categoria salvas no localStorage
+  const colorStorageKey = `funnel-checklist-colors-${funnelId}`;
+  const [customColors, setCustomColors] = useState<Record<string, string>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(colorStorageKey) || "{}");
+    } catch { return {}; }
+  });
+
+  const COLOR_PRESETS = [
+    { color: "bg-blue-500", label: "Azul" },
+    { color: "bg-emerald-500", label: "Verde" },
+    { color: "bg-purple-500", label: "Roxo" },
+    { color: "bg-amber-500", label: "Âmbar" },
+    { color: "bg-indigo-500", label: "Índigo" },
+    { color: "bg-orange-500", label: "Laranja" },
+    { color: "bg-cyan-500", label: "Ciano" },
+    { color: "bg-violet-500", label: "Violeta" },
+    { color: "bg-pink-500", label: "Rosa" },
+    { color: "bg-yellow-500", label: "Amarelo" },
+    { color: "bg-red-500", label: "Vermelho" },
+    { color: "bg-teal-500", label: "Teal" },
+    { color: "bg-lime-500", label: "Lima" },
+    { color: "bg-fuchsia-500", label: "Fúcsia" },
+    { color: "bg-gray-500", label: "Cinza" },
+  ];
+
+  const setCategoryColor = (categoryKey: string, color: string) => {
+    const updated = { ...customColors, [categoryKey]: color };
+    setCustomColors(updated);
+    localStorage.setItem(colorStorageKey, JSON.stringify(updated));
+    setColorPickerOpen(null);
+  };
+
+  const getCategoryColor = (categoryKey: string, defaultColor: string) => {
+    return customColors[categoryKey] || defaultColor;
+  };
   
   // Flag para evitar auto-add após limpeza manual
   const wasManuallyCleared = useRef(false);
@@ -873,7 +912,7 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
                           </Button>
                         </div>
                       ) : (
-                        <Badge className={cn("text-white text-[10px]", categoryInfo.color)}>
+                      <Badge className={cn("text-white text-[10px]", getCategoryColor(categoryKey, categoryInfo.color))}>
                           {categoryInfo.label}
                         </Badge>
                       )}
@@ -892,6 +931,38 @@ export function FunnelChecklist({ funnelId, funnelCategory }: FunnelChecklistPro
                         >
                           <Pencil className="h-3 w-3" />
                         </Button>
+                        <Popover open={colorPickerOpen === categoryKey} onOpenChange={(open) => setColorPickerOpen(open ? categoryKey : null)}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={(e) => e.stopPropagation()}
+                              title="Mudar cor"
+                            >
+                              <Palette className="h-3 w-3" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-3" align="start" onClick={(e) => e.stopPropagation()}>
+                            <p className="text-xs font-medium mb-2 text-muted-foreground">Cor da categoria</p>
+                            <div className="grid grid-cols-5 gap-1.5">
+                              {COLOR_PRESETS.map((preset) => (
+                                <button
+                                  key={preset.color}
+                                  onClick={() => setCategoryColor(categoryKey, preset.color)}
+                                  className={cn(
+                                    "w-7 h-7 rounded-md transition-all",
+                                    preset.color,
+                                    getCategoryColor(categoryKey, categoryInfo.color) === preset.color
+                                      ? "ring-2 ring-offset-2 ring-foreground"
+                                      : "hover:scale-110"
+                                  )}
+                                  title={preset.label}
+                                />
+                              ))}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                         {deletingCategory === categoryKey ? (
                           <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                             <Button
