@@ -387,22 +387,48 @@ export function useCreateSale() {
           await supabase.from('commissions').insert(commissions);
         }
       } else {
-        // Update existing commissions with new seller
+        // Update or create commissions for existing installments
         const { data: installments } = await supabase
           .from('installments')
-          .select('id, value')
+          .select('id, value, due_date')
           .eq('sale_id', sale.id);
         
         if (installments) {
           for (const inst of installments) {
-            await supabase
+            // Check if commission already exists for this installment
+            const { data: existingComm } = await supabase
               .from('commissions')
-              .update({
-                seller_id: input.seller_id,
-                commission_percent: input.commission_percent,
-                commission_value: (inst.value * input.commission_percent) / 100,
-              })
-              .eq('installment_id', inst.id);
+              .select('id')
+              .eq('installment_id', inst.id)
+              .maybeSingle();
+            
+            if (existingComm) {
+              // Update existing commission
+              await supabase
+                .from('commissions')
+                .update({
+                  seller_id: input.seller_id,
+                  commission_percent: input.commission_percent,
+                  commission_value: (inst.value * input.commission_percent) / 100,
+                })
+                .eq('installment_id', inst.id);
+            } else {
+              // Create missing commission
+              const dueDate = new Date(inst.due_date);
+              const competenceMonth = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
+              
+              await supabase
+                .from('commissions')
+                .insert({
+                  installment_id: inst.id,
+                  seller_id: input.seller_id,
+                  installment_value: inst.value,
+                  commission_percent: input.commission_percent,
+                  commission_value: (inst.value * input.commission_percent) / 100,
+                  competence_month: competenceMonth.toISOString().split('T')[0],
+                  status: 'pending',
+                });
+            }
           }
         }
       }
