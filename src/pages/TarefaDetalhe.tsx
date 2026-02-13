@@ -130,6 +130,8 @@ export default function TarefaDetalhe() {
           assignee: formData.assignee,
           due_date: formData.dueDate,
           due_time: formData.dueTime || null,
+          recurrence: formData.recurrence === "none" ? null : formData.recurrence,
+          recurrence_end_date: formData.recurrenceEndDate || null,
         },
       });
       toast({ title: "Tarefa atualizada" });
@@ -545,25 +547,65 @@ export default function TarefaDetalhe() {
                 )}
               </div>
 
-              {/* Recurrence Info */}
-              {task.recurrence && task.recurrence !== "none" && (
-                <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Repeat className="h-3 w-3" />
-                    Recorrência
-                  </Label>
-                  <div className="flex items-center gap-2">
+              {/* Recurrence */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Repeat className="h-3 w-3" />
+                  Recorrência
+                </Label>
+                {isEditing && formData ? (
+                  <>
+                    <Select
+                      value={formData.recurrence}
+                      onValueChange={(value: RecurrenceType) =>
+                        setFormData((prev) =>
+                          prev ? { ...prev, recurrence: value } : null
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sem recorrência" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(RECURRENCE_LABELS).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {formData.recurrence !== "none" && (
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">
+                          Data limite (opcional)
+                        </Label>
+                        <Input
+                          type="date"
+                          value={formData.recurrenceEndDate}
+                          onChange={(e) =>
+                            setFormData((prev) =>
+                              prev ? { ...prev, recurrenceEndDate: e.target.value } : null
+                            )
+                          }
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : task.recurrence && task.recurrence !== "none" ? (
+                  <>
                     <Badge variant="outline" className="border-accent text-accent">
                       {RECURRENCE_LABELS[task.recurrence as RecurrenceType]}
                     </Badge>
-                  </div>
-                  {task.recurrence_end_date && (
-                    <p className="text-xs text-muted-foreground">
-                      Até {formatDate(task.recurrence_end_date)}
-                    </p>
-                  )}
-                </div>
-              )}
+                    {task.recurrence_end_date && (
+                      <p className="text-xs text-muted-foreground">
+                        Até {formatDate(task.recurrence_end_date)}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Sem recorrência</p>
+                )}
+              </div>
 
               <div className="pt-4 border-t">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
