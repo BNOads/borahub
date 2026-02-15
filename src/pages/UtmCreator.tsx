@@ -30,7 +30,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-// Categorias e subcategorias pre-definidas
 const UTM_PRESETS: Record<string, string[]> = {
     facebook: ["cpc", "feed", "stories", "reels", "ads_manager"],
     instagram: ["cpc", "feed", "stories", "reels", "explore", "direct"],
@@ -87,7 +86,7 @@ export default function UtmCreator() {
     const [activeTab, setActiveTab] = useState("individual");
     const [websiteUrl, setWebsiteUrl] = useState("");
     const [campaign, setCampaign] = useState("");
-    const [term, setTerm] = useState("pago");
+    const [term, setTerm] = useState("");
     const [content, setContent] = useState("");
 
     // Individual mode
@@ -98,10 +97,11 @@ export default function UtmCreator() {
     const [selectedSources, setSelectedSources] = useState<Record<string, string[]>>({});
     const [expandedSources, setExpandedSources] = useState<string[]>([]);
 
-    // Generated UTMs
+    // Generated UTMs (bulk)
     const [generatedUtms, setGeneratedUtms] = useState<GeneratedUTM[]>([]);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
     const [copiedDirect, setCopiedDirect] = useState<string | null>(null);
+    const [copiedLive, setCopiedLive] = useState(false);
 
     // History
     const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -113,31 +113,30 @@ export default function UtmCreator() {
     const [creatingDirect, setCreatingDirect] = useState(false);
 
     useEffect(() => {
-        if (showHistory) {
-            fetchHistory();
-        }
+        if (showHistory) fetchHistory();
     }, [showHistory]);
 
     useEffect(() => {
         fetchDirectLinks();
     }, []);
 
-    // Live Preview - builds the UTM URL in real time
+    const normalizeString = (str: string) => str.toLowerCase().replace(/\s+/g, "_").trim();
+
+    // Live Preview URL
     const livePreviewUrl = useMemo(() => {
         if (!websiteUrl) return "";
         try {
             const base = websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`;
             const url = new URL(base);
-            
-            const source = activeTab === "individual" ? individualSource : "";
-            const medium = activeTab === "individual" ? individualMedium : "";
-            
-            if (source) url.searchParams.set("utm_source", normalizeString(source));
-            if (medium) url.searchParams.set("utm_medium", normalizeString(medium));
+
+            if (activeTab === "individual") {
+                if (individualSource) url.searchParams.set("utm_source", normalizeString(individualSource));
+                if (individualMedium) url.searchParams.set("utm_medium", normalizeString(individualMedium));
+            }
             if (campaign) url.searchParams.set("utm_campaign", normalizeString(campaign));
             if (term) url.searchParams.set("utm_term", normalizeString(term));
             if (content) url.searchParams.set("utm_content", normalizeString(content));
-            
+
             return url.toString();
         } catch {
             return "";
@@ -151,7 +150,6 @@ export default function UtmCreator() {
                 .select("*")
                 .order("created_at", { ascending: false })
                 .limit(50);
-
             if (error) throw error;
             setDirectLinks((data as DirectLink[]) || []);
         } catch (error) {
@@ -167,7 +165,6 @@ export default function UtmCreator() {
                 .select("*")
                 .order("created_at", { ascending: false })
                 .limit(50);
-
             if (error) throw error;
             setHistory(data || []);
         } catch (error) {
@@ -176,10 +173,6 @@ export default function UtmCreator() {
             setLoadingHistory(false);
         }
     }
-
-    const normalizeString = (str: string) => {
-        return str.toLowerCase().replace(/\s+/g, "_").trim();
-    };
 
     const buildUtmUrl = (source: string, medium: string) => {
         const url = new URL(websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`);
@@ -191,41 +184,17 @@ export default function UtmCreator() {
         return url.toString();
     };
 
-    const generateIndividualUtm = () => {
-        if (!websiteUrl || !campaign || !individualSource || !individualMedium) {
-            toast.error("Preencha todos os campos obrigatorios");
-            return;
-        }
-
-        const fullUrl = buildUtmUrl(individualSource, individualMedium);
-        const newUtm: GeneratedUTM = {
-            source: normalizeString(individualSource),
-            medium: normalizeString(individualMedium),
-            campaign: normalizeString(campaign),
-            term: normalizeString(term),
-            content: normalizeString(content),
-            fullUrl,
-        };
-
-        setGeneratedUtms([newUtm, ...generatedUtms]);
-        saveToHistory([newUtm], "individual");
-        toast.success("UTM gerada com sucesso!");
-    };
-
     const generateBulkUtms = () => {
         if (!websiteUrl || !campaign) {
             toast.error("Preencha Website URL e Campaign");
             return;
         }
-
-        const selectedCount = Object.values(selectedSources).flat().length;
-        if (selectedCount === 0) {
+        const count = Object.values(selectedSources).flat().length;
+        if (count === 0) {
             toast.error("Selecione pelo menos uma subcategoria");
             return;
         }
-
         const newUtms: GeneratedUTM[] = [];
-
         Object.entries(selectedSources).forEach(([source, mediums]) => {
             mediums.forEach(medium => {
                 const fullUrl = buildUtmUrl(source, medium);
@@ -239,7 +208,6 @@ export default function UtmCreator() {
                 });
             });
         });
-
         setGeneratedUtms(newUtms);
         saveToHistory(newUtms, "bulk");
         toast.success(`${newUtms.length} UTMs geradas com sucesso!`);
@@ -249,7 +217,6 @@ export default function UtmCreator() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
-
             const batchId = crypto.randomUUID();
             const records = utms.map(utm => ({
                 website_url: websiteUrl,
@@ -263,7 +230,6 @@ export default function UtmCreator() {
                 batch_id: type === "bulk" ? batchId : null,
                 created_by: user.id,
             }));
-
             await supabase.from("utm_history").insert(records);
         } catch (error) {
             console.error("Error saving to history:", error);
@@ -272,75 +238,62 @@ export default function UtmCreator() {
 
     const createDirectLink = async (targetUrl: string) => {
         if (!targetUrl) {
-            toast.error("Gere uma UTM primeiro para criar um Direct Link");
+            toast.error("Preencha os campos para gerar o link primeiro");
             return;
         }
-
         try {
             setCreatingDirect(true);
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                toast.error("Voce precisa estar logado");
-                return;
-            }
+            if (!user) { toast.error("Voce precisa estar logado"); return; }
 
             const slug = generateSlug();
-
             const { error } = await supabase
                 .from("direct_links")
-                .insert({
-                    slug,
-                    target_url: targetUrl,
-                    created_by: user.id,
-                } as any);
-
+                .insert({ slug, target_url: targetUrl, created_by: user.id } as any);
             if (error) throw error;
 
-            toast.success("Direct Link criado com sucesso!");
+            // Also save to UTM history
+            if (activeTab === "individual" && individualSource && individualMedium && campaign) {
+                await saveToHistory([{
+                    source: normalizeString(individualSource),
+                    medium: normalizeString(individualMedium),
+                    campaign: normalizeString(campaign),
+                    term: normalizeString(term),
+                    content: normalizeString(content),
+                    fullUrl: targetUrl,
+                }], "individual");
+            }
+
+            toast.success("Redirect Link criado com sucesso!");
             fetchDirectLinks();
         } catch (error) {
             console.error("Error creating direct link:", error);
-            toast.error("Erro ao criar Direct Link");
+            toast.error("Erro ao criar Redirect Link");
         } finally {
             setCreatingDirect(false);
         }
     };
 
     const toggleSource = (source: string) => {
-        if (expandedSources.includes(source)) {
-            setExpandedSources(expandedSources.filter(s => s !== source));
-        } else {
-            setExpandedSources([...expandedSources, source]);
-        }
+        setExpandedSources(prev => prev.includes(source) ? prev.filter(s => s !== source) : [...prev, source]);
     };
 
     const toggleMedium = (source: string, medium: string) => {
-        const currentMediums = selectedSources[source] || [];
-        if (currentMediums.includes(medium)) {
-            const newMediums = currentMediums.filter(m => m !== medium);
-            if (newMediums.length === 0) {
-                const { [source]: _, ...rest } = selectedSources;
-                setSelectedSources(rest);
-            } else {
-                setSelectedSources({ ...selectedSources, [source]: newMediums });
-            }
+        const curr = selectedSources[source] || [];
+        if (curr.includes(medium)) {
+            const next = curr.filter(m => m !== medium);
+            if (next.length === 0) { const { [source]: _, ...rest } = selectedSources; setSelectedSources(rest); }
+            else setSelectedSources({ ...selectedSources, [source]: next });
         } else {
-            setSelectedSources({
-                ...selectedSources,
-                [source]: [...currentMediums, medium],
-            });
+            setSelectedSources({ ...selectedSources, [source]: [...curr, medium] });
         }
     };
 
     const selectAllMediums = (source: string) => {
-        const allMediums = UTM_PRESETS[source];
-        const currentMediums = selectedSources[source] || [];
-        if (currentMediums.length === allMediums.length) {
-            const { [source]: _, ...rest } = selectedSources;
-            setSelectedSources(rest);
-        } else {
-            setSelectedSources({ ...selectedSources, [source]: [...allMediums] });
-        }
+        const all = UTM_PRESETS[source];
+        const curr = selectedSources[source] || [];
+        if (curr.length === all.length) { const { [source]: _, ...rest } = selectedSources; setSelectedSources(rest); }
+        else setSelectedSources({ ...selectedSources, [source]: [...all] });
     };
 
     const copyToClipboard = async (text: string, index: number) => {
@@ -354,7 +307,15 @@ export default function UtmCreator() {
         await navigator.clipboard.writeText(text);
         setCopiedDirect(id);
         setTimeout(() => setCopiedDirect(null), 2000);
-        toast.success("Direct Link copiado!");
+        toast.success("Redirect Link copiado!");
+    };
+
+    const copyLiveUrl = async () => {
+        if (!livePreviewUrl) return;
+        await navigator.clipboard.writeText(livePreviewUrl);
+        setCopiedLive(true);
+        setTimeout(() => setCopiedLive(false), 2000);
+        toast.success("URL copiada!");
     };
 
     const copyAllUrls = async () => {
@@ -365,31 +326,14 @@ export default function UtmCreator() {
 
     const exportCsv = () => {
         const headers = ["Source", "Medium", "Campaign", "Term", "Content", "URL"];
-        const rows = generatedUtms.map(utm => [
-            utm.source,
-            utm.medium,
-            utm.campaign,
-            utm.term,
-            utm.content,
-            utm.fullUrl,
-        ]);
-
+        const rows = generatedUtms.map(utm => [utm.source, utm.medium, utm.campaign, utm.term, utm.content, utm.fullUrl]);
         const csvContent = [headers, ...rows].map(row => row.join(",")).join("\n");
         downloadFile(csvContent, "utms.csv", "text/csv");
     };
 
     const exportExcel = () => {
         const headers = ["Source", "Medium", "Campaign", "Term", "Content", "URL"];
-        const rows = generatedUtms.map(utm => [
-            utm.source,
-            utm.medium,
-            utm.campaign,
-            utm.term,
-            utm.content,
-            utm.fullUrl,
-        ]);
-
-        // Create TSV that Excel can open
+        const rows = generatedUtms.map(utm => [utm.source, utm.medium, utm.campaign, utm.term, utm.content, utm.fullUrl]);
         const tsvContent = [headers, ...rows].map(row => row.join("\t")).join("\n");
         downloadFile(tsvContent, "utms.xls", "application/vnd.ms-excel");
     };
@@ -404,15 +348,8 @@ export default function UtmCreator() {
         URL.revokeObjectURL(url);
     };
 
-    const clearGenerated = () => {
-        setGeneratedUtms([]);
-    };
-
     const selectedCount = Object.values(selectedSources).flat().length;
-
-    const getDirectLinkUrl = (slug: string) => {
-        return `${window.location.origin}/d/${slug}`;
-    };
+    const getDirectLinkUrl = (slug: string) => `${window.location.origin}/d/${slug}`;
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -424,7 +361,7 @@ export default function UtmCreator() {
                         Criador de UTM
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        Gere UTMs individuais ou em massa com presets
+                        Gere URLs com parametros UTM padronizados individual ou em massa
                     </p>
                 </div>
                 <Button
@@ -438,7 +375,6 @@ export default function UtmCreator() {
             </div>
 
             {showHistory ? (
-                /* History View */
                 <div className="rounded-2xl border bg-card p-6">
                     <h2 className="text-xl font-bold mb-4">Historico de UTMs</h2>
                     {loadingHistory ? (
@@ -450,46 +386,22 @@ export default function UtmCreator() {
                     ) : history.length > 0 ? (
                         <div className="space-y-3 max-h-[500px] overflow-y-auto">
                             {history.map((item, index) => (
-                                <div
-                                    key={item.id}
-                                    className="p-4 rounded-xl border hover:border-accent/30 transition-all space-y-2"
-                                >
+                                <div key={item.id} className="p-4 rounded-xl border hover:border-accent/30 transition-all space-y-2">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <Badge variant="outline" className="uppercase text-xs">
-                                            {item.utm_source}
-                                        </Badge>
-                                        <Badge variant="secondary" className="text-xs">
-                                            {item.utm_medium}
-                                        </Badge>
-                                        <Badge variant="default" className="text-xs bg-accent">
-                                            {item.utm_campaign}
-                                        </Badge>
-                                        {item.utm_term && (
-                                            <Badge variant="outline" className="text-xs">
-                                                {item.utm_term}
-                                            </Badge>
-                                        )}
+                                        <Badge variant="outline" className="uppercase text-xs">{item.utm_source}</Badge>
+                                        <Badge variant="secondary" className="text-xs">{item.utm_medium}</Badge>
+                                        <Badge variant="default" className="text-xs bg-accent">{item.utm_campaign}</Badge>
+                                        {item.utm_term && <Badge variant="outline" className="text-xs">{item.utm_term}</Badge>}
                                         <span className="text-xs text-muted-foreground ml-auto">
                                             {new Date(item.created_at).toLocaleDateString("pt-BR")}
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="flex-1 bg-muted/50 rounded-lg p-2 overflow-hidden">
-                                            <p className="text-xs text-muted-foreground break-all font-mono">
-                                                {item.full_url}
-                                            </p>
+                                            <p className="text-xs text-muted-foreground break-all font-mono">{item.full_url}</p>
                                         </div>
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="rounded-lg gap-1 flex-shrink-0"
-                                            onClick={() => copyToClipboard(item.full_url, index)}
-                                        >
-                                            {copiedIndex === index ? (
-                                                <Check className="h-4 w-4 text-green-500" />
-                                            ) : (
-                                                <Copy className="h-4 w-4" />
-                                            )}
+                                        <Button variant="outline" size="sm" className="rounded-lg gap-1 flex-shrink-0" onClick={() => copyToClipboard(item.full_url, index)}>
+                                            {copiedIndex === index ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                                             Copiar
                                         </Button>
                                     </div>
@@ -497,141 +409,124 @@ export default function UtmCreator() {
                             ))}
                         </div>
                     ) : (
-                        <p className="text-center text-muted-foreground py-8">
-                            Nenhuma UTM no historico
-                        </p>
+                        <p className="text-center text-muted-foreground py-8">Nenhuma UTM no historico</p>
                     )}
                 </div>
             ) : (
                 <>
-                    {/* Main Form */}
-                    <div className="rounded-2xl border bg-card p-6">
-                        {/* Common Fields */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            <div className="space-y-2">
-                                <Label>Website URL *</Label>
-                                <Input
-                                    placeholder="https://seusite.com/pagina"
-                                    value={websiteUrl}
-                                    onChange={(e) => setWebsiteUrl(e.target.value)}
-                                    className="rounded-xl"
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    O link da pagina para onde voce quer enviar as pessoas. Ex: seu site, landing page ou pagina de vendas.
-                                </p>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Campaign (Nome da Campanha) *</Label>
-                                <Input
-                                    placeholder="black-friday-2024"
-                                    value={campaign}
-                                    onChange={(e) => setCampaign(e.target.value)}
-                                    className="rounded-xl"
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    Um nome para identificar sua campanha ou projeto. Ex: lancamento-curso, black-friday, promocao-maio.
-                                </p>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Term (Tipo de Trafego)</Label>
-                                <Select value={term} onValueChange={setTerm}>
-                                    <SelectTrigger className="rounded-xl">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="pago">Pago</SelectItem>
-                                        <SelectItem value="organico">Organico</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <p className="text-xs text-muted-foreground">
-                                    Escolha "Pago" se for anuncio pago (Facebook Ads, Google Ads) ou "Organico" se for conteudo gratuito.
-                                </p>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Content (Identificador)</Label>
-                                <Input
-                                    placeholder="banner-topo"
-                                    value={content}
-                                    onChange={(e) => setContent(e.target.value)}
-                                    className="rounded-xl"
-                                />
-                                <p className="text-xs text-muted-foreground">
-                                    Opcional. Use para identificar o vendedor ou diferenciar variantes. Ex: joao-silva, equipe-sp, banner-topo.
-                                </p>
-                            </div>
-                        </div>
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                        <TabsList className="grid w-full grid-cols-2 rounded-xl mb-6">
+                            <TabsTrigger value="individual" className="rounded-xl gap-2">
+                                <Link2 className="h-4 w-4" />
+                                Criar UTM
+                            </TabsTrigger>
+                            <TabsTrigger value="bulk" className="rounded-xl gap-2">
+                                <Layers className="h-4 w-4" />
+                                Criar em Massa
+                            </TabsTrigger>
+                        </TabsList>
 
-                        <Tabs value={activeTab} onValueChange={setActiveTab}>
-                            <TabsList className="grid w-full grid-cols-2 rounded-xl mb-6">
-                                <TabsTrigger value="individual" className="rounded-xl gap-2">
-                                    <Plus className="h-4 w-4" />
-                                    Individual
-                                </TabsTrigger>
-                                <TabsTrigger value="bulk" className="rounded-xl gap-2">
-                                    <Layers className="h-4 w-4" />
-                                    Em Massa
-                                </TabsTrigger>
-                            </TabsList>
+                        {/* ===== INDIVIDUAL TAB ===== */}
+                        <TabsContent value="individual">
+                            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                                {/* Left: Form */}
+                                <div className="lg:col-span-3 rounded-2xl border bg-card p-6 space-y-5">
+                                    <h2 className="text-xl font-bold">Gerador de UTM Individual</h2>
 
-                            <TabsContent value="individual" className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <Label>Source (Plataforma) *</Label>
-                                        <Select value={individualSource} onValueChange={(value) => {
-                                            setIndividualSource(value);
-                                            setIndividualMedium("");
-                                        }}>
-                                            <SelectTrigger className="rounded-xl">
-                                                <SelectValue placeholder="Selecione a plataforma" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {Object.keys(UTM_PRESETS).map(source => (
-                                                    <SelectItem key={source} value={source} className="capitalize">
-                                                        {source}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <p className="text-xs text-muted-foreground">
-                                            De onde vem o trafego? Escolha a rede social ou canal onde voce vai divulgar.
-                                        </p>
+                                        <Label>Website URL *</Label>
+                                        <Input placeholder="https://exemplo.com" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} className="rounded-xl" />
                                     </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>UTM Source *</Label>
+                                            <Input placeholder="ex: facebook, google" value={individualSource} onChange={(e) => setIndividualSource(e.target.value)} className="rounded-xl" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>UTM Medium *</Label>
+                                            <Input placeholder="ex: cpc, email, social" value={individualMedium} onChange={(e) => setIndividualMedium(e.target.value)} className="rounded-xl" />
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-2">
-                                        <Label>Medium (Tipo de Postagem) *</Label>
-                                        <Select
-                                            value={individualMedium}
-                                            onValueChange={setIndividualMedium}
-                                            disabled={!individualSource}
-                                        >
-                                            <SelectTrigger className="rounded-xl">
-                                                <SelectValue placeholder="Selecione o tipo" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {individualSource && UTM_PRESETS[individualSource]?.map(medium => (
-                                                    <SelectItem key={medium} value={medium}>
-                                                        {medium}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <p className="text-xs text-muted-foreground">
-                                            Qual formato de conteudo? Ex: stories, feed, reels, email, etc.
-                                        </p>
+                                        <Label>UTM Campaign *</Label>
+                                        <Input placeholder="Nome da campanha" value={campaign} onChange={(e) => setCampaign(e.target.value)} className="rounded-xl" />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>UTM Term</Label>
+                                            <Input placeholder="Palavra-chave" value={term} onChange={(e) => setTerm(e.target.value)} className="rounded-xl" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>UTM Content</Label>
+                                            <Input placeholder="Variacao de conteudo" value={content} onChange={(e) => setContent(e.target.value)} className="rounded-xl" />
+                                        </div>
                                     </div>
                                 </div>
-                                <Button
-                                    onClick={generateIndividualUtm}
-                                    className="w-full rounded-xl bg-accent hover:bg-accent/90"
-                                >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Gerar UTM
-                                </Button>
-                            </TabsContent>
 
-                            <TabsContent value="bulk" className="space-y-4">
-                                <p className="text-sm text-muted-foreground">
-                                    Selecione as categorias e subcategorias para gerar todas as combinacoes:
-                                </p>
+                                {/* Right: Live URL */}
+                                <div className="lg:col-span-2 rounded-2xl border bg-card p-6 space-y-4">
+                                    <h2 className="text-xl font-bold">URL Gerada</h2>
+
+                                    {livePreviewUrl ? (
+                                        <div className="bg-muted/50 rounded-xl p-4">
+                                            <p className="text-sm font-mono break-all text-foreground">{livePreviewUrl}</p>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-muted/50 rounded-xl p-4">
+                                            <p className="text-sm text-muted-foreground">Preencha os campos obrigatorios para gerar a URL</p>
+                                        </div>
+                                    )}
+
+                                    <Button
+                                        className="w-full rounded-xl bg-accent hover:bg-accent/90 gap-2"
+                                        onClick={copyLiveUrl}
+                                        disabled={!livePreviewUrl}
+                                    >
+                                        {copiedLive ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                                        Copiar URL
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        className="w-full rounded-xl gap-2"
+                                        onClick={() => createDirectLink(livePreviewUrl)}
+                                        disabled={!livePreviewUrl || creatingDirect}
+                                    >
+                                        <MousePointerClick className="h-4 w-4" />
+                                        Criar Redirect
+                                    </Button>
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        {/* ===== BULK TAB ===== */}
+                        <TabsContent value="bulk" className="space-y-6">
+                            <div className="rounded-2xl border bg-card p-6 space-y-5">
+                                <h2 className="text-xl font-bold">Gerador em Massa</h2>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>Website URL *</Label>
+                                        <Input placeholder="https://exemplo.com" value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} className="rounded-xl" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Campaign *</Label>
+                                        <Input placeholder="Nome da campanha" value={campaign} onChange={(e) => setCampaign(e.target.value)} className="rounded-xl" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Term</Label>
+                                        <Input placeholder="Palavra-chave" value={term} onChange={(e) => setTerm(e.target.value)} className="rounded-xl" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Content</Label>
+                                        <Input placeholder="Variacao" value={content} onChange={(e) => setContent(e.target.value)} className="rounded-xl" />
+                                    </div>
+                                </div>
+
+                                <p className="text-sm text-muted-foreground">Selecione as plataformas e tipos:</p>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {Object.entries(UTM_PRESETS).map(([source, mediums]) => {
@@ -640,49 +535,27 @@ export default function UtmCreator() {
                                         const allSelected = selectedMediums.length === mediums.length;
 
                                         return (
-                                            <Collapsible
-                                                key={source}
-                                                open={isExpanded}
-                                                onOpenChange={() => toggleSource(source)}
-                                            >
-                                                <div className={cn(
-                                                    "rounded-xl border p-3 transition-all",
-                                                    selectedMediums.length > 0 && "border-accent bg-accent/5"
-                                                )}>
+                                            <Collapsible key={source} open={isExpanded} onOpenChange={() => toggleSource(source)}>
+                                                <div className={cn("rounded-xl border p-3 transition-all", selectedMediums.length > 0 && "border-accent bg-accent/5")}>
                                                     <CollapsibleTrigger asChild>
                                                         <button className="w-full flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
                                                                 <span className="font-medium capitalize">{source}</span>
                                                                 {selectedMediums.length > 0 && (
-                                                                    <Badge className="bg-accent text-accent-foreground text-xs">
-                                                                        {selectedMediums.length}
-                                                                    </Badge>
+                                                                    <Badge className="bg-accent text-accent-foreground text-xs">{selectedMediums.length}</Badge>
                                                                 )}
                                                             </div>
-                                                            {isExpanded ? (
-                                                                <ChevronUp className="h-4 w-4" />
-                                                            ) : (
-                                                                <ChevronDown className="h-4 w-4" />
-                                                            )}
+                                                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                                                         </button>
                                                     </CollapsibleTrigger>
                                                     <CollapsibleContent className="pt-3 space-y-2">
-                                                        <button
-                                                            onClick={() => selectAllMediums(source)}
-                                                            className="text-xs text-accent hover:underline"
-                                                        >
+                                                        <button onClick={() => selectAllMediums(source)} className="text-xs text-accent hover:underline">
                                                             {allSelected ? "Desmarcar todos" : "Selecionar todos"}
                                                         </button>
                                                         <div className="space-y-1">
                                                             {mediums.map(medium => (
-                                                                <label
-                                                                    key={medium}
-                                                                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent/10 cursor-pointer text-sm"
-                                                                >
-                                                                    <Checkbox
-                                                                        checked={selectedMediums.includes(medium)}
-                                                                        onCheckedChange={() => toggleMedium(source, medium)}
-                                                                    />
+                                                                <label key={medium} className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent/10 cursor-pointer text-sm">
+                                                                    <Checkbox checked={selectedMediums.includes(medium)} onCheckedChange={() => toggleMedium(source, medium)} />
                                                                     {medium}
                                                                 </label>
                                                             ))}
@@ -695,180 +568,73 @@ export default function UtmCreator() {
                                 </div>
 
                                 <div className="flex items-center justify-between pt-4 border-t">
-                                    <span className="text-sm text-muted-foreground">
-                                        {selectedCount} combinacao(es) selecionada(s)
-                                    </span>
-                                    <Button
-                                        onClick={generateBulkUtms}
-                                        disabled={selectedCount === 0}
-                                        className="rounded-xl bg-accent hover:bg-accent/90"
-                                    >
+                                    <span className="text-sm text-muted-foreground">{selectedCount} combinacao(es) selecionada(s)</span>
+                                    <Button onClick={generateBulkUtms} disabled={selectedCount === 0} className="rounded-xl bg-accent hover:bg-accent/90">
                                         <Layers className="h-4 w-4 mr-2" />
                                         Gerar {selectedCount} UTM(s)
                                     </Button>
                                 </div>
-                            </TabsContent>
-                        </Tabs>
-                    </div>
+                            </div>
 
-                    {/* Live Preview */}
-                    {livePreviewUrl && (
-                        <div className="rounded-2xl border bg-card p-6 space-y-3">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-bold flex items-center gap-2">
-                                    <ExternalLink className="h-5 w-5 text-accent" />
-                                    Link UTM (Live Preview)
-                                </h2>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="rounded-lg gap-2"
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(livePreviewUrl);
-                                            toast.success("Link copiado!");
-                                        }}
-                                    >
-                                        <Copy className="h-4 w-4" />
-                                        Copiar
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        className="rounded-lg gap-2 bg-accent hover:bg-accent/90"
-                                        onClick={() => createDirectLink(livePreviewUrl)}
-                                        disabled={creatingDirect}
-                                    >
-                                        <MousePointerClick className="h-4 w-4" />
-                                        Criar Redirect
-                                    </Button>
+                            {/* Generated UTMs table */}
+                            {generatedUtms.length > 0 && (
+                                <div className="rounded-2xl border bg-card p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h2 className="text-xl font-bold">UTMs Geradas ({generatedUtms.length})</h2>
+                                        <div className="flex gap-2">
+                                            <Button variant="outline" size="sm" onClick={copyAllUrls} className="rounded-lg gap-2">
+                                                <Copy className="h-4 w-4" /> Copiar todas
+                                            </Button>
+                                            <Button variant="outline" size="sm" onClick={exportCsv} className="rounded-lg gap-2">
+                                                <Download className="h-4 w-4" /> CSV
+                                            </Button>
+                                            <Button variant="outline" size="sm" onClick={exportExcel} className="rounded-lg gap-2">
+                                                <Download className="h-4 w-4" /> Excel
+                                            </Button>
+                                            <Button variant="ghost" size="sm" onClick={() => setGeneratedUtms([])} className="rounded-lg gap-2 text-destructive hover:text-destructive">
+                                                <Trash2 className="h-4 w-4" /> Limpar
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div className="rounded-xl border overflow-hidden">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Source</TableHead>
+                                                    <TableHead>Medium</TableHead>
+                                                    <TableHead>Campaign</TableHead>
+                                                    <TableHead>URL Final</TableHead>
+                                                    <TableHead className="w-[100px]"></TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {generatedUtms.map((utm, index) => (
+                                                    <TableRow key={index}>
+                                                        <TableCell><Badge variant="outline" className="uppercase">{utm.source}</Badge></TableCell>
+                                                        <TableCell><Badge variant="secondary">{utm.medium}</Badge></TableCell>
+                                                        <TableCell className="font-medium">{utm.campaign}</TableCell>
+                                                        <TableCell className="max-w-[300px]">
+                                                            <span className="text-xs text-muted-foreground truncate block">{utm.fullUrl}</span>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-1">
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => copyToClipboard(utm.fullUrl, index)}>
+                                                                    {copiedIndex === index ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-8 w-8" title="Criar Redirect" onClick={() => createDirectLink(utm.fullUrl)} disabled={creatingDirect}>
+                                                                    <MousePointerClick className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="bg-muted/50 rounded-xl p-4 overflow-hidden">
-                                <p className="text-sm font-mono break-all text-foreground">
-                                    {livePreviewUrl}
-                                </p>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Generated UTMs */}
-                    {generatedUtms.length > 0 && (
-                        <div className="rounded-2xl border bg-card p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-xl font-bold">
-                                    UTMs Geradas ({generatedUtms.length})
-                                </h2>
-                                <div className="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={copyAllUrls}
-                                        className="rounded-lg gap-2"
-                                    >
-                                        <Copy className="h-4 w-4" />
-                                        Copiar todas
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={exportCsv}
-                                        className="rounded-lg gap-2"
-                                    >
-                                        <Download className="h-4 w-4" />
-                                        CSV
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={exportExcel}
-                                        className="rounded-lg gap-2"
-                                    >
-                                        <Download className="h-4 w-4" />
-                                        Excel
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={clearGenerated}
-                                        className="rounded-lg gap-2 text-destructive hover:text-destructive"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                        Limpar
-                                    </Button>
-                                </div>
-                            </div>
-
-                            <div className="rounded-xl border overflow-hidden">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Source</TableHead>
-                                            <TableHead>Medium</TableHead>
-                                            <TableHead>Campaign</TableHead>
-                                            <TableHead>Term</TableHead>
-                                            <TableHead>URL Final</TableHead>
-                                            <TableHead className="w-[100px]"></TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {generatedUtms.map((utm, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell>
-                                                    <Badge variant="outline" className="uppercase">
-                                                        {utm.source}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="secondary">
-                                                        {utm.medium}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="font-medium">
-                                                    {utm.campaign}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant={utm.term === "pago" ? "default" : "outline"}>
-                                                        {utm.term}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="max-w-[300px]">
-                                                    <span className="text-xs text-muted-foreground truncate block">
-                                                        {utm.fullUrl}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8"
-                                                            onClick={() => copyToClipboard(utm.fullUrl, index)}
-                                                        >
-                                                            {copiedIndex === index ? (
-                                                                <Check className="h-4 w-4 text-green-500" />
-                                                            ) : (
-                                                                <Copy className="h-4 w-4" />
-                                                            )}
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8"
-                                                            title="Criar Redirect"
-                                                            onClick={() => createDirectLink(utm.fullUrl)}
-                                                            disabled={creatingDirect}
-                                                        >
-                                                            <MousePointerClick className="h-4 w-4" />
-                                                        </Button>
-                                                    </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </div>
-                    )}
+                            )}
+                        </TabsContent>
+                    </Tabs>
 
                     {/* Direct Links */}
                     {directLinks.length > 0 && (
@@ -879,45 +645,23 @@ export default function UtmCreator() {
                             </h2>
                             <div className="space-y-3">
                                 {directLinks.map((link) => (
-                                    <div
-                                        key={link.id}
-                                        className="p-4 rounded-xl border hover:border-accent/30 transition-all space-y-2"
-                                    >
+                                    <div key={link.id} className="p-4 rounded-xl border hover:border-accent/30 transition-all space-y-2">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                <Badge variant="outline" className="font-mono text-xs">
-                                                    /d/{link.slug}
-                                                </Badge>
-                                                <span className="text-xs text-muted-foreground">
-                                                    {link.click_count} clique(s)
-                                                </span>
+                                                <Badge variant="outline" className="font-mono text-xs">/d/{link.slug}</Badge>
+                                                <span className="text-xs text-muted-foreground">{link.click_count} clique(s)</span>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-xs text-muted-foreground">
-                                                    {new Date(link.created_at).toLocaleDateString("pt-BR")}
-                                                </span>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="rounded-lg gap-1"
-                                                    onClick={() => copyDirectLink(getDirectLinkUrl(link.slug), link.id)}
-                                                >
-                                                    {copiedDirect === link.id ? (
-                                                        <Check className="h-4 w-4 text-green-500" />
-                                                    ) : (
-                                                        <Copy className="h-4 w-4" />
-                                                    )}
+                                                <span className="text-xs text-muted-foreground">{new Date(link.created_at).toLocaleDateString("pt-BR")}</span>
+                                                <Button variant="outline" size="sm" className="rounded-lg gap-1" onClick={() => copyDirectLink(getDirectLinkUrl(link.slug), link.id)}>
+                                                    {copiedDirect === link.id ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                                                     Copiar
                                                 </Button>
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-1">
-                                            <p className="text-sm font-mono text-accent break-all">
-                                                {getDirectLinkUrl(link.slug)}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground break-all">
-                                                → {link.target_url}
-                                            </p>
+                                            <p className="text-sm font-mono text-accent break-all">{getDirectLinkUrl(link.slug)}</p>
+                                            <p className="text-xs text-muted-foreground break-all">→ {link.target_url}</p>
                                         </div>
                                     </div>
                                 ))}
