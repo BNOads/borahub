@@ -466,6 +466,44 @@ export type Database = {
         }
         Relationships: []
       }
+      direct_links: {
+        Row: {
+          click_count: number | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          slug: string
+          target_url: string
+          utm_history_id: string | null
+        }
+        Insert: {
+          click_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          slug: string
+          target_url: string
+          utm_history_id?: string | null
+        }
+        Update: {
+          click_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          slug?: string
+          target_url?: string
+          utm_history_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "direct_links_utm_history_id_fkey"
+            columns: ["utm_history_id"]
+            isOneToOne: false
+            referencedRelation: "utm_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_folders: {
         Row: {
           created_at: string
