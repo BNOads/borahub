@@ -48,6 +48,7 @@ import TranscricoesView from "./pages/TranscricoesView";
 import AgenteCopy from "./pages/AgenteCopy";
 import MentoriaView from "./pages/MentoriaView";
 import PublicFunnelReport from "./pages/PublicFunnelReport";
+import DirectRedirect from "./pages/DirectRedirect";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,6 +74,7 @@ const App = () => (
             <Route path="/conta-desativada" element={<ContaDesativada />} />
             <Route path="/q/:slug" element={<PublicQuiz />} />
             <Route path="/relatorio-funil/:id" element={<PublicFunnelReport />} />
+            <Route path="/d/:slug" element={<DirectRedirect />} />
 
             {/* Rota de troca obrigatória de senha */}
             <Route path="/troca-senha" element={

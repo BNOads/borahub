@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Link2, Copy, Download, Trash2, History, Plus, Layers, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Link2, Copy, Download, Trash2, History, Plus, Layers, Check, ChevronDown, ChevronUp, ExternalLink, MousePointerClick } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,6 +66,23 @@ interface HistoryItem {
     created_at: string;
 }
 
+interface DirectLink {
+    id: string;
+    slug: string;
+    target_url: string;
+    click_count: number;
+    created_at: string;
+}
+
+function generateSlug(): string {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let slug = '';
+    for (let i = 0; i < 6; i++) {
+        slug += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return slug;
+}
+
 export default function UtmCreator() {
     const [activeTab, setActiveTab] = useState("individual");
     const [websiteUrl, setWebsiteUrl] = useState("");
@@ -84,17 +101,63 @@ export default function UtmCreator() {
     // Generated UTMs
     const [generatedUtms, setGeneratedUtms] = useState<GeneratedUTM[]>([]);
     const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+    const [copiedDirect, setCopiedDirect] = useState<string | null>(null);
 
     // History
     const [history, setHistory] = useState<HistoryItem[]>([]);
     const [showHistory, setShowHistory] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(false);
 
+    // Direct Links
+    const [directLinks, setDirectLinks] = useState<DirectLink[]>([]);
+    const [creatingDirect, setCreatingDirect] = useState(false);
+
     useEffect(() => {
         if (showHistory) {
             fetchHistory();
         }
     }, [showHistory]);
+
+    useEffect(() => {
+        fetchDirectLinks();
+    }, []);
+
+    // Live Preview - builds the UTM URL in real time
+    const livePreviewUrl = useMemo(() => {
+        if (!websiteUrl) return "";
+        try {
+            const base = websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`;
+            const url = new URL(base);
+            
+            const source = activeTab === "individual" ? individualSource : "";
+            const medium = activeTab === "individual" ? individualMedium : "";
+            
+            if (source) url.searchParams.set("utm_source", normalizeString(source));
+            if (medium) url.searchParams.set("utm_medium", normalizeString(medium));
+            if (campaign) url.searchParams.set("utm_campaign", normalizeString(campaign));
+            if (term) url.searchParams.set("utm_term", normalizeString(term));
+            if (content) url.searchParams.set("utm_content", normalizeString(content));
+            
+            return url.toString();
+        } catch {
+            return "";
+        }
+    }, [websiteUrl, campaign, term, content, individualSource, individualMedium, activeTab]);
+
+    async function fetchDirectLinks() {
+        try {
+            const { data, error } = await supabase
+                .from("direct_links")
+                .select("*")
+                .order("created_at", { ascending: false })
+                .limit(50);
+
+            if (error) throw error;
+            setDirectLinks((data as DirectLink[]) || []);
+        } catch (error) {
+            console.error("Error fetching direct links:", error);
+        }
+    }
 
     async function fetchHistory() {
         try {
@@ -207,6 +270,42 @@ export default function UtmCreator() {
         }
     }
 
+    const createDirectLink = async (targetUrl: string) => {
+        if (!targetUrl) {
+            toast.error("Gere uma UTM primeiro para criar um Direct Link");
+            return;
+        }
+
+        try {
+            setCreatingDirect(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                toast.error("Voce precisa estar logado");
+                return;
+            }
+
+            const slug = generateSlug();
+
+            const { error } = await supabase
+                .from("direct_links")
+                .insert({
+                    slug,
+                    target_url: targetUrl,
+                    created_by: user.id,
+                } as any);
+
+            if (error) throw error;
+
+            toast.success("Direct Link criado com sucesso!");
+            fetchDirectLinks();
+        } catch (error) {
+            console.error("Error creating direct link:", error);
+            toast.error("Erro ao criar Direct Link");
+        } finally {
+            setCreatingDirect(false);
+        }
+    };
+
     const toggleSource = (source: string) => {
         if (expandedSources.includes(source)) {
             setExpandedSources(expandedSources.filter(s => s !== source));
@@ -249,6 +348,13 @@ export default function UtmCreator() {
         setCopiedIndex(index);
         setTimeout(() => setCopiedIndex(null), 2000);
         toast.success("URL copiada!");
+    };
+
+    const copyDirectLink = async (text: string, id: string) => {
+        await navigator.clipboard.writeText(text);
+        setCopiedDirect(id);
+        setTimeout(() => setCopiedDirect(null), 2000);
+        toast.success("Direct Link copiado!");
     };
 
     const copyAllUrls = async () => {
@@ -303,6 +409,10 @@ export default function UtmCreator() {
     };
 
     const selectedCount = Object.values(selectedSources).flat().length;
+
+    const getDirectLinkUrl = (slug: string) => {
+        return `${window.location.origin}/d/${slug}`;
+    };
 
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
@@ -601,6 +711,46 @@ export default function UtmCreator() {
                         </Tabs>
                     </div>
 
+                    {/* Live Preview */}
+                    {livePreviewUrl && (
+                        <div className="rounded-2xl border bg-card p-6 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-bold flex items-center gap-2">
+                                    <ExternalLink className="h-5 w-5 text-accent" />
+                                    Link UTM (Live Preview)
+                                </h2>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="rounded-lg gap-2"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(livePreviewUrl);
+                                            toast.success("Link copiado!");
+                                        }}
+                                    >
+                                        <Copy className="h-4 w-4" />
+                                        Copiar
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        className="rounded-lg gap-2 bg-accent hover:bg-accent/90"
+                                        onClick={() => createDirectLink(livePreviewUrl)}
+                                        disabled={creatingDirect}
+                                    >
+                                        <MousePointerClick className="h-4 w-4" />
+                                        Criar Redirect
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="bg-muted/50 rounded-xl p-4 overflow-hidden">
+                                <p className="text-sm font-mono break-all text-foreground">
+                                    {livePreviewUrl}
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Generated UTMs */}
                     {generatedUtms.length > 0 && (
                         <div className="rounded-2xl border bg-card p-6">
@@ -657,7 +807,7 @@ export default function UtmCreator() {
                                             <TableHead>Campaign</TableHead>
                                             <TableHead>Term</TableHead>
                                             <TableHead>URL Final</TableHead>
-                                            <TableHead className="w-[60px]"></TableHead>
+                                            <TableHead className="w-[100px]"></TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -687,23 +837,90 @@ export default function UtmCreator() {
                                                     </span>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8"
-                                                        onClick={() => copyToClipboard(utm.fullUrl, index)}
-                                                    >
-                                                        {copiedIndex === index ? (
-                                                            <Check className="h-4 w-4 text-green-500" />
-                                                        ) : (
-                                                            <Copy className="h-4 w-4" />
-                                                        )}
-                                                    </Button>
+                                                    <div className="flex gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                            onClick={() => copyToClipboard(utm.fullUrl, index)}
+                                                        >
+                                                            {copiedIndex === index ? (
+                                                                <Check className="h-4 w-4 text-green-500" />
+                                                            ) : (
+                                                                <Copy className="h-4 w-4" />
+                                                            )}
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                            title="Criar Redirect"
+                                                            onClick={() => createDirectLink(utm.fullUrl)}
+                                                            disabled={creatingDirect}
+                                                        >
+                                                            <MousePointerClick className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Direct Links */}
+                    {directLinks.length > 0 && (
+                        <div className="rounded-2xl border bg-card p-6">
+                            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                                <MousePointerClick className="h-5 w-5 text-accent" />
+                                Meus Redirect Links ({directLinks.length})
+                            </h2>
+                            <div className="space-y-3">
+                                {directLinks.map((link) => (
+                                    <div
+                                        key={link.id}
+                                        className="p-4 rounded-xl border hover:border-accent/30 transition-all space-y-2"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <Badge variant="outline" className="font-mono text-xs">
+                                                    /d/{link.slug}
+                                                </Badge>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {link.click_count} clique(s)
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-muted-foreground">
+                                                    {new Date(link.created_at).toLocaleDateString("pt-BR")}
+                                                </span>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="rounded-lg gap-1"
+                                                    onClick={() => copyDirectLink(getDirectLinkUrl(link.slug), link.id)}
+                                                >
+                                                    {copiedDirect === link.id ? (
+                                                        <Check className="h-4 w-4 text-green-500" />
+                                                    ) : (
+                                                        <Copy className="h-4 w-4" />
+                                                    )}
+                                                    Copiar
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col gap-1">
+                                            <p className="text-sm font-mono text-accent break-all">
+                                                {getDirectLinkUrl(link.slug)}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground break-all">
+                                                → {link.target_url}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
