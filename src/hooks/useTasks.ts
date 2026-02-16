@@ -135,12 +135,30 @@ export function useTask(id: string | null) {
 
 export function useCreateTask() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
 
   return useMutation({
     mutationFn: async (task: TaskInsert) => {
+      const insertData: any = {
+        ...task,
+        created_by_id: session?.user?.id, // Set creator
+      };
+      
+      // If assigning to another user, find their ID
+      if (task.assignee) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("full_name", task.assignee)
+          .single();
+        if (profile?.id) {
+          insertData.assigned_to_id = profile.id;
+        }
+      }
+      
       const { data, error } = await supabase
         .from("tasks")
-        .insert(task)
+        .insert(insertData)
         .select()
         .single();
 
@@ -394,12 +412,30 @@ export function useUserTasks(userFullName: string | null) {
 
 export function useCreateTaskForUser() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
 
   return useMutation({
     mutationFn: async (task: TaskInsert) => {
+      const insertData: any = {
+        ...task,
+        created_by_id: session?.user?.id,
+      };
+      
+      // If assigning to a user, find their ID
+      if (task.assignee) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("full_name", task.assignee)
+          .single();
+        if (profile?.id) {
+          insertData.assigned_to_id = profile.id;
+        }
+      }
+      
       const { data, error } = await supabase
         .from("tasks")
-        .insert(task)
+        .insert(insertData)
         .select()
         .single();
 
@@ -418,6 +454,7 @@ export function useCreateTaskForUser() {
 
 export function useCreateBulkTasks() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
 
   return useMutation({
     mutationFn: async ({ tasks, assignee }: { tasks: TaskInsert[]; assignee: string }) => {
@@ -433,9 +470,22 @@ export function useCreateBulkTasks() {
         throw new Error("Alguns títulos estão vazios após limpeza");
       }
 
+      // Get assignee's ID
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("full_name", assignee)
+        .single();
+
+      const tasksToInsert = sanitizedTasks.map(task => ({
+        ...task,
+        created_by_id: session?.user?.id,
+        assigned_to_id: profileData?.id,
+      }));
+
       const { data, error } = await supabase
         .from("tasks")
-        .insert(sanitizedTasks)
+        .insert(tasksToInsert)
         .select();
 
       if (error) {
