@@ -197,6 +197,25 @@ export default function MentoriaView() {
     }
   };
 
+  const handleBulkSubmitTarefas = (tasks: { title: string; etapa_id?: string }[]) => {
+    if (!selectedEtapaId) return;
+    let completed = 0;
+    const total = tasks.length;
+    tasks.forEach((task, idx) => {
+      createTarefa.mutate(
+        { etapa_id: selectedEtapaId, title: task.title, position: idx },
+        {
+          onSuccess: () => {
+            completed++;
+            if (completed === total) {
+              setTarefaModalOpen(false);
+            }
+          },
+        }
+      );
+    });
+  };
+
   const handleDeleteTarefa = (tarefaId: string) => {
     setDeleteType('tarefa');
     setDeleteId(tarefaId);
@@ -429,6 +448,7 @@ export default function MentoriaView() {
         open={tarefaModalOpen}
         onOpenChange={setTarefaModalOpen}
         onSubmit={handleSubmitTarefa}
+        onBulkSubmit={handleBulkSubmitTarefas}
         editingTarefa={editingTarefa}
         etapaId={selectedEtapaId || undefined}
         isLoading={createTarefa.isPending || updateTarefa.isPending}
