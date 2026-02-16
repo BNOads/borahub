@@ -88,16 +88,16 @@ export function MentoriaTaskCard({ tarefa, onToggleComplete, onEdit, onDelete, o
           />
 
           {/* Content */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 overflow-hidden">
             <p className={cn(
-              "text-sm font-medium leading-tight",
+              "text-sm font-medium leading-tight break-words whitespace-normal",
               isCompleted && "line-through text-muted-foreground"
             )}>
               {tarefa.title}
             </p>
             
             {cleanDescription && (
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2 break-words whitespace-normal">
                 {cleanDescription}
               </p>
             )}
