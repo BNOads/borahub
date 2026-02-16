@@ -22,6 +22,7 @@ import {
   useCreateTarefa,
   useUpdateTarefa,
   useDeleteTarefa,
+  useReorderTarefas,
   useReplicarProcesso,
   useDeleteMentorado,
   ProcessoComEtapas,
@@ -71,6 +72,7 @@ export default function MentoriaView() {
   const deleteTarefa = useDeleteTarefa();
   const replicarProcesso = useReplicarProcesso();
   const deleteMentorado = useDeleteMentorado();
+  const reorderTarefas = useReorderTarefas();
 
   // Get selected etapa data
   const selectedEtapa = useMemo(() => {
@@ -289,9 +291,7 @@ export default function MentoriaView() {
   };
 
   const handleReorderTarefas = (updates: { id: string; position: number }[]) => {
-    updates.forEach(({ id, position }) => {
-      updateTarefa.mutate({ id, position });
-    });
+    reorderTarefas.mutate(updates);
   };
 
   const handleOpenTaskDetail = (tarefa: MentoriaTarefa) => {

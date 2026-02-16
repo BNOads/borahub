@@ -77,10 +77,11 @@ export function MentoriaKanban({
   }, [tarefas, filtroAtivo]);
 
   const tarefasByStatus = useMemo(() => {
+    const sortByPosition = (a: MentoriaTarefa, b: MentoriaTarefa) => a.position - b.position;
     return {
-      pending: tarefasFiltradas.filter(t => t.status === 'pending'),
-      in_progress: tarefasFiltradas.filter(t => t.status === 'in_progress'),
-      completed: tarefasFiltradas.filter(t => t.status === 'completed'),
+      pending: tarefasFiltradas.filter(t => t.status === 'pending').sort(sortByPosition),
+      in_progress: tarefasFiltradas.filter(t => t.status === 'in_progress').sort(sortByPosition),
+      completed: tarefasFiltradas.filter(t => t.status === 'completed').sort(sortByPosition),
     };
   }, [tarefasFiltradas]);
 

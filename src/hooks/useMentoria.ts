@@ -304,6 +304,51 @@ export function useUpdateTarefa() {
   });
 }
 
+// Reorder tarefas with optimistic update
+export function useReorderTarefas() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (updates: { id: string; position: number }[]) => {
+      const promises = updates.map(({ id, position }) =>
+        supabase.from("mentoria_tarefas").update({ position }).eq("id", id)
+      );
+      const results = await Promise.all(promises);
+      const error = results.find(r => r.error)?.error;
+      if (error) throw error;
+    },
+    onMutate: async (updates) => {
+      await queryClient.cancelQueries({ queryKey: ["mentoria-processos"] });
+      const previous = queryClient.getQueryData<ProcessoComEtapas[]>(["mentoria-processos"]);
+
+      queryClient.setQueryData<ProcessoComEtapas[]>(["mentoria-processos"], (old) => {
+        if (!old) return old;
+        return old.map(processo => ({
+          ...processo,
+          mentoria_etapas: processo.mentoria_etapas.map(etapa => ({
+            ...etapa,
+            mentoria_tarefas: etapa.mentoria_tarefas.map(tarefa => {
+              const update = updates.find(u => u.id === tarefa.id);
+              return update ? { ...tarefa, position: update.position } : tarefa;
+            }).sort((a, b) => a.position - b.position),
+          })),
+        }));
+      });
+
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["mentoria-processos"], context.previous);
+      }
+      toast.error("Erro ao reordenar tarefas");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["mentoria-processos"] });
+    },
+  });
+}
+
 // Delete tarefa
 export function useDeleteTarefa() {
   const queryClient = useQueryClient();
