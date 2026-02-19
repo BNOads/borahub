@@ -402,8 +402,8 @@ function KanbanCard({
         <Link
           to={`/tarefas/${task.id}`}
           className={cn(
-            "flex-1 font-medium text-sm hover:text-accent transition-colors group",
-            task.completed && "line-through text-muted-foreground"
+            "flex-1 font-medium text-sm underline hover:text-accent transition-colors group",
+            task.completed && "text-muted-foreground"
           )}
         >
           {task.title}
