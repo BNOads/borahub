@@ -481,8 +481,8 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
         <button
           onClick={() => navigate(`/tarefas/${task.id}`)}
           className={cn(
-            "font-medium text-sm truncate text-left w-full hover:text-accent hover:underline transition-colors",
-            task.completed && "line-through text-muted-foreground"
+            "font-medium text-sm truncate text-left w-full underline hover:text-accent transition-colors",
+            task.completed && "text-muted-foreground"
           )}
         >
           {task.title}
@@ -492,7 +492,7 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
           <Popover open={dateOpen} onOpenChange={setDateOpen}>
             <PopoverTrigger asChild>
               <button
-                className="text-xs text-muted-foreground flex items-center gap-1 hover:text-accent hover:bg-accent/10 rounded px-1 py-0.5 transition-colors"
+                className="text-xs text-muted-foreground flex items-center gap-1 underline hover:text-accent hover:bg-accent/10 rounded px-1 py-0.5 transition-colors"
                 disabled={task.completed}
               >
                 <Calendar className="h-3 w-3" />
@@ -521,7 +521,7 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
             <DropdownMenuTrigger asChild>
               <button
                 className={cn(
-                  "text-xs flex items-center gap-1 hover:bg-accent/10 rounded px-1 py-0.5 transition-colors",
+                  "text-xs flex items-center gap-1 underline hover:bg-accent/10 rounded px-1 py-0.5 transition-colors",
                   hasRecurrence ? "text-accent" : "text-muted-foreground italic"
                 )}
                 disabled={task.completed}
