@@ -467,7 +467,8 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
   return (
     <div
       className={cn(
-        "flex items-start gap-3 p-3 rounded-lg border border-border transition-all hover:border-accent/30",
+        "flex items-start gap-3 p-3 rounded-lg border transition-all",
+        task.priority === "alta" && !task.completed ? "border-destructive/60 hover:border-destructive" : "border-border hover:border-accent/30",
         task.completed && "opacity-60"
       )}
     >
