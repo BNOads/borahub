@@ -874,9 +874,9 @@ export function TasksByPersonView({
                                   </span>
                                 )}
                                 <span
-                                  className={`break-words ${
+                                  className={`break-words underline ${
                                     task.completed
-                                      ? "line-through text-muted-foreground"
+                                      ? "text-muted-foreground"
                                       : isDoing
                                         ? "font-medium text-primary"
                                         : ""
@@ -1098,7 +1098,7 @@ export function TasksByPersonView({
                                         <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
                                       </span>
                                     )}
-                                    <span className={`break-words ${isDoing ? 'font-medium text-primary' : ''}`}>
+                                    <span className={`break-words underline ${isDoing ? 'font-medium text-primary' : ''}`}>
                                       {task.title}
                                     </span>
                                     {task.recurrence && task.recurrence !== "none" && (
