@@ -7,13 +7,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { useUserTasks, useToggleTaskComplete, useCreateTaskForUser, useBulkUpdateTasks } from "@/hooks/useTasks";
+import { useUserTasks, useToggleTaskComplete, useCreateTaskForUser, useBulkUpdateTasks, useUpdateTask } from "@/hooks/useTasks";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import type { TaskWithSubtasks, TaskStatus, RecurrenceType } from "@/types/tasks";
+import type { TaskWithSubtasks, TaskStatus, RecurrenceType, TaskPriority } from "@/types/tasks";
 import { RECURRENCE_LABELS } from "@/types/tasks";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { format } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const priorityColors = {
   alta: "bg-destructive/10 text-destructive border-destructive/20",
@@ -404,9 +407,15 @@ interface TaskItemProps {
   onToggle: (id: string, completed: boolean) => void;
 }
 
+const priorityOrder: TaskPriority[] = ["baixa", "media", "alta"];
+
 function TaskItem({ task, onToggle }: TaskItemProps) {
   const navigate = useNavigate();
-  
+  const updateTask = useUpdateTask();
+  const [dateOpen, setDateOpen] = useState(false);
+  const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [priorityOpen, setPriorityOpen] = useState(false);
+
   const formatTime = (time: string | null) => {
     if (!time) return null;
     return time.substring(0, 5);
@@ -417,28 +426,43 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
     const dateObj = new Date(date + "T00:00:00");
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
     if (dateObj.getTime() === today.getTime()) return "Hoje";
     if (dateObj.getTime() === tomorrow.getTime()) return "Amanhã";
     if (dateObj.getTime() === yesterday.getTime()) return "Ontem";
-    
-    return dateObj.toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "short",
-    });
+    return dateObj.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
   };
 
   const hasRecurrence = task.recurrence && task.recurrence !== "none";
 
-  const handleTitleClick = () => {
-    navigate(`/tarefas/${task.id}`);
+  const handleUpdate = async (updates: Record<string, unknown>) => {
+    try {
+      await updateTask.mutateAsync({ id: task.id, updates });
+    } catch {
+      toast.error("Erro ao atualizar tarefa");
+    }
   };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+    handleUpdate({ due_date: format(date, "yyyy-MM-dd") });
+    setDateOpen(false);
+  };
+
+  const handleRecurrenceSelect = (recurrence: string) => {
+    handleUpdate({ recurrence });
+    setRecurrenceOpen(false);
+  };
+
+  const handlePrioritySelect = (priority: TaskPriority) => {
+    handleUpdate({ priority });
+    setPriorityOpen(false);
+  };
+
+  const selectedDate = task.due_date ? new Date(task.due_date + "T00:00:00") : undefined;
 
   return (
     <div
@@ -454,7 +478,7 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
       />
       <div className="flex-1 min-w-0">
         <button
-          onClick={handleTitleClick}
+          onClick={() => navigate(`/tarefas/${task.id}`)}
           className={cn(
             "font-medium text-sm truncate text-left w-full hover:text-accent hover:underline transition-colors",
             task.completed && "line-through text-muted-foreground"
@@ -463,34 +487,97 @@ function TaskItem({ task, onToggle }: TaskItemProps) {
           {task.title}
         </button>
         <div className="flex flex-wrap items-center gap-2 mt-1">
-          {task.due_date && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              {formatDate(task.due_date)}
-            </span>
-          )}
+          {/* Date picker */}
+          <Popover open={dateOpen} onOpenChange={setDateOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className="text-xs text-muted-foreground flex items-center gap-1 hover:text-accent hover:bg-accent/10 rounded px-1 py-0.5 transition-colors"
+                disabled={task.completed}
+              >
+                <Calendar className="h-3 w-3" />
+                {task.due_date ? formatDate(task.due_date) : <span className="italic">Sem data</span>}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <CalendarComponent
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleDateSelect}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+
           {task.due_time && (
             <span className="text-xs text-muted-foreground">
               {formatTime(task.due_time)}
             </span>
           )}
-          {hasRecurrence && (
-            <span className="text-xs text-accent flex items-center gap-1">
-              <Repeat className="h-3 w-3" />
-              {RECURRENCE_LABELS[task.recurrence as RecurrenceType]}
-            </span>
-          )}
-          {hasRecurrence && task.recurrence_end_date && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Calendar className="h-3 w-3" />
-              até {formatDate(task.recurrence_end_date)}
-            </span>
-          )}
+
+          {/* Recurrence picker */}
+          <DropdownMenu open={recurrenceOpen} onOpenChange={setRecurrenceOpen}>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  "text-xs flex items-center gap-1 hover:bg-accent/10 rounded px-1 py-0.5 transition-colors",
+                  hasRecurrence ? "text-accent" : "text-muted-foreground italic"
+                )}
+                disabled={task.completed}
+              >
+                <Repeat className="h-3 w-3" />
+                {hasRecurrence
+                  ? RECURRENCE_LABELS[task.recurrence as RecurrenceType]
+                  : "Recorrência"}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-44">
+              {Object.entries(RECURRENCE_LABELS).map(([key, label]) => (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() => handleRecurrenceSelect(key)}
+                  className={cn(task.recurrence === key && "bg-accent/20 font-medium")}
+                >
+                  {label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
-      <Badge variant="outline" className={cn("shrink-0", priorityColors[task.priority])}>
-        {priorityLabels[task.priority]}
-      </Badge>
+
+      {/* Priority badge as dropdown */}
+      <DropdownMenu open={priorityOpen} onOpenChange={setPriorityOpen}>
+        <DropdownMenuTrigger asChild>
+          <button disabled={task.completed}>
+            <Badge
+              variant="outline"
+              className={cn(
+                "shrink-0 cursor-pointer hover:opacity-80 transition-opacity",
+                priorityColors[task.priority]
+              )}
+            >
+              {priorityLabels[task.priority]}
+            </Badge>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-32">
+          {priorityOrder.map((p) => (
+            <DropdownMenuItem
+              key={p}
+              onClick={() => handlePrioritySelect(p)}
+              className={cn("gap-2", task.priority === p && "bg-accent/20 font-medium")}
+            >
+              <span className={cn("h-2 w-2 rounded-full", {
+                "bg-destructive": p === "alta",
+                "bg-warning": p === "media",
+                "bg-muted-foreground": p === "baixa",
+              })} />
+              {priorityLabels[p]}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
