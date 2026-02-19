@@ -1372,10 +1372,10 @@ function TaskItem({
             <div className="flex items-center gap-2">
               <Link
                 to={`/tarefas/${task.id}`}
-                className={cn(
-                  "font-medium hover:text-accent transition-colors group inline-flex items-center gap-1",
-                  task.completed && "line-through text-muted-foreground"
-                )}
+                  className={cn(
+                    "font-medium underline hover:text-accent transition-colors group inline-flex items-center gap-1",
+                    task.completed && "text-muted-foreground"
+                  )}
               >
                 {task.title}
                 <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
