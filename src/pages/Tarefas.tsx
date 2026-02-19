@@ -1341,14 +1341,17 @@ function TaskItem({
         "flex items-start gap-4 p-4 rounded-lg border transition-all hover:shadow-sm",
         isDoing 
           ? "bg-primary/5 border-primary/50 border-l-4 border-l-primary" 
+          : task.completed
+          ? "border-success/60 bg-success/5"
           : "border-border bg-card",
-        task.completed && "opacity-60"
+        task.completed && "opacity-70"
       )}
     >
       <div className="flex items-center gap-2 mt-1">
         <Checkbox
           checked={task.completed}
           onCheckedChange={() => onToggle(task.id, task.completed)}
+          className={cn(task.completed && "border-success data-[state=checked]:bg-success data-[state=checked]:border-success")}
         />
         {!task.completed && onToggleDoing && (
           <Button

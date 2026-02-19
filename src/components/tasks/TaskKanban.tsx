@@ -380,8 +380,8 @@ function KanbanCard({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border bg-card p-3 shadow-sm transition-all hover:shadow-md",
-        task.completed && "opacity-60",
+        "rounded-lg border p-3 shadow-sm transition-all hover:shadow-md",
+        task.completed ? "border-success/60 bg-success/5 opacity-70" : "border-border bg-card",
         isDragging && "shadow-lg ring-2 ring-primary"
       )}
     >
@@ -397,7 +397,7 @@ function KanbanCard({
         <Checkbox
           checked={task.completed}
           onCheckedChange={() => onToggle(task.id, task.completed)}
-          className="mt-0.5"
+          className={cn("mt-0.5", task.completed && "border-success data-[state=checked]:bg-success data-[state=checked]:border-success")}
         />
         <Link
           to={`/tarefas/${task.id}`}
