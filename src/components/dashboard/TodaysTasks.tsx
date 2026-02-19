@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar, ChevronDown, ChevronRight, ClipboardList, Sparkles } from "lucide-react";
+import { Plus, Clock, AlertCircle, CheckCircle2, Repeat, Calendar, ChevronDown, ChevronRight, ClipboardList, Sparkles, SkipForward } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { useUserTasks, useToggleTaskComplete, useCreateTaskForUser } from "@/hooks/useTasks";
+import { useUserTasks, useToggleTaskComplete, useCreateTaskForUser, useBulkUpdateTasks } from "@/hooks/useTasks";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import type { TaskWithSubtasks, TaskStatus, RecurrenceType } from "@/types/tasks";
@@ -32,6 +32,7 @@ export function TodaysTasks() {
   const { data: tasks = [], isLoading } = useUserTasks(profile?.full_name ?? null);
   const toggleComplete = useToggleTaskComplete();
   const createTask = useCreateTaskForUser();
+  const bulkUpdate = useBulkUpdateTasks();
 
   // Track if notification was already shown for current "all completed" state
   const notificationShownRef = useRef(false);
@@ -117,6 +118,22 @@ export function TodaysTasks() {
       toast.success("Tarefa criada com sucesso!");
     } catch {
       toast.error("Erro ao criar tarefa");
+    }
+  };
+
+  const handlePostponeOverdue = async () => {
+    const overdueTasks = tasks.filter((t) => !t.completed && getTaskStatus(t) === "overdue");
+    if (overdueTasks.length === 0) return;
+
+    const today = format(new Date(), "yyyy-MM-dd");
+    try {
+      await bulkUpdate.mutateAsync({
+        taskIds: overdueTasks.map((t) => t.id),
+        updates: { due_date: today },
+      });
+      toast.success(`${overdueTasks.length} tarefa${overdueTasks.length > 1 ? "s" : ""} adiada${overdueTasks.length > 1 ? "s" : ""} para hoje!`);
+    } catch {
+      toast.error("Erro ao adiar tarefas");
     }
   };
 
@@ -257,17 +274,30 @@ export function TodaysTasks() {
           {/* Overdue tasks */}
           {groupedTasks.overdue.length > 0 && (
             <Collapsible open={openSections.overdue} onOpenChange={() => toggleSection("overdue")}>
-              <CollapsibleTrigger className="flex items-center gap-2 w-full hover:bg-muted/50 rounded-lg p-2 -ml-2 transition-colors">
-                {openSections.overdue ? (
-                  <ChevronDown className="h-4 w-4 text-destructive" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-destructive" />
-                )}
-                <AlertCircle className="h-4 w-4 text-destructive" />
-                <span className="text-sm font-medium text-destructive">
-                  Em atraso ({groupedTasks.overdue.length})
-                </span>
-              </CollapsibleTrigger>
+              <div className="flex items-center gap-2">
+                <CollapsibleTrigger className="flex items-center gap-2 flex-1 hover:bg-muted/50 rounded-lg p-2 -ml-2 transition-colors">
+                  {openSections.overdue ? (
+                    <ChevronDown className="h-4 w-4 text-destructive" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-destructive" />
+                  )}
+                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  <span className="text-sm font-medium text-destructive">
+                    Em atraso ({groupedTasks.overdue.length})
+                  </span>
+                </CollapsibleTrigger>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={handlePostponeOverdue}
+                  disabled={bulkUpdate.isPending}
+                  title="Adiar todas para hoje"
+                >
+                  <SkipForward className="h-3 w-3 mr-1" />
+                  Adiar para hoje
+                </Button>
+              </div>
               <CollapsibleContent className="space-y-2 mt-2">
                 {groupedTasks.overdue.map((task) => (
                   <TaskItem key={task.id} task={task} onToggle={handleToggle} />
