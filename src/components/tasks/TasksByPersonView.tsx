@@ -145,8 +145,12 @@ export function TasksByPersonView({
   const hasActiveDateFilter = activeDateFilter && activeDateFilter !== "all";
   const shouldShowTask = (task: Task) => {
     if (!task.completed) return true; // Pendentes sempre visíveis
-    // Para concluídas: respeitar o botão de ocultar; se filtro de data ativo, sempre mostrar
-    if (hasActiveDateFilter) return true;
+    // Concluídas: respeita o botão ocultar sempre
+    // Se o botão está em "ocultar" (showCompleted=false), esconde todas concluídas
+    if (!showCompleted) return false;
+    // Se filtro de data ativo + concluída hoje: sempre mostra
+    if (hasActiveDateFilter && wasCompletedToday(task)) return true;
+    // Fora de filtro ativo, mostra se showCompleted=true
     return showCompleted;
   };
 
