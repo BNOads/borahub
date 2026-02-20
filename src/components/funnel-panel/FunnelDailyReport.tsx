@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ClipboardList, Save, User, Calendar as CalendarIcon, ArrowUpDown, ChevronLeft, ChevronRight, Pencil, Download, FileSpreadsheet } from "lucide-react";
+import { ClipboardList, Save, User, Calendar as CalendarIcon, ArrowUpDown, ChevronLeft, ChevronRight, Pencil, Download, FileSpreadsheet, X } from "lucide-react";
 import jsPDF from "jspdf";
 import { format, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -69,8 +69,8 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Date filter state - por padrão, ontem
-  const [historyDate, setHistoryDate] = useState<Date>(subDays(new Date(), 1));
+  // Date filter state - null = mostrar tudo
+  const [historyDate, setHistoryDate] = useState<Date | null>(null);
 
   // Load existing report data for selected date
   useEffect(() => {
@@ -118,12 +118,14 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
   const filteredAndSortedReports = useMemo(() => {
     if (!reports) return [];
 
-    // Filtrar apenas pela data selecionada
-    let filtered = reports.filter((report) => {
-      const reportDate = new Date(report.report_date).toISOString().split("T")[0];
-      const selectedHistoryDate = historyDate.toISOString().split("T")[0];
-      return reportDate === selectedHistoryDate;
-    });
+    // Se uma data for selecionada, filtra por ela; caso contrário mostra tudo
+    let filtered = historyDate
+      ? reports.filter((report) => {
+          const reportDate = report.report_date;
+          const selectedHistoryDate = historyDate.toISOString().split("T")[0];
+          return reportDate === selectedHistoryDate;
+        })
+      : [...reports];
 
     // Apply sorting
     filtered.sort((a, b) => {
@@ -521,31 +523,48 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
               Histórico de Relatórios
             </CardTitle>
 
-            {/* Seletor de data */}
+            {/* Seletor de data + exportação */}
             <div className="flex items-center gap-2 flex-wrap">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <CalendarIcon className="h-4 w-4" />
-                    {format(historyDate, "dd/MM/yyyy", { locale: ptBR })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    mode="single"
-                    selected={historyDate}
-                    onSelect={(date) => {
-                      if (date) {
-                        setHistoryDate(date);
+              <div className="flex items-center gap-1">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={historyDate ? "default" : "outline"}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <CalendarIcon className="h-4 w-4" />
+                      {historyDate
+                        ? format(historyDate, "dd/MM/yyyy", { locale: ptBR })
+                        : "Todos os registros"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      selected={historyDate ?? undefined}
+                      onSelect={(date) => {
+                        setHistoryDate(date ?? null);
                         setCurrentPage(1);
-                      }
-                    }}
-                    locale={ptBR}
-                    disabled={(date) => date > new Date()}
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
+                      }}
+                      locale={ptBR}
+                      disabled={(date) => date > new Date()}
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                {historyDate && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={() => { setHistoryDate(null); setCurrentPage(1); }}
+                    title="Limpar filtro de data"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
 
               {/* Botões de exportação */}
               <div className="flex gap-1">
@@ -656,7 +675,7 @@ export function FunnelDailyReport({ funnel, onUpdate }: FunnelDailyReportProps) 
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              Nenhum relatório no período selecionado
+              {historyDate ? "Nenhum relatório no período selecionado" : "Nenhum relatório enviado ainda"}
             </div>
           )}
         </CardContent>
