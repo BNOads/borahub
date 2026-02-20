@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { MeetingBlock } from "@/hooks/useMeetings";
 import { useLinkBlockToTask } from "@/hooks/useMeetingBlocks";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { RecurrenceType, RECURRENCE_LABELS, TaskPriority } from "@/types/tasks";
 
@@ -46,11 +47,12 @@ export function ConvertBlockToTaskModal({
   meetingTitle,
   onClose,
 }: ConvertBlockToTaskModalProps) {
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState(block.content);
   const [assignee, setAssignee] = useState<string>("");
   const [priority, setPriority] = useState<TaskPriority>("media");
-  const [dueDate, setDueDate] = useState<Date | undefined>();
+  const [dueDate, setDueDate] = useState<Date | undefined>(new Date());
   const [recurrence, setRecurrence] = useState<RecurrenceType>("none");
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,7 +66,7 @@ export function ConvertBlockToTaskModal({
     setTitle(`${prefix} ${blockPreview}${block.content.length > 50 ? "..." : ""}`);
   }, [block.content, meetingTitle]);
 
-  // Fetch team members
+  // Fetch team members and pre-select logged user
   useEffect(() => {
     async function fetchProfiles() {
       const { data } = await supabase
@@ -75,10 +77,14 @@ export function ConvertBlockToTaskModal({
       
       if (data) {
         setProfiles(data);
+        // Pre-select logged-in user
+        if (user?.id && data.find((p) => p.id === user.id)) {
+          setAssignee(user.id);
+        }
       }
     }
     fetchProfiles();
-  }, []);
+  }, [user?.id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
