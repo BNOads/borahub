@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -32,12 +34,16 @@ import {
   Users,
   Download,
   Copy,
-  FileDown
+  FileDown,
+  CalendarIcon,
+  X
 } from "lucide-react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { SaleDetailsSheet } from "./SaleDetailsSheet";
+import { DateRange } from "react-day-picker";
 
 type SortField = "transaction" | "client_name" | "product_name" | "total_value" | "sale_date" | "seller_name" | "platform";
 type SortDirection = "asc" | "desc";
@@ -127,6 +133,9 @@ export function AllSalesManagement() {
   const [platformFilter, setPlatformFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [syncing, setSyncing] = useState(false);
+  const [datePreset, setDatePreset] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [calendarOpen, setCalendarOpen] = useState(false);
   
   // Sale details sheet
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
@@ -144,6 +153,24 @@ export function AllSalesManagement() {
       setSortDirection("asc");
     }
   };
+
+  const handleDatePreset = (preset: string) => {
+    setDatePreset(preset);
+    setDateRange(undefined);
+    setCalendarOpen(false);
+  };
+
+  const getDateFilterRange = (): { from: Date; to: Date } | null => {
+    const now = new Date();
+    if (datePreset === "this_month") return { from: startOfMonth(now), to: endOfMonth(now) };
+    if (datePreset === "this_year") return { from: startOfYear(now), to: endOfYear(now) };
+    if (datePreset === "custom" && dateRange?.from) {
+      return { from: dateRange.from, to: dateRange.to || dateRange.from };
+    }
+    return null;
+  };
+
+  const isDateFilterActive = datePreset !== "all";
 
   // Sync from both platforms
   const handleSyncAll = async () => {
@@ -249,6 +276,15 @@ export function AllSalesManagement() {
     } else if (statusFilter === "assigned") {
       result = result.filter(sale => sale.seller_id);
     }
+
+    // Apply date filter
+    const dateFilterRange = getDateFilterRange();
+    if (dateFilterRange) {
+      result = result.filter(sale => {
+        const saleDate = parseISO(sale.sale_date);
+        return isWithinInterval(saleDate, { start: dateFilterRange.from, end: dateFilterRange.to });
+      });
+    }
     
     // Apply search filter
     if (searchTerm) {
@@ -306,7 +342,7 @@ export function AllSalesManagement() {
     });
     
     return result;
-  }, [sales, searchTerm, statusFilter, platformFilter, sortField, sortDirection]);
+  }, [sales, searchTerm, statusFilter, platformFilter, sortField, sortDirection, datePreset, dateRange]);
 
   // Stats
   const stats = useMemo(() => {
@@ -488,8 +524,8 @@ export function AllSalesManagement() {
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por cliente, produto, transação ou vendedor..."
@@ -498,6 +534,78 @@ export function AllSalesManagement() {
                 className="pl-9"
               />
             </div>
+
+            {/* Date filter presets */}
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant={datePreset === "all" ? "secondary" : "ghost"}
+                className="h-9 text-xs"
+                onClick={() => handleDatePreset("all")}
+              >
+                Todas
+              </Button>
+              <Button
+                size="sm"
+                variant={datePreset === "this_month" ? "secondary" : "ghost"}
+                className="h-9 text-xs"
+                onClick={() => handleDatePreset("this_month")}
+              >
+                Este mês
+              </Button>
+              <Button
+                size="sm"
+                variant={datePreset === "this_year" ? "secondary" : "ghost"}
+                className="h-9 text-xs"
+                onClick={() => handleDatePreset("this_year")}
+              >
+                Este ano
+              </Button>
+              {/* Custom date range picker */}
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant={datePreset === "custom" ? "secondary" : "ghost"}
+                    className={cn("h-9 text-xs gap-1", datePreset === "custom" && "font-medium")}
+                    onClick={() => setDatePreset("custom")}
+                  >
+                    <CalendarIcon className="h-3.5 w-3.5" />
+                    {datePreset === "custom" && dateRange?.from
+                      ? dateRange.to
+                        ? `${format(dateRange.from, "dd/MM")} – ${format(dateRange.to, "dd/MM")}`
+                        : format(dateRange.from, "dd/MM/yyyy")
+                      : "Personalizado"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="range"
+                    selected={dateRange}
+                    onSelect={(range) => {
+                      setDateRange(range);
+                      if (range?.from) setDatePreset("custom");
+                    }}
+                    locale={ptBR}
+                    className={cn("p-3 pointer-events-auto")}
+                    initialFocus
+                  />
+                  {dateRange?.from && (
+                    <div className="p-2 border-t flex justify-end">
+                      <Button size="sm" variant="ghost" className="h-7 text-xs gap-1" onClick={() => { setDateRange(undefined); setDatePreset("all"); setCalendarOpen(false); }}>
+                        <X className="h-3 w-3" /> Limpar
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+              {isDateFilterActive && (
+                <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-muted-foreground" onClick={() => handleDatePreset("all")}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+
             <Select value={platformFilter} onValueChange={setPlatformFilter}>
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Plataforma" />
