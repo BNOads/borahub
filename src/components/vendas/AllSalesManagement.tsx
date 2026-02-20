@@ -31,7 +31,8 @@ import {
   AlertCircle,
   Users,
   Download,
-  Copy
+  Copy,
+  FileDown
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -327,6 +328,35 @@ export function AllSalesManagement() {
     return <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30">Asaas</Badge>;
   };
 
+  const handleExportCSV = () => {
+    const headers = ["Plataforma", "Transação", "Produto", "Cliente", "E-mail", "Valor", "Parcelas", "Data", "Vendedor", "Origem"];
+    const rows = filteredAndSortedSales.map(sale => [
+      sale.platform,
+      sale.external_id,
+      sale.product_name,
+      sale.client_name,
+      sale.client_email || "",
+      sale.total_value.toFixed(2).replace(".", ","),
+      sale.installments_count,
+      format(new Date(sale.sale_date), "dd/MM/yyyy"),
+      sale.seller ? (sale.seller.display_name || sale.seller.full_name) : "Sem vendedor",
+      sale.funnel_source || sale.tracking_source_sck || sale.tracking_source || sale.tracking_external_code || "",
+    ]);
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"))
+      .join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `vendas-realizadas-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`${filteredAndSortedSales.length} vendas exportadas!`);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -420,6 +450,7 @@ export function AllSalesManagement() {
         </Card>
       </div>
 
+
       {/* Main Card */}
       <Card>
         <CardHeader className="pb-3">
@@ -430,18 +461,29 @@ export function AllSalesManagement() {
                 Vendas sincronizadas de Hotmart e Asaas (apenas pagas)
               </CardDescription>
             </div>
-            <Button 
-              onClick={handleSyncAll} 
-              disabled={syncing}
-              className="gap-2"
-            >
-              {syncing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              {syncing ? "Sincronizando..." : "Buscar Novas Vendas"}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handleExportCSV}
+                disabled={filteredAndSortedSales.length === 0}
+                className="gap-2"
+              >
+                <FileDown className="h-4 w-4" />
+                Exportar CSV
+              </Button>
+              <Button 
+                onClick={handleSyncAll} 
+                disabled={syncing}
+                className="gap-2"
+              >
+                {syncing ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {syncing ? "Sincronizando..." : "Buscar Novas Vendas"}
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
