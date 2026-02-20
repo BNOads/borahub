@@ -38,6 +38,7 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
   const [isSaving, setIsSaving] = useState(false);
   const [showToolbar, setShowToolbar] = useState(false);
   const [selectedText, setSelectedText] = useState("");
+  const [toolbarPosition, setToolbarPosition] = useState({ top: 0, left: 0 });
   const toolbarRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -90,6 +91,21 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
   const handleSelectionChange = (selection: { text: string; index: number; length: number } | null) => {
     if (selection && selection.text.length > 0) {
       setSelectedText(selection.text);
+
+      // Position toolbar above the actual selected text
+      const domSelection = window.getSelection();
+      if (domSelection && domSelection.rangeCount > 0) {
+        const range = domSelection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        const containerRect = containerRef.current?.getBoundingClientRect();
+        if (containerRect) {
+          setToolbarPosition({
+            top: rect.top - containerRect.top - 44,
+            left: rect.left - containerRect.left + rect.width / 2,
+          });
+        }
+      }
+
       setShowToolbar(true);
     } else {
       setShowToolbar(false);
@@ -163,7 +179,8 @@ export function MeetingBlock({ block, meetingId, onConvertToTask }: MeetingBlock
         {showToolbar && selectedText && (
           <div
             ref={toolbarRef}
-            className="absolute z-50 flex items-center gap-1 bg-popover border rounded-lg shadow-lg p-1 -top-10 left-0"
+            className="absolute z-50 flex items-center gap-1 bg-popover border rounded-lg shadow-lg p-1 -translate-x-1/2"
+            style={{ top: toolbarPosition.top, left: toolbarPosition.left }}
           >
             <Button
               variant="ghost"
