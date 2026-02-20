@@ -5,28 +5,36 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ClipboardList, Save, CheckCircle } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ClipboardList, Save, CheckCircle, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
+const emptyForm = {
+  contacts: 0,
+  followups: 0,
+  reschedules: 0,
+  meetings_scheduled: 0,
+  meetings_held: 0,
+  no_shows: 0,
+  sales: 0,
+  summary: "",
+};
+
 export default function PublicFunnelReport() {
   const { id: funnelId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
-  const today = new Date().toISOString().split("T")[0];
 
-  const [formData, setFormData] = useState({
-    contacts: 0,
-    followups: 0,
-    reschedules: 0,
-    meetings_scheduled: 0,
-    meetings_held: 0,
-    no_shows: 0,
-    sales: 0,
-    summary: "",
-  });
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+
+  const [formData, setFormData] = useState(emptyForm);
   const [submitted, setSubmitted] = useState(false);
 
   // Fetch funnel info
@@ -44,15 +52,15 @@ export default function PublicFunnelReport() {
     enabled: !!funnelId,
   });
 
-  // Check if today's report already exists
-  const { data: todayReport } = useQuery({
-    queryKey: ["public-today-report", funnelId, today],
+  // Check if selected date's report already exists
+  const { data: existingReport } = useQuery({
+    queryKey: ["public-day-report", funnelId, selectedDateStr],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("funnel_daily_reports")
         .select("*")
         .eq("funnel_id", funnelId)
-        .eq("report_date", today)
+        .eq("report_date", selectedDateStr)
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -60,36 +68,39 @@ export default function PublicFunnelReport() {
     enabled: !!funnelId,
   });
 
-  // Load existing report data
+  // Load existing report data when date changes
   useEffect(() => {
-    if (todayReport) {
+    if (existingReport) {
       setFormData({
-        contacts: todayReport.contacts,
-        followups: todayReport.followups,
-        reschedules: todayReport.reschedules,
-        meetings_scheduled: todayReport.meetings_scheduled,
-        meetings_held: todayReport.meetings_held,
-        no_shows: todayReport.no_shows,
-        sales: todayReport.sales,
-        summary: todayReport.summary || "",
+        contacts: existingReport.contacts,
+        followups: existingReport.followups,
+        reschedules: existingReport.reschedules,
+        meetings_scheduled: existingReport.meetings_scheduled,
+        meetings_held: existingReport.meetings_held,
+        no_shows: existingReport.no_shows,
+        sales: existingReport.sales,
+        summary: existingReport.summary || "",
       });
+    } else {
+      setFormData(emptyForm);
     }
-  }, [todayReport]);
+    setSubmitted(false);
+  }, [existingReport, selectedDateStr]);
 
   // Create/update report mutation
   const createReport = useMutation({
     mutationFn: async (data: typeof formData) => {
       const reportData = {
         funnel_id: funnelId!,
-        report_date: today,
+        report_date: selectedDateStr,
         ...data,
       };
 
-      if (todayReport) {
+      if (existingReport) {
         const { error } = await supabase
           .from("funnel_daily_reports")
           .update(reportData)
-          .eq("id", todayReport.id);
+          .eq("id", existingReport.id);
         if (error) throw error;
       } else {
         const { error } = await supabase
@@ -113,7 +124,7 @@ export default function PublicFunnelReport() {
     onSuccess: () => {
       toast.success("Relatório salvo com sucesso!");
       setSubmitted(true);
-      queryClient.invalidateQueries({ queryKey: ["public-today-report", funnelId] });
+      queryClient.invalidateQueries({ queryKey: ["public-day-report", funnelId] });
     },
     onError: (error: any) => {
       toast.error("Erro ao salvar relatório: " + error.message);
@@ -124,6 +135,15 @@ export default function PublicFunnelReport() {
     e.preventDefault();
     await createReport.mutateAsync(formData);
   };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+      setDatePickerOpen(false);
+    }
+  };
+
+  const isToday = selectedDateStr === format(new Date(), "yyyy-MM-dd");
 
   if (loadingFunnel) {
     return (
@@ -162,14 +182,26 @@ export default function PublicFunnelReport() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
           <CardContent className="pt-6 text-center space-y-4">
-            <CheckCircle className="h-16 w-16 text-emerald-500 mx-auto" />
+            <CheckCircle className="h-16 w-16 text-success mx-auto" />
             <h2 className="text-xl font-bold">Relatório Enviado!</h2>
             <p className="text-muted-foreground">
-              O relatório de hoje para <strong>{funnel.name}</strong> foi salvo com sucesso.
+              O relatório de <strong>{format(selectedDate, "dd/MM/yyyy")}</strong> para{" "}
+              <strong>{funnel.name}</strong> foi salvo com sucesso.
             </p>
-            <Button variant="outline" onClick={() => setSubmitted(false)}>
-              Editar Relatório
-            </Button>
+            <div className="flex gap-2 justify-center">
+              <Button variant="outline" onClick={() => setSubmitted(false)}>
+                Editar Relatório
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSelectedDate(new Date());
+                  setSubmitted(false);
+                }}
+              >
+                Novo Relatório
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -186,9 +218,48 @@ export default function PublicFunnelReport() {
               Relatório Diário - {funnel.name}
               {funnel.code && <span className="text-muted-foreground">| {funnel.code}</span>}
             </CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {format(new Date(), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-            </p>
+
+            {/* Date Picker */}
+            <div className="flex items-center gap-3 pt-1">
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "justify-start text-left font-normal gap-2",
+                      !isToday && "border-primary text-primary"
+                    )}
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    {isToday
+                      ? `Hoje — ${format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR })}`
+                      : format(selectedDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={handleDateSelect}
+                    disabled={(date) => date > new Date()}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              {!isToday && (
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                  Relatório retroativo
+                </span>
+              )}
+              {existingReport && (
+                <span className="text-xs text-success bg-success/10 px-2 py-1 rounded">
+                  Já enviado — editando
+                </span>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -278,7 +349,7 @@ export default function PublicFunnelReport() {
 
               <Button type="submit" disabled={createReport.isPending} className="w-full">
                 <Save className="h-4 w-4 mr-2" />
-                {todayReport ? "Atualizar Relatório" : "Salvar Relatório"}
+                {existingReport ? "Atualizar Relatório" : "Salvar Relatório"}
               </Button>
             </form>
           </CardContent>
