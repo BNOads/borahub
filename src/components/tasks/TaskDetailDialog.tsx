@@ -9,8 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RichDescriptionEditor } from "./RichDescriptionEditor";
+import { RichDescriptionView } from "./RichDescriptionView";
 import {
   Select,
   SelectContent,
@@ -344,15 +345,15 @@ export function TaskDetailDialog({
                         <label className="text-sm font-medium mb-2 block">
                           Descricao
                         </label>
-                        <Textarea
+                        <RichDescriptionEditor
                           value={formData.description}
-                          onChange={(e) =>
+                          onChange={(val) =>
                             setFormData((prev) => ({
                               ...prev,
-                              description: e.target.value,
+                              description: val,
                             }))
                           }
-                          placeholder="Descricao da tarefa"
+                          placeholder="Descrição da tarefa... Cole imagens (Ctrl+V) ou use os botões para anexar."
                           rows={3}
                         />
                       </div>
@@ -422,9 +423,7 @@ export function TaskDetailDialog({
                       {task.description && (
                         <div>
                           <h4 className="text-sm font-medium mb-2">Descricao</h4>
-                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                            {task.description}
-                          </p>
+                          <RichDescriptionView description={task.description} />
                         </div>
                       )}
 

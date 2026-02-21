@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichDescriptionEditor } from "@/components/tasks/RichDescriptionEditor";
 import {
   Select,
   SelectContent,
@@ -183,12 +183,10 @@ export function UserTasksModal({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="task-description">Descricao</Label>
-                <Textarea
-                  id="task-description"
-                  placeholder="Detalhes da tarefa (opcional)"
+                <RichDescriptionEditor
                   value={newTask.description}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, description: e.target.value })
+                  onChange={(val) =>
+                    setNewTask({ ...newTask, description: val })
                   }
                   rows={2}
                 />
