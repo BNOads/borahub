@@ -108,8 +108,16 @@ export function CreateTicketModal({ open, onOpenChange }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.cliente_nome || !form.cliente_email || !form.cliente_whatsapp || !form.origem || !form.categoria || !form.prioridade || !form.responsavel_id) {
-      toast.error("Preencha todos os campos obrigatórios");
+    const missing: string[] = [];
+    if (!form.cliente_nome) missing.push("Nome");
+    if (!form.cliente_email) missing.push("Email");
+    if (!form.cliente_whatsapp) missing.push("WhatsApp");
+    if (!form.origem) missing.push("Origem");
+    if (!form.categoria) missing.push("Categoria");
+    if (!form.prioridade) missing.push("Prioridade");
+    if (!form.responsavel_id) missing.push("Responsável");
+    if (missing.length > 0) {
+      toast.error(`Preencha: ${missing.join(", ")}`);
       return;
     }
 
