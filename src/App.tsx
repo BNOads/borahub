@@ -125,7 +125,7 @@ const App = () => (
               <Route path="/transcricoes" element={<TranscricoesView />} />
               <Route path="/agente-copy" element={<AgenteCopy />} />
               <Route path="/mentoria" element={<MentoriaView />} />
-              <Route path="/tickets" element={<TicketsView />} />
+              <Route path="/suporte" element={<TicketsView />} />
               <Route path="/perfil" element={<Perfil />} />
               
               {/* Rotas admin */}
