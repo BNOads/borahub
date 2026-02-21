@@ -26,7 +26,8 @@ import {
   FileBarChart,
   FileAudio,
   PenTool,
-  GraduationCap
+  GraduationCap,
+  Headphones
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NoteWidget } from "@/components/notes/NoteWidget";
@@ -157,6 +158,13 @@ const tools = [
     href: "/mentoria",
     icon: GraduationCap,
     color: "bg-yellow-500/10 text-yellow-500",
+  },
+  {
+    name: "Central de Suporte",
+    description: "Gerencie tickets de suporte, acompanhe SLAs e resolva demandas",
+    href: "/suporte",
+    icon: Headphones,
+    color: "bg-cyan-500/10 text-cyan-500",
   },
 ];
 
