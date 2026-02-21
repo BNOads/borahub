@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useTicket, useTicketAnexos, useUpdateTicketStatus, type Ticket } from "@/hooks/useTickets";
 import { TicketLogTimeline } from "./TicketLogTimeline";
 import { TicketCommentForm } from "./TicketCommentForm";
@@ -11,8 +11,10 @@ import { TicketTransferModal } from "./TicketTransferModal";
 import { TicketCloseModal } from "./TicketCloseModal";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRightLeft, CheckCircle2, Clock, ExternalLink, Paperclip } from "lucide-react";
+import { ArrowRightLeft, CheckCircle2, Clock, ExternalLink, Image, Paperclip, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const isImageFile = (name: string) => /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
 
 const STATUS_LABELS: Record<string, string> = {
   aberto: "Aberto",
@@ -50,6 +52,7 @@ export function TicketDetailSheet({ ticketId, onClose }: Props) {
   const updateStatus = useUpdateTicketStatus();
   const [transferOpen, setTransferOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   if (!ticket) return null;
 
@@ -138,35 +141,64 @@ export function TicketDetailSheet({ ticketId, onClose }: Props) {
             </div>
           )}
 
-          {/* Anexos */}
+          {/* Anexos com preview de imagens */}
           {anexos && anexos.length > 0 && (
             <div>
               <h4 className="text-sm font-medium mb-2">Anexos ({anexos.length})</h4>
-              <div className="space-y-1">
+              <div className="space-y-2">
                 {anexos.map((a) => (
-                  <a key={a.id} href={a.arquivo_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
-                    <Paperclip className="h-3.5 w-3.5" /> {a.arquivo_nome}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
+                  <div key={a.id}>
+                    {isImageFile(a.arquivo_nome) ? (
+                      <div
+                        className="cursor-pointer rounded-lg border overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all"
+                        onClick={() => setPreviewImage(a.arquivo_url)}
+                      >
+                        <img
+                          src={a.arquivo_url}
+                          alt={a.arquivo_nome}
+                          className="w-full max-h-48 object-cover"
+                        />
+                        <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground bg-muted/50">
+                          <Image className="h-3 w-3" />
+                          <span className="truncate">{a.arquivo_nome}</span>
+                          <span className="ml-auto text-[10px]">Clique para expandir</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <a href={a.arquivo_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
+                        <Paperclip className="h-3.5 w-3.5" /> {a.arquivo_nome}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Tabs: Comentários / Histórico */}
-          <Tabs defaultValue="historico">
-            <TabsList className="w-full">
-              <TabsTrigger value="historico" className="flex-1">Histórico</TabsTrigger>
-              <TabsTrigger value="comentar" className="flex-1">Comentar</TabsTrigger>
-            </TabsList>
-            <TabsContent value="historico" className="mt-3">
+          {/* Comentar + Histórico juntos */}
+          <div className="space-y-4">
+            <TicketCommentForm ticketId={ticket.id} />
+            <div>
+              <h4 className="text-sm font-medium mb-2">Histórico</h4>
               <TicketLogTimeline ticketId={ticket.id} />
-            </TabsContent>
-            <TabsContent value="comentar" className="mt-3">
-              <TicketCommentForm ticketId={ticket.id} />
-            </TabsContent>
-          </Tabs>
+            </div>
+          </div>
         </div>
+
+        <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+          <DialogContent className="max-w-4xl p-1 bg-background">
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-2 right-2 z-10 rounded-full bg-background/80 p-1 hover:bg-background"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            {previewImage && (
+              <img src={previewImage} alt="Preview" className="w-full h-auto rounded" />
+            )}
+          </DialogContent>
+        </Dialog>
 
         <TicketTransferModal
           open={transferOpen}
