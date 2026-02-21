@@ -28,7 +28,7 @@ export function TicketSupportCard() {
         hasAlert && "border-destructive/50",
         hasCritical && "animate-pulse border-destructive"
       )}
-      onClick={() => navigate("/tickets")}
+      onClick={() => navigate("/suporte")}
     >
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
