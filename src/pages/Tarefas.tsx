@@ -72,6 +72,7 @@ import {
 import { BulkTaskModal } from "@/components/tasks/BulkTaskModal";
 import jsPDF from "jspdf";
 import { TaskDetailDialog } from "@/components/tasks/TaskDetailDialog";
+import { RichDescriptionEditor } from "@/components/tasks/RichDescriptionEditor";
 import { AdminTasksPanel } from "@/components/tasks/AdminTasksPanel";
 import { TaskKanban } from "@/components/tasks/TaskKanban";
 import { TasksByPersonView } from "@/components/tasks/TasksByPersonView";
@@ -698,17 +699,15 @@ export default function Tarefas() {
 
                 <div className="space-y-2">
                   <Label htmlFor="description">Descricao</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Descreva a tarefa..."
+                  <RichDescriptionEditor
                     value={formData.description}
-                    onChange={(e) =>
+                    onChange={(val) =>
                       setFormData((prev) => ({
                         ...prev,
-                        description: e.target.value,
+                        description: val,
                       }))
                     }
-                    maxLength={500}
+                    rows={3}
                   />
                 </div>
 
@@ -769,7 +768,14 @@ export default function Tarefas() {
                       <SelectContent>
                         {users.map((user) => (
                           <SelectItem key={user.id} value={user.full_name}>
-                            {user.display_name || user.full_name}
+                            <div className="flex items-center gap-2">
+                              <img
+                                src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&size=24&background=random`}
+                                alt=""
+                                className="h-5 w-5 rounded-full object-cover shrink-0"
+                              />
+                              {user.display_name || user.full_name}
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
