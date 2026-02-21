@@ -3405,6 +3405,7 @@ export type Database = {
           priority: string
           recurrence: string | null
           recurrence_end_date: string | null
+          ticket_id: string | null
           title: string
           updated_at: string
         }
@@ -3427,6 +3428,7 @@ export type Database = {
           priority?: string
           recurrence?: string | null
           recurrence_end_date?: string | null
+          ticket_id?: string | null
           title: string
           updated_at?: string
         }
@@ -3449,6 +3451,7 @@ export type Database = {
           priority?: string
           recurrence?: string | null
           recurrence_end_date?: string | null
+          ticket_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -3458,6 +3461,182 @@ export type Database = {
             columns: ["parent_task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_anexos: {
+        Row: {
+          arquivo_nome: string
+          arquivo_url: string
+          created_at: string
+          enviado_por: string | null
+          enviado_por_nome: string | null
+          id: string
+          ticket_id: string
+        }
+        Insert: {
+          arquivo_nome: string
+          arquivo_url: string
+          created_at?: string
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
+          id?: string
+          ticket_id: string
+        }
+        Update: {
+          arquivo_nome?: string
+          arquivo_url?: string
+          created_at?: string
+          enviado_por?: string | null
+          enviado_por_nome?: string | null
+          id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_anexos_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_logs: {
+        Row: {
+          acao: string
+          campo_alterado: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          ticket_id: string
+          usuario_id: string | null
+          usuario_nome: string | null
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          acao: string
+          campo_alterado?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          ticket_id: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          acao?: string
+          campo_alterado?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          ticket_id?: string
+          usuario_id?: string | null
+          usuario_nome?: string | null
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_logs_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tickets: {
+        Row: {
+          categoria: string
+          cliente_email: string
+          cliente_nome: string
+          cliente_whatsapp: string
+          created_at: string
+          criado_por: string
+          descricao: string
+          encerrado_em: string | null
+          id: string
+          linked_task_id: string | null
+          numero: number
+          origem: string
+          primeira_resposta_em: string | null
+          prioridade: string
+          responsavel_id: string
+          sla_limite: string | null
+          solucao_descricao: string | null
+          status: string
+          tempo_resolucao: number | null
+          updated_at: string
+        }
+        Insert: {
+          categoria: string
+          cliente_email: string
+          cliente_nome: string
+          cliente_whatsapp: string
+          created_at?: string
+          criado_por: string
+          descricao: string
+          encerrado_em?: string | null
+          id?: string
+          linked_task_id?: string | null
+          numero?: number
+          origem: string
+          primeira_resposta_em?: string | null
+          prioridade: string
+          responsavel_id: string
+          sla_limite?: string | null
+          solucao_descricao?: string | null
+          status?: string
+          tempo_resolucao?: number | null
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string
+          cliente_email?: string
+          cliente_nome?: string
+          cliente_whatsapp?: string
+          created_at?: string
+          criado_por?: string
+          descricao?: string
+          encerrado_em?: string | null
+          id?: string
+          linked_task_id?: string | null
+          numero?: number
+          origem?: string
+          primeira_resposta_em?: string | null
+          prioridade?: string
+          responsavel_id?: string
+          sla_limite?: string | null
+          solucao_descricao?: string | null
+          status?: string
+          tempo_resolucao?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_criado_por_fkey"
+            columns: ["criado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_responsavel_id_fkey"
+            columns: ["responsavel_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
