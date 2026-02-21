@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useTickets, useQuickTransferTicket, useBulkUpdateTickets, useDeleteTicket, type Ticket } from "@/hooks/useTickets";
+import { useState, useMemo, useCallback } from "react";
+import { useTickets, useQuickTransferTicket, useBulkUpdateTickets, useDeleteTicket, useUpdateTicketStatus, type Ticket } from "@/hooks/useTickets";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,7 +25,7 @@ import { TicketFilters } from "@/components/tickets/TicketFilters";
 import { TicketDashboard } from "@/components/tickets/TicketDashboard";
 import {
   Plus, Headphones, Ticket as TicketIcon, AlertTriangle, Clock, CheckCircle2,
-  Edit3, Trash2, Loader2, X,
+  Edit3, Trash2, Loader2, X, ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -326,6 +326,27 @@ export default function TicketsView() {
   );
 }
 
+type SortKey = "numero" | "cliente_nome" | "categoria" | "prioridade" | "responsavel" | "status" | "sla";
+type SortDir = "asc" | "desc";
+
+const PRIORIDADE_ORDER: Record<string, number> = { critica: 0, alta: 1, media: 2, baixa: 3 };
+const STATUS_ORDER: Record<string, number> = { aberto: 0, em_atendimento: 1, aguardando_cliente: 2, escalado: 3, resolvido: 4, encerrado: 5 };
+
+function SortableHead({ label, sortKey, currentKey, currentDir, onSort, className }: {
+  label: string; sortKey: SortKey; currentKey: SortKey | null; currentDir: SortDir;
+  onSort: (k: SortKey) => void; className?: string;
+}) {
+  const active = currentKey === sortKey;
+  return (
+    <TableHead className={cn("cursor-pointer select-none hover:text-foreground transition-colors", className)} onClick={() => onSort(sortKey)}>
+      <div className="flex items-center gap-1">
+        {label}
+        {active ? (currentDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />) : <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />}
+      </div>
+    </TableHead>
+  );
+}
+
 /* ─── Ticket Table ─── */
 function TicketTable({
   tickets, isLoading, getSlaText, onSelect, currentUserId, users,
@@ -344,6 +365,43 @@ function TicketTable({
   onDelete: (id: string) => void;
 }) {
   const quickTransfer = useQuickTransferTicket();
+  const updateStatus = useUpdateTicketStatus();
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const handleSort = useCallback((key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }, [sortKey]);
+
+  const sorted = useMemo(() => {
+    if (!sortKey) return tickets;
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...tickets].sort((a, b) => {
+      switch (sortKey) {
+        case "numero": return (a.numero - b.numero) * dir;
+        case "cliente_nome": return a.cliente_nome.localeCompare(b.cliente_nome) * dir;
+        case "categoria": return a.categoria.localeCompare(b.categoria) * dir;
+        case "prioridade": return ((PRIORIDADE_ORDER[a.prioridade] ?? 9) - (PRIORIDADE_ORDER[b.prioridade] ?? 9)) * dir;
+        case "responsavel": {
+          const nameA = users.find((u) => u.id === a.responsavel_id)?.full_name || "";
+          const nameB = users.find((u) => u.id === b.responsavel_id)?.full_name || "";
+          return nameA.localeCompare(nameB) * dir;
+        }
+        case "status": return ((STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)) * dir;
+        case "sla": {
+          const slaA = a.sla_limite ? new Date(a.sla_limite).getTime() : Infinity;
+          const slaB = b.sla_limite ? new Date(b.sla_limite).getTime() : Infinity;
+          return (slaA - slaB) * dir;
+        }
+        default: return 0;
+      }
+    });
+  }, [tickets, sortKey, sortDir, users]);
 
   if (isLoading) {
     return (
@@ -382,6 +440,20 @@ function TicketTable({
     }
   };
 
+  const handleQuickResolve = async (e: React.MouseEvent, ticket: Ticket) => {
+    e.stopPropagation();
+    try {
+      await updateStatus.mutateAsync({
+        ticketId: ticket.id,
+        status: "resolvido",
+        previousStatus: ticket.status,
+      });
+      toast.success(`Ticket #${ticket.numero} marcado como resolvido`);
+    } catch {
+      toast.error("Erro ao resolver ticket");
+    }
+  };
+
   const allSelected = selectedIds.size === tickets.length && tickets.length > 0;
 
   return (
@@ -396,22 +468,23 @@ function TicketTable({
                 aria-label="Selecionar todos"
               />
             </TableHead>
-            <TableHead className="w-[60px]">#</TableHead>
-            <TableHead>Cliente</TableHead>
-            <TableHead className="hidden md:table-cell">Categoria</TableHead>
-            <TableHead>Prioridade</TableHead>
-            <TableHead className="min-w-[160px]">Responsável</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead className="hidden md:table-cell">SLA</TableHead>
+            <SortableHead label="#" sortKey="numero" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} className="w-[60px]" />
+            <SortableHead label="Cliente" sortKey="cliente_nome" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
+            <SortableHead label="Categoria" sortKey="categoria" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
+            <SortableHead label="Prioridade" sortKey="prioridade" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
+            <SortableHead label="Responsável" sortKey="responsavel" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} className="min-w-[160px]" />
+            <SortableHead label="Status" sortKey="status" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} />
+            <SortableHead label="SLA" sortKey="sla" currentKey={sortKey} currentDir={sortDir} onSort={handleSort} className="hidden md:table-cell" />
             {isAdmin && <TableHead className="w-[40px]" />}
           </TableRow>
         </TableHeader>
         <TableBody>
-          {tickets.map((t) => {
+          {sorted.map((t) => {
             const slaText = getSlaText(t);
             const slaExpired = slaText === "Atrasado";
             const isMine = t.responsavel_id === currentUserId;
             const isSelected = selectedIds.has(t.id);
+            const canResolve = !["resolvido", "encerrado"].includes(t.status);
             return (
               <TableRow
                 key={t.id}
@@ -483,8 +556,21 @@ function TicketTable({
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={cn("text-xs", STATUS_COLORS[t.status])}>{STATUS_LABELS[t.status]}</Badge>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="outline" className={cn("text-xs", STATUS_COLORS[t.status])}>{STATUS_LABELS[t.status]}</Badge>
+                    {canResolve && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-500/10 shrink-0"
+                        title="Marcar como resolvido"
+                        onClick={(e) => handleQuickResolve(e, t)}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className={cn("hidden md:table-cell text-sm", slaExpired && "text-destructive font-semibold")}>{slaText}</TableCell>
                 {isAdmin && (
