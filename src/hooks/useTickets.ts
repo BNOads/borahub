@@ -54,6 +54,7 @@ export interface CreateTicketInput {
   cliente_nome: string;
   cliente_email: string;
   cliente_whatsapp: string;
+  cliente_instagram?: string;
   origem: string;
   categoria: string;
   descricao: string;

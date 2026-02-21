@@ -7,17 +7,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useCreateTicket } from "@/hooks/useTickets";
-import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, User, Mail, Phone, MessageSquare } from "lucide-react";
+import { Loader2, User, Mail, Phone, MessageSquare, Instagram, Plus, X } from "lucide-react";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }
 
-const ORIGENS = [
+const DEFAULT_ORIGENS = [
   { value: "WhatsApp", icon: "💬" },
   { value: "Email", icon: "📧" },
   { value: "Telefone", icon: "📞" },
@@ -42,18 +43,40 @@ const PRIORIDADES = [
 ];
 
 export function CreateTicketModal({ open, onOpenChange }: Props) {
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const [form, setForm] = useState({
     cliente_nome: "",
     cliente_email: "",
     cliente_whatsapp: "",
+    cliente_instagram: "",
     origem: "",
     categoria: "",
     descricao: "",
     prioridade: "",
     responsavel_id: "",
   });
+  const [addingOrigem, setAddingOrigem] = useState(false);
+  const [newOrigem, setNewOrigem] = useState("");
 
   const createTicket = useCreateTicket();
+
+  // Fetch custom origins from DB
+  const { data: customOrigens = [] } = useQuery({
+    queryKey: ["ticket-origens"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("ticket_origens")
+        .select("*")
+        .order("created_at");
+      return data || [];
+    },
+    enabled: open,
+  });
+
+  const origens = customOrigens.length > 0
+    ? customOrigens.map((o: any) => ({ value: o.value, icon: o.icon }))
+    : DEFAULT_ORIGENS;
 
   const { data: users } = useQuery({
     queryKey: ["profiles-active"],
@@ -68,18 +91,35 @@ export function CreateTicketModal({ open, onOpenChange }: Props) {
     enabled: open,
   });
 
+  const handleAddOrigem = async () => {
+    if (!newOrigem.trim()) return;
+    const { error } = await supabase
+      .from("ticket_origens")
+      .insert({ value: newOrigem.trim(), icon: "📋" });
+    if (error) {
+      toast.error("Erro ao adicionar origem");
+      return;
+    }
+    queryClient.invalidateQueries({ queryKey: ["ticket-origens"] });
+    setNewOrigem("");
+    setAddingOrigem(false);
+    toast.success("Origem adicionada!");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.cliente_nome || !form.cliente_email || !form.cliente_whatsapp || !form.origem || !form.categoria || !form.descricao || !form.prioridade || !form.responsavel_id) {
+    if (!form.cliente_nome || !form.cliente_email || !form.cliente_whatsapp || !form.origem || !form.categoria || !form.prioridade || !form.responsavel_id) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
     }
 
     try {
-      await createTicket.mutateAsync(form);
+      const payload: any = { ...form };
+      if (!payload.cliente_instagram) delete payload.cliente_instagram;
+      await createTicket.mutateAsync(payload);
       toast.success("Ticket criado com sucesso!");
       onOpenChange(false);
-      setForm({ cliente_nome: "", cliente_email: "", cliente_whatsapp: "", origem: "", categoria: "", descricao: "", prioridade: "", responsavel_id: "" });
+      setForm({ cliente_nome: "", cliente_email: "", cliente_whatsapp: "", cliente_instagram: "", origem: "", categoria: "", descricao: "", prioridade: "", responsavel_id: "" });
     } catch {
       toast.error("Erro ao criar ticket");
     }
@@ -118,11 +158,17 @@ export function CreateTicketModal({ open, onOpenChange }: Props) {
                 </Label>
                 <Input type="email" placeholder="email@exemplo.com" value={form.cliente_email} onChange={(e) => update("cliente_email", e.target.value)} />
               </div>
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-sm">
                   <Phone className="h-3.5 w-3.5" /> WhatsApp *
                 </Label>
                 <Input placeholder="(11) 99999-9999" value={form.cliente_whatsapp} onChange={(e) => update("cliente_whatsapp", e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1.5 text-sm">
+                  <Instagram className="h-3.5 w-3.5" /> Instagram
+                </Label>
+                <Input placeholder="@usuario" value={form.cliente_instagram} onChange={(e) => update("cliente_instagram", e.target.value)} />
               </div>
             </div>
           </div>
@@ -136,13 +182,35 @@ export function CreateTicketModal({ open, onOpenChange }: Props) {
                 <Select value={form.origem} onValueChange={(v) => update("origem", v)}>
                   <SelectTrigger><SelectValue placeholder="De onde veio?" /></SelectTrigger>
                   <SelectContent>
-                    {ORIGENS.map((o) => (
+                    {origens.map((o: any) => (
                       <SelectItem key={o.value} value={o.value}>
                         <span className="flex items-center gap-2">{o.icon} {o.value}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {isAdmin && !addingOrigem && (
+                  <Button type="button" variant="ghost" size="sm" className="text-xs h-7 gap-1 text-muted-foreground" onClick={() => setAddingOrigem(true)}>
+                    <Plus className="h-3 w-3" /> Nova origem
+                  </Button>
+                )}
+                {addingOrigem && (
+                  <div className="flex gap-1.5 mt-1">
+                    <Input
+                      placeholder="Nome da origem"
+                      value={newOrigem}
+                      onChange={(e) => setNewOrigem(e.target.value)}
+                      className="h-8 text-sm"
+                      autoFocus
+                    />
+                    <Button type="button" size="sm" className="h-8 px-2" onClick={handleAddOrigem}>
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" className="h-8 px-2" onClick={() => { setAddingOrigem(false); setNewOrigem(""); }}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label className="text-sm">Categoria *</Label>
@@ -203,7 +271,7 @@ export function CreateTicketModal({ open, onOpenChange }: Props) {
 
           {/* Description */}
           <div className="space-y-1.5">
-            <Label className="text-sm">Descrição do problema *</Label>
+            <Label className="text-sm">Descrição do problema</Label>
             <Textarea
               value={form.descricao}
               onChange={(e) => update("descricao", e.target.value)}
