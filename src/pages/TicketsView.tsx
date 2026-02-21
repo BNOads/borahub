@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
-import { useTickets, type Ticket } from "@/hooks/useTickets";
+import { useTickets, useQuickTransferTicket, useBulkUpdateTickets, useDeleteTicket, type Ticket } from "@/hooks/useTickets";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,14 +10,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CreateTicketModal } from "@/components/tickets/CreateTicketModal";
 import { TicketDetailSheet } from "@/components/tickets/TicketDetailSheet";
 import { TicketFilters } from "@/components/tickets/TicketFilters";
 import { TicketDashboard } from "@/components/tickets/TicketDashboard";
-import { Plus, Headphones, Ticket as TicketIcon, AlertTriangle, Clock, CheckCircle2 } from "lucide-react";
+import {
+  Plus, Headphones, Ticket as TicketIcon, AlertTriangle, Clock, CheckCircle2,
+  Edit3, Trash2, Loader2, X,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const STATUS_LABELS: Record<string, string> = {
   aberto: "Aberto",
@@ -54,6 +69,25 @@ export default function TicketsView() {
   const [prioridadeFilter, setPrioridadeFilter] = useState("all");
   const [categoriaFilter, setCategoriaFilter] = useState("all");
 
+  // Selection state for bulk ops
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+
+  // Users for reassignment
+  const { data: users = [] } = useQuery({
+    queryKey: ["profiles-for-ticket-reassign"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, full_name, display_name, avatar_url")
+        .eq("is_active", true)
+        .order("full_name");
+      return data || [];
+    },
+  });
+
   const categorias = useMemo(() => {
     if (!tickets) return [];
     return [...new Set(tickets.map((t) => t.categoria))].sort();
@@ -83,7 +117,6 @@ export default function TicketsView() {
     return result;
   }, [tickets, onlyMine, search, statusFilter, prioridadeFilter, categoriaFilter, user?.id]);
 
-  // Summary stats
   const stats = useMemo(() => {
     if (!tickets) return { total: 0, abertos: 0, atrasados: 0, resolvidos: 0 };
     const now = new Date();
@@ -104,6 +137,26 @@ export default function TicketsView() {
     if (slaDate < new Date()) return "Atrasado";
     return formatDistanceToNow(slaDate, { locale: ptBR, addSuffix: false });
   };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map((t) => t.id)));
+    }
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const selectionMode = selectedIds.size > 0;
 
   return (
     <div className="space-y-6">
@@ -177,18 +230,39 @@ export default function TicketsView() {
             </Card>
           </div>
 
-          {/* Filter row with "only mine" toggle */}
+          {/* Toolbar */}
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <Switch id="only-mine" checked={onlyMine} onCheckedChange={setOnlyMine} />
                 <Label htmlFor="only-mine" className="text-sm cursor-pointer">
                   Somente meus tickets
                 </Label>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {filtered.length} ticket{filtered.length !== 1 ? "s" : ""}
-              </p>
+
+              <div className="flex items-center gap-2">
+                {selectionMode && (
+                  <>
+                    <Badge variant="outline" className="gap-1">
+                      {selectedIds.size} selecionado{selectedIds.size > 1 ? "s" : ""}
+                    </Badge>
+                    <Button size="sm" variant="outline" onClick={() => setBulkEditOpen(true)} className="gap-1">
+                      <Edit3 className="h-3.5 w-3.5" /> Editar
+                    </Button>
+                    {isAdmin && (
+                      <Button size="sm" variant="destructive" onClick={() => setBulkDeleteOpen(true)} className="gap-1">
+                        <Trash2 className="h-3.5 w-3.5" /> Excluir
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={clearSelection}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  {filtered.length} ticket{filtered.length !== 1 ? "s" : ""}
+                </p>
+              </div>
             </div>
             <TicketFilters
               search={search} onSearchChange={setSearch}
@@ -200,7 +274,19 @@ export default function TicketsView() {
           </div>
 
           {/* Table */}
-          <TicketTable tickets={filtered} isLoading={isLoading} getSlaText={getSlaText} onSelect={setSelectedId} currentUserId={user?.id} />
+          <TicketTable
+            tickets={filtered}
+            isLoading={isLoading}
+            getSlaText={getSlaText}
+            onSelect={setSelectedId}
+            currentUserId={user?.id}
+            users={users}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+            onToggleSelectAll={toggleSelectAll}
+            isAdmin={isAdmin}
+            onDelete={setDeleteConfirmId}
+          />
         </TabsContent>
 
         {isAdmin && (
@@ -212,17 +298,53 @@ export default function TicketsView() {
 
       <CreateTicketModal open={createOpen} onOpenChange={setCreateOpen} />
       <TicketDetailSheet ticketId={selectedId} onClose={() => setSelectedId(null)} />
+
+      {/* Bulk Edit Modal */}
+      <BulkEditTicketsModal
+        open={bulkEditOpen}
+        onOpenChange={setBulkEditOpen}
+        selectedIds={selectedIds}
+        tickets={tickets || []}
+        users={users}
+        onSuccess={clearSelection}
+      />
+
+      {/* Single Delete Confirm */}
+      <DeleteTicketDialog
+        ticketId={deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+      />
+
+      {/* Bulk Delete Confirm */}
+      <BulkDeleteDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        selectedIds={selectedIds}
+        onSuccess={clearSelection}
+      />
     </div>
   );
 }
 
-function TicketTable({ tickets, isLoading, getSlaText, onSelect, currentUserId }: {
+/* ─── Ticket Table ─── */
+function TicketTable({
+  tickets, isLoading, getSlaText, onSelect, currentUserId, users,
+  selectedIds, onToggleSelect, onToggleSelectAll, isAdmin, onDelete,
+}: {
   tickets: Ticket[];
   isLoading: boolean;
   getSlaText: (t: Ticket) => string;
   onSelect: (id: string) => void;
   currentUserId?: string;
+  users: { id: string; full_name: string; display_name: string | null; avatar_url: string | null }[];
+  selectedIds: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onToggleSelectAll: () => void;
+  isAdmin: boolean;
+  onDelete: (id: string) => void;
 }) {
+  const quickTransfer = useQuickTransferTicket();
+
   if (isLoading) {
     return (
       <div className="space-y-3">
@@ -243,18 +365,45 @@ function TicketTable({ tickets, isLoading, getSlaText, onSelect, currentUserId }
     );
   }
 
+  const handleTransfer = async (e: React.MouseEvent, ticket: Ticket, newResponsavelId: string) => {
+    e.stopPropagation();
+    const u = users.find((u) => u.id === newResponsavelId);
+    if (!u) return;
+    try {
+      await quickTransfer.mutateAsync({
+        ticketId: ticket.id,
+        novoResponsavelId: newResponsavelId,
+        novoResponsavelNome: u.full_name,
+        linkedTaskId: ticket.linked_task_id,
+      });
+      toast.success(`Ticket #${ticket.numero} transferido para ${u.display_name || u.full_name}`);
+    } catch {
+      toast.error("Erro ao transferir ticket");
+    }
+  };
+
+  const allSelected = selectedIds.size === tickets.length && tickets.length > 0;
+
   return (
     <div className="border rounded-lg overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[70px]">#</TableHead>
+            <TableHead className="w-[40px]">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={onToggleSelectAll}
+                aria-label="Selecionar todos"
+              />
+            </TableHead>
+            <TableHead className="w-[60px]">#</TableHead>
             <TableHead>Cliente</TableHead>
             <TableHead className="hidden md:table-cell">Categoria</TableHead>
             <TableHead>Prioridade</TableHead>
-            <TableHead className="hidden lg:table-cell">Responsável</TableHead>
+            <TableHead className="min-w-[160px]">Responsável</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="hidden md:table-cell">SLA</TableHead>
+            {isAdmin && <TableHead className="w-[40px]" />}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -262,16 +411,24 @@ function TicketTable({ tickets, isLoading, getSlaText, onSelect, currentUserId }
             const slaText = getSlaText(t);
             const slaExpired = slaText === "Atrasado";
             const isMine = t.responsavel_id === currentUserId;
+            const isSelected = selectedIds.has(t.id);
             return (
               <TableRow
                 key={t.id}
                 className={cn(
                   "cursor-pointer hover:bg-muted/50 transition-colors",
-                  isMine && "bg-primary/[0.03]",
-                  slaExpired && "bg-destructive/[0.03]"
+                  isSelected && "bg-primary/[0.06]",
+                  isMine && !isSelected && "bg-primary/[0.03]",
+                  slaExpired && !isSelected && "bg-destructive/[0.03]"
                 )}
                 onClick={() => onSelect(t.id)}
               >
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={isSelected}
+                    onCheckedChange={() => onToggleSelect(t.id)}
+                  />
+                </TableCell>
                 <TableCell className="font-mono text-sm font-medium">{t.numero}</TableCell>
                 <TableCell>
                   <div>
@@ -283,21 +440,310 @@ function TicketTable({ tickets, isLoading, getSlaText, onSelect, currentUserId }
                 <TableCell>
                   <Badge variant="outline" className={cn("text-xs capitalize", PRIORIDADE_COLORS[t.prioridade])}>{t.prioridade}</Badge>
                 </TableCell>
-                <TableCell className="hidden lg:table-cell">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm">{t.responsavel?.display_name || t.responsavel?.full_name || "-"}</span>
-                    {isMine && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Eu</Badge>}
-                  </div>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <Select
+                    value={t.responsavel_id}
+                    onValueChange={(val) => handleTransfer({ stopPropagation: () => {} } as React.MouseEvent, t, val)}
+                  >
+                    <SelectTrigger className="h-8 text-xs border-dashed w-full">
+                      <SelectValue>
+                        <div className="flex items-center gap-1.5">
+                          {(() => {
+                            const u = users.find((u) => u.id === t.responsavel_id);
+                            return u ? (
+                              <>
+                                <img
+                                  src={u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}&size=20&background=random`}
+                                  alt=""
+                                  className="h-4 w-4 rounded-full object-cover shrink-0"
+                                />
+                                <span className="truncate">{u.display_name || u.full_name}</span>
+                                {isMine && <Badge variant="secondary" className="text-[10px] px-1 py-0 ml-0.5">Eu</Badge>}
+                              </>
+                            ) : (
+                              <span>{t.responsavel?.display_name || t.responsavel?.full_name || "-"}</span>
+                            );
+                          })()}
+                        </div>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          <div className="flex items-center gap-2">
+                            <img
+                              src={u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}&size=20&background=random`}
+                              alt=""
+                              className="h-5 w-5 rounded-full object-cover shrink-0"
+                            />
+                            {u.display_name || u.full_name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className={cn("text-xs", STATUS_COLORS[t.status])}>{STATUS_LABELS[t.status]}</Badge>
                 </TableCell>
                 <TableCell className={cn("hidden md:table-cell text-sm", slaExpired && "text-destructive font-semibold")}>{slaText}</TableCell>
+                {isAdmin && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                      onClick={() => onDelete(t.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             );
           })}
         </TableBody>
       </Table>
     </div>
+  );
+}
+
+/* ─── Bulk Edit Modal ─── */
+function BulkEditTicketsModal({
+  open, onOpenChange, selectedIds, tickets, users, onSuccess,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  selectedIds: Set<string>;
+  tickets: Ticket[];
+  users: { id: string; full_name: string; display_name: string | null; avatar_url: string | null }[];
+  onSuccess: () => void;
+}) {
+  const bulkUpdate = useBulkUpdateTickets();
+  const [editField, setEditField] = useState<"responsavel" | "status" | "prioridade" | "">("");
+  const [value, setValue] = useState("");
+
+  const handleSubmit = async () => {
+    if (!editField || !value) {
+      toast.error("Selecione um campo e um valor");
+      return;
+    }
+
+    const ids = Array.from(selectedIds);
+    const updates: Record<string, unknown> = {};
+    let novoResponsavelNome: string | undefined;
+
+    if (editField === "responsavel") {
+      updates.responsavel_id = value;
+      novoResponsavelNome = users.find((u) => u.id === value)?.full_name;
+    } else if (editField === "status") {
+      updates.status = value;
+    } else if (editField === "prioridade") {
+      updates.prioridade = value;
+    }
+
+    try {
+      await bulkUpdate.mutateAsync({ ticketIds: ids, updates, novoResponsavelNome });
+      toast.success(`${ids.length} ticket${ids.length > 1 ? "s" : ""} atualizado${ids.length > 1 ? "s" : ""}`);
+      onOpenChange(false);
+      setEditField("");
+      setValue("");
+      onSuccess();
+    } catch {
+      toast.error("Erro ao atualizar tickets");
+    }
+  };
+
+  const handleClose = () => {
+    onOpenChange(false);
+    setEditField("");
+    setValue("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-[420px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Edit3 className="h-5 w-5" />
+            Editar {selectedIds.size} ticket{selectedIds.size > 1 ? "s" : ""}
+          </DialogTitle>
+          <DialogDescription>
+            Selecione o campo e o novo valor para aplicar a todos os tickets selecionados.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Campo a alterar</Label>
+            <Select value={editField} onValueChange={(v) => { setEditField(v as typeof editField); setValue(""); }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o campo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="responsavel">Responsável</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="prioridade">Prioridade</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {editField === "responsavel" && (
+            <div className="space-y-2">
+              <Label>Novo responsável</Label>
+              <Select value={value} onValueChange={setValue}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}&size=20&background=random`}
+                          alt=""
+                          className="h-5 w-5 rounded-full object-cover shrink-0"
+                        />
+                        {u.display_name || u.full_name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {editField === "status" && (
+            <div className="space-y-2">
+              <Label>Novo status</Label>
+              <Select value={value} onValueChange={setValue}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {editField === "prioridade" && (
+            <div className="space-y-2">
+              <Label>Nova prioridade</Label>
+              <Select value={value} onValueChange={setValue}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="critica">Crítica</SelectItem>
+                  <SelectItem value="alta">Alta</SelectItem>
+                  <SelectItem value="media">Média</SelectItem>
+                  <SelectItem value="baixa">Baixa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose}>Cancelar</Button>
+          <Button onClick={handleSubmit} disabled={!editField || !value || bulkUpdate.isPending}>
+            {bulkUpdate.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Salvando...</> : "Aplicar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ─── Delete Ticket Dialog ─── */
+function DeleteTicketDialog({ ticketId, onClose }: { ticketId: string | null; onClose: () => void }) {
+  const deleteTicket = useDeleteTicket();
+
+  const handleDelete = async () => {
+    if (!ticketId) return;
+    try {
+      await deleteTicket.mutateAsync(ticketId);
+      toast.success("Ticket excluído");
+      onClose();
+    } catch {
+      toast.error("Erro ao excluir ticket");
+    }
+  };
+
+  return (
+    <AlertDialog open={!!ticketId} onOpenChange={() => onClose()}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir ticket?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta ação é irreversível. O ticket e todo o seu histórico serão removidos permanentemente.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDelete}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {deleteTicket.isPending ? "Excluindo..." : "Excluir"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/* ─── Bulk Delete Dialog ─── */
+function BulkDeleteDialog({
+  open, onOpenChange, selectedIds, onSuccess,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  selectedIds: Set<string>;
+  onSuccess: () => void;
+}) {
+  const deleteTicket = useDeleteTicket();
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      for (const id of selectedIds) {
+        await deleteTicket.mutateAsync(id);
+      }
+      toast.success(`${selectedIds.size} ticket${selectedIds.size > 1 ? "s" : ""} excluído${selectedIds.size > 1 ? "s" : ""}`);
+      onOpenChange(false);
+      onSuccess();
+    } catch {
+      toast.error("Erro ao excluir tickets");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir {selectedIds.size} ticket{selectedIds.size > 1 ? "s" : ""}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta ação é irreversível. Todos os tickets selecionados e seus históricos serão removidos.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDelete}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            disabled={deleting}
+          >
+            {deleting ? "Excluindo..." : "Excluir todos"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

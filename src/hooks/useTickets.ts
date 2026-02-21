@@ -488,3 +488,129 @@ export function useUploadTicketAnexo() {
     },
   });
 }
+
+export function useQuickTransferTicket() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      ticketId,
+      novoResponsavelId,
+      novoResponsavelNome,
+      linkedTaskId,
+    }: {
+      ticketId: string;
+      novoResponsavelId: string;
+      novoResponsavelNome: string;
+      linkedTaskId: string | null;
+    }) => {
+      await supabase
+        .from("tickets")
+        .update({ responsavel_id: novoResponsavelId })
+        .eq("id", ticketId);
+
+      if (linkedTaskId) {
+        await supabase
+          .from("tasks")
+          .update({
+            assigned_to_id: novoResponsavelId,
+            assignee: novoResponsavelNome,
+          })
+          .eq("id", linkedTaskId);
+      }
+
+      await supabase.from("ticket_logs").insert({
+        ticket_id: ticketId,
+        usuario_id: user!.id,
+        usuario_nome: profile?.display_name || profile?.full_name || "",
+        acao: "responsavel_transferido",
+        descricao: `Transferido para ${novoResponsavelNome} (reatribuição rápida)`,
+        campo_alterado: "responsavel_id",
+        valor_novo: novoResponsavelNome,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ticketKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
+export function useBulkUpdateTickets() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      ticketIds,
+      updates,
+      novoResponsavelNome,
+    }: {
+      ticketIds: string[];
+      updates: Record<string, unknown>;
+      novoResponsavelNome?: string;
+    }) => {
+      for (const ticketId of ticketIds) {
+        const { error } = await supabase
+          .from("tickets")
+          .update(updates)
+          .eq("id", ticketId);
+        if (error) throw error;
+
+        // If changing responsável, also update linked task
+        if (updates.responsavel_id && novoResponsavelNome) {
+          const { data: ticket } = await supabase
+            .from("tickets")
+            .select("linked_task_id")
+            .eq("id", ticketId)
+            .single();
+
+          if (ticket?.linked_task_id) {
+            await supabase
+              .from("tasks")
+              .update({
+                assigned_to_id: updates.responsavel_id as string,
+                assignee: novoResponsavelNome,
+              })
+              .eq("id", ticket.linked_task_id);
+          }
+        }
+
+        const changes: string[] = [];
+        if (updates.status) changes.push(`Status → ${updates.status}`);
+        if (updates.responsavel_id) changes.push(`Responsável → ${novoResponsavelNome}`);
+        if (updates.prioridade) changes.push(`Prioridade → ${updates.prioridade}`);
+
+        await supabase.from("ticket_logs").insert({
+          ticket_id: ticketId,
+          usuario_id: user!.id,
+          usuario_nome: profile?.display_name || profile?.full_name || "",
+          acao: "edicao_em_massa",
+          descricao: `Edição em massa: ${changes.join(", ")}`,
+        });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ticketKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
+export function useDeleteTicket() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ticketId: string) => {
+      const { error } = await supabase
+        .from("tickets")
+        .delete()
+        .eq("id", ticketId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ticketKeys.all });
+    },
+  });
+}
