@@ -53,7 +53,7 @@ export function CreateTicketModal({ open, onOpenChange }: Props) {
     origem: "",
     categoria: "",
     descricao: "",
-    prioridade: "",
+    prioridade: "media",
     responsavel_id: "",
   });
   const [addingOrigem, setAddingOrigem] = useState(false);
@@ -127,7 +127,7 @@ export function CreateTicketModal({ open, onOpenChange }: Props) {
       await createTicket.mutateAsync(payload);
       toast.success("Ticket criado com sucesso!");
       onOpenChange(false);
-      setForm({ cliente_nome: "", cliente_email: "", cliente_whatsapp: "", cliente_instagram: "", origem: "", categoria: "", descricao: "", prioridade: "", responsavel_id: "" });
+      setForm({ cliente_nome: "", cliente_email: "", cliente_whatsapp: "", cliente_instagram: "", origem: "", categoria: "", descricao: "", prioridade: "media", responsavel_id: "" });
     } catch {
       toast.error("Erro ao criar ticket");
     }
