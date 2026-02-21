@@ -605,14 +605,35 @@ export function useDeleteTicket() {
 
   return useMutation({
     mutationFn: async (ticketId: string) => {
+      // Get linked task id before deleting
+      const { data: ticket } = await supabase
+        .from("tickets")
+        .select("linked_task_id")
+        .eq("id", ticketId)
+        .single();
+
+      // Delete child records first
+      await supabase.from("ticket_anexos").delete().eq("ticket_id", ticketId);
+      await supabase.from("ticket_logs").delete().eq("ticket_id", ticketId);
+
+      // Delete ticket
       const { error } = await supabase
         .from("tickets")
         .delete()
         .eq("id", ticketId);
       if (error) throw error;
+
+      // Delete linked task
+      if (ticket?.linked_task_id) {
+        await supabase.from("subtasks").delete().eq("task_id", ticket.linked_task_id);
+        await supabase.from("task_comments").delete().eq("task_id", ticket.linked_task_id);
+        await supabase.from("task_history").delete().eq("task_id", ticket.linked_task_id);
+        await supabase.from("tasks").delete().eq("id", ticket.linked_task_id);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ticketKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 }
