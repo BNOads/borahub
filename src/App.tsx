@@ -49,6 +49,7 @@ import AgenteCopy from "./pages/AgenteCopy";
 import MentoriaView from "./pages/MentoriaView";
 import PublicFunnelReport from "./pages/PublicFunnelReport";
 import DirectRedirect from "./pages/DirectRedirect";
+import TicketsView from "./pages/TicketsView";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -124,6 +125,7 @@ const App = () => (
               <Route path="/transcricoes" element={<TranscricoesView />} />
               <Route path="/agente-copy" element={<AgenteCopy />} />
               <Route path="/mentoria" element={<MentoriaView />} />
+              <Route path="/tickets" element={<TicketsView />} />
               <Route path="/perfil" element={<Perfil />} />
               
               {/* Rotas admin */}

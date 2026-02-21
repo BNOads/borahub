@@ -39,6 +39,7 @@ export interface Task {
   parent_task_id?: string | null;
   is_recurring_instance?: boolean | null;
   doing_since?: string | null;
+  ticket_id?: string | null;
 }
 
 export interface Subtask {
