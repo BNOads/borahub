@@ -3557,10 +3557,32 @@ export type Database = {
           },
         ]
       }
+      ticket_origens: {
+        Row: {
+          created_at: string
+          icon: string
+          id: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          icon?: string
+          id?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          icon?: string
+          id?: string
+          value?: string
+        }
+        Relationships: []
+      }
       tickets: {
         Row: {
           categoria: string
           cliente_email: string
+          cliente_instagram: string | null
           cliente_nome: string
           cliente_whatsapp: string
           created_at: string
@@ -3583,6 +3605,7 @@ export type Database = {
         Insert: {
           categoria: string
           cliente_email: string
+          cliente_instagram?: string | null
           cliente_nome: string
           cliente_whatsapp: string
           created_at?: string
@@ -3605,6 +3628,7 @@ export type Database = {
         Update: {
           categoria?: string
           cliente_email?: string
+          cliente_instagram?: string | null
           cliente_nome?: string
           cliente_whatsapp?: string
           created_at?: string
