@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { RichDescriptionEditor } from "@/components/tasks/RichDescriptionEditor";
 import { Switch } from "@/components/ui/switch";
 import { ListPlus } from "lucide-react";
 import { MentoriaTarefa } from "@/hooks/useMentoria";
@@ -131,10 +132,9 @@ export function CreateTarefaModal({
 
               <div className="space-y-2">
                 <Label htmlFor="description">Descrição</Label>
-                <Textarea
-                  id="description"
+                <RichDescriptionEditor
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={setDescription}
                   placeholder="Detalhes adicionais sobre a tarefa..."
                   rows={3}
                 />
