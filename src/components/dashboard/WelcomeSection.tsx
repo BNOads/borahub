@@ -1,4 +1,4 @@
-import { Sparkles, MessageCircle, Calendar, FileText, Receipt, Newspaper, ArrowRight } from "lucide-react";
+import { Sparkles, MessageCircle, Calendar, FileText, Receipt, Newspaper, ArrowRight, Headset } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useTodaysTasks } from "@/hooks/useTasks";
@@ -89,6 +89,18 @@ export function WelcomeSection() {
     },
   });
 
+  const { data: openTicketsCount = 0 } = useQuery({
+    queryKey: ['open-tickets-count'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("tickets")
+        .select("id", { count: "exact", head: true })
+        .not("status", "in", '("resolvido","encerrado")');
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   const pendingTasks = tasks?.filter(task => !task.completed) ?? [];
   const pendingCount = pendingTasks.length;
   
@@ -121,6 +133,17 @@ export function WelcomeSection() {
                   <span className="truncate max-w-[300px] text-xs text-muted-foreground">{latestNews.resumo}</span>
                 )}
               </div>
+              <ArrowRight className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
+          )}
+
+          {openTicketsCount > 0 && !isGuest && (
+            <Link 
+              to="/suporte"
+              className="mt-1 flex items-center gap-2 text-sm text-destructive hover:underline group w-fit"
+            >
+              <Headset className="h-3.5 w-3.5 flex-shrink-0" />
+              <span className="font-medium">{openTicketsCount} ticket{openTicketsCount > 1 ? 's' : ''} em aberto</span>
               <ArrowRight className="h-3.5 w-3.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
           )}
