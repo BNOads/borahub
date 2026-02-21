@@ -76,7 +76,7 @@ export function TaskDetailDialog({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, display_name")
+        .select("id, full_name, display_name, avatar_url")
         .eq("is_active", true)
         .order("full_name");
 
@@ -378,7 +378,14 @@ export function TaskDetailDialog({
                             <SelectContent>
                               {users.map((user) => (
                                 <SelectItem key={user.id} value={user.full_name}>
-                                  {user.full_name}
+                                  <div className="flex items-center gap-2">
+                                    <img
+                                      src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&size=24&background=random`}
+                                      alt=""
+                                      className="h-5 w-5 rounded-full object-cover shrink-0"
+                                    />
+                                    {user.full_name}
+                                  </div>
                                 </SelectItem>
                               ))}
                             </SelectContent>
