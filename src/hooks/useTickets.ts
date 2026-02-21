@@ -451,7 +451,8 @@ export function useUploadTicketAnexo() {
 
   return useMutation({
     mutationFn: async ({ ticketId, file }: { ticketId: string; file: File }) => {
-      const filePath = `${ticketId}/${Date.now()}_${file.name}`;
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `${ticketId}/${Date.now()}_${safeName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("ticket-anexos")
