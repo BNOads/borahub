@@ -280,6 +280,7 @@ export default function Tarefas() {
     }
   };
 
+  const handleToggleDoing = async (id: string, isDoing: boolean) => {
     try {
       await toggleDoing.mutateAsync({ id, isDoing });
       toast({
