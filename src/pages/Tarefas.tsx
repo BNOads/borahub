@@ -51,6 +51,7 @@ import {
   ListPlus,
   Download,
   Loader2,
+  Copy,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -135,7 +136,10 @@ export default function Tarefas() {
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [tabView, setTabView] = useState<TabView>("tasks");
   const [initialTabSet, setInitialTabSet] = useState(false);
-
+  const [showDuplicate, setShowDuplicate] = useState(false);
+  const [dupTask, setDupTask] = useState<TaskWithSubtasks | null>(null);
+  const [dupAssignee, setDupAssignee] = useState("");
+  const [dupDate, setDupDate] = useState("");
   // Buscar perfil do usuário atual
   const { profile } = useAuth();
 
@@ -254,7 +258,28 @@ export default function Tarefas() {
     }
   };
 
-  const handleToggleDoing = async (id: string, isDoing: boolean) => {
+  const handleDuplicate = async () => {
+    if (!dupTask || !dupAssignee || !dupDate) {
+      toast({ title: "Preencha responsável e data", variant: "destructive" });
+      return;
+    }
+    try {
+      await createTask.mutateAsync({
+        title: dupTask.title,
+        description: dupTask.description || "",
+        priority: dupTask.priority,
+        category: dupTask.category || "",
+        assignee: dupAssignee,
+        due_date: dupDate,
+      });
+      toast({ title: "Tarefa duplicada com sucesso!" });
+      setShowDuplicate(false);
+      setDupTask(null);
+    } catch {
+      toast({ title: "Erro ao duplicar tarefa", variant: "destructive" });
+    }
+  };
+
     try {
       await toggleDoing.mutateAsync({ id, isDoing });
       toast({
@@ -1251,6 +1276,7 @@ export default function Tarefas() {
                             onDelete={handleDeleteTask}
                             onViewDetail={handleOpenDetail}
                             onToggleDoing={handleToggleDoing}
+                            onDuplicate={(t) => { setDupTask(t); setDupAssignee(t.assignee || ""); setDupDate(t.due_date || ""); setShowDuplicate(true); }}
                             getPriorityColor={getPriorityColor}
                             formatDate={formatDate}
                             isOverdue={isOverdue}
@@ -1276,6 +1302,7 @@ export default function Tarefas() {
                             onDelete={handleDeleteTask}
                             onViewDetail={handleOpenDetail}
                             onToggleDoing={handleToggleDoing}
+                            onDuplicate={(t) => { setDupTask(t); setDupAssignee(t.assignee || ""); setDupDate(t.due_date || ""); setShowDuplicate(true); }}
                             getPriorityColor={getPriorityColor}
                             formatDate={formatDate}
                             isOverdue={isOverdue}
@@ -1309,6 +1336,56 @@ export default function Tarefas() {
         open={isBulkModalOpen}
         onOpenChange={setIsBulkModalOpen}
       />
+
+      {/* Duplicate Task Modal */}
+      <Dialog open={showDuplicate} onOpenChange={setShowDuplicate}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Duplicar Tarefa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Responsável *</Label>
+              <Select value={dupAssignee} onValueChange={setDupAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.full_name}>
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&size=24&background=random`}
+                          alt=""
+                          className="h-5 w-5 rounded-full object-cover shrink-0"
+                        />
+                        {user.full_name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Data de entrega *</Label>
+              <Input
+                type="date"
+                value={dupDate}
+                onChange={(e) => setDupDate(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setShowDuplicate(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleDuplicate} disabled={createTask.isPending}>
+                <Copy className="h-4 w-4 mr-1" />
+                Duplicar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1320,6 +1397,7 @@ interface TaskItemProps {
   onDelete: (id: string) => void;
   onViewDetail: (id: string) => void;
   onToggleDoing?: (id: string, isDoing: boolean) => void;
+  onDuplicate?: (task: TaskWithSubtasks) => void;
   getPriorityColor: (priority: string) => string;
   formatDate: (date: string | null) => string;
   isOverdue: (date: string | null, completed: boolean) => boolean;
@@ -1332,6 +1410,7 @@ function TaskItem({
   onDelete,
   onViewDetail,
   onToggleDoing,
+  onDuplicate,
   getPriorityColor,
   formatDate,
   isOverdue,
@@ -1458,6 +1537,12 @@ function TaskItem({
                 <Edit className="h-4 w-4 mr-2" />
                 Editar
               </DropdownMenuItem>
+              {onDuplicate && (
+                <DropdownMenuItem onClick={() => onDuplicate(task)}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Duplicar
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => onDelete(task.id)}
                 className="text-destructive"
