@@ -185,7 +185,7 @@ export function TranscriptionUpload({ onTranscriptionCreated }: TranscriptionUpl
                 Formatos suportados: MP3, MP4, M4A, MOV, AAC, WAV, OGG, OPUS, WMA, MPEG, WMV
               </p>
               <p className="text-xs text-muted-foreground">
-                Tamanho máximo: 100MB • Processado localmente com Whisper AI
+                Tamanho máximo: 500MB • Processado localmente com Whisper AI
               </p>
             </div>
           ) : (
