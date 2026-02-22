@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
 import { RichDescriptionEditor } from "./RichDescriptionEditor";
 import { RichDescriptionView } from "./RichDescriptionView";
 import {
@@ -31,8 +32,9 @@ import {
   Save,
   X,
   CheckCircle2,
+  Copy,
 } from "lucide-react";
-import { useTask, useUpdateTask, useToggleTaskComplete } from "@/hooks/useTasks";
+import { useTask, useUpdateTask, useToggleTaskComplete, useCreateTask } from "@/hooks/useTasks";
 import { SubtaskList } from "./SubtaskList";
 import { CommentSection } from "./CommentSection";
 import { HistoryTimeline } from "./HistoryTimeline";
@@ -69,6 +71,7 @@ export function TaskDetailDialog({
   const { data: task, isLoading } = useTask(taskId);
   const updateTask = useUpdateTask();
   const toggleComplete = useToggleTaskComplete();
+  const createTask = useCreateTask();
 
   // Fetch real users from database
   const { data: users = [] } = useQuery({
@@ -87,6 +90,9 @@ export function TaskDetailDialog({
   });
 
   const [isEditing, setIsEditing] = useState(false);
+  const [showDuplicate, setShowDuplicate] = useState(false);
+  const [dupAssignee, setDupAssignee] = useState("");
+  const [dupDate, setDupDate] = useState("");
   const [formData, setFormData] = useState<EditFormData>({
     title: "",
     description: "",
@@ -176,6 +182,28 @@ export function TaskDetailDialog({
     }
   };
 
+  const handleDuplicate = async () => {
+    if (!task || !dupAssignee || !dupDate) {
+      toast({ title: "Preencha responsável e data", variant: "destructive" });
+      return;
+    }
+    try {
+      await createTask.mutateAsync({
+        title: task.title,
+        description: task.description || "",
+        priority: task.priority,
+        category: task.category || "",
+        assignee: dupAssignee,
+        due_date: dupDate,
+      });
+      toast({ title: "Tarefa duplicada com sucesso!" });
+      setShowDuplicate(false);
+      setDupAssignee("");
+      setDupDate("");
+    } catch {
+      toast({ title: "Erro ao duplicar tarefa", variant: "destructive" });
+    }
+  };
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case "alta":
@@ -197,6 +225,7 @@ export function TaskDetailDialog({
     isOverdueUtil(dateString, completed);
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-hidden flex flex-col">
         {isLoading ? (
@@ -303,6 +332,18 @@ export function TaskDetailDialog({
                       >
                         <Edit className="h-4 w-4 mr-1" />
                         Editar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setDupAssignee(task.assignee || "");
+                          setDupDate(task.due_date || "");
+                          setShowDuplicate(true);
+                        }}
+                      >
+                        <Copy className="h-4 w-4 mr-1" />
+                        Duplicar
                       </Button>
                     </div>
                   )}
@@ -514,5 +555,56 @@ export function TaskDetailDialog({
         )}
       </DialogContent>
     </Dialog>
+
+      {/* Duplicate Task Modal */}
+      <Dialog open={showDuplicate} onOpenChange={setShowDuplicate}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Duplicar Tarefa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Responsável *</Label>
+              <Select value={dupAssignee} onValueChange={setDupAssignee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.map((user) => (
+                    <SelectItem key={user.id} value={user.full_name}>
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.full_name)}&size=24&background=random`}
+                          alt=""
+                          className="h-5 w-5 rounded-full object-cover shrink-0"
+                        />
+                        {user.full_name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Data de entrega *</Label>
+              <Input
+                type="date"
+                value={dupDate}
+                onChange={(e) => setDupDate(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setShowDuplicate(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleDuplicate} disabled={createTask.isPending}>
+                <Copy className="h-4 w-4 mr-1" />
+                Duplicar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

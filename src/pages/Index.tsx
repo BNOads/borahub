@@ -6,7 +6,7 @@ import { TodaysTasks } from "@/components/dashboard/TodaysTasks";
 import { UpcomingEvents } from "@/components/dashboard/UpcomingEvents";
 import { PendingPDIs } from "@/components/dashboard/PendingPDIs";
 import { TeamPDIs } from "@/components/dashboard/TeamPDIs";
-import { TicketSupportCard } from "@/components/tickets/TicketSupportCard";
+
 import { useAuth } from "@/contexts/AuthContext";
 import {
   DndContext,
@@ -86,7 +86,7 @@ const Index = () => {
   const allCards: CardConfig[] = useMemo(() => [
     { id: "events", component: <UpcomingEvents />, span: "half" },
     { id: "tasks", component: <TodaysTasks />, span: "half" },
-    { id: "tickets", component: <TicketSupportCard />, span: "half" },
+    
     { id: "launches", component: <ActiveLaunches />, span: "full" },
     { id: "news", component: <BoraNewsWidget />, span: "half" },
     { id: "pdis", component: <PendingPDIs />, span: "half" },
