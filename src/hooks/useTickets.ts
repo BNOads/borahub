@@ -425,6 +425,48 @@ export function useCloseTicket() {
   });
 }
 
+export function useReopenTicket() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ ticketId, linkedTaskId }: { ticketId: string; linkedTaskId: string | null }) => {
+      const sla_limite = calcSlaLimite("media");
+
+      await supabase
+        .from("tickets")
+        .update({
+          status: "aberto",
+          encerrado_em: null,
+          tempo_resolucao: null,
+          solucao_descricao: null,
+          sla_limite,
+        })
+        .eq("id", ticketId);
+
+      // Reopen linked task
+      if (linkedTaskId) {
+        await supabase
+          .from("tasks")
+          .update({ completed: false, completed_at: null })
+          .eq("id", linkedTaskId);
+      }
+
+      await supabase.from("ticket_logs").insert({
+        ticket_id: ticketId,
+        usuario_id: user!.id,
+        usuario_nome: profile?.display_name || profile?.full_name || "",
+        acao: "reaberto",
+        descricao: `Ticket reaberto por ${profile?.display_name || profile?.full_name}`,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ticketKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+}
+
 export function useAddTicketComment() {
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();
