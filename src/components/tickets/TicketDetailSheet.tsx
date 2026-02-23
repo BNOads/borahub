@@ -4,14 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useTicket, useTicketAnexos, useUpdateTicketStatus, type Ticket } from "@/hooks/useTickets";
+import { useTicket, useTicketAnexos, useUpdateTicketStatus, useReopenTicket, type Ticket } from "@/hooks/useTickets";
 import { TicketLogTimeline } from "./TicketLogTimeline";
 import { TicketCommentForm } from "./TicketCommentForm";
 import { TicketTransferModal } from "./TicketTransferModal";
 import { TicketCloseModal } from "./TicketCloseModal";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRightLeft, CheckCircle2, Clock, ExternalLink, Image, Paperclip, X } from "lucide-react";
+import { ArrowRightLeft, CheckCircle2, Clock, ExternalLink, Image, Paperclip, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const isImageFile = (name: string) => /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
@@ -50,6 +50,7 @@ export function TicketDetailSheet({ ticketId, onClose }: Props) {
   const { data: ticket } = useTicket(ticketId);
   const { data: anexos } = useTicketAnexos(ticketId);
   const updateStatus = useUpdateTicketStatus();
+  const reopenTicket = useReopenTicket();
   const [transferOpen, setTransferOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -107,7 +108,7 @@ export function TicketDetailSheet({ ticketId, onClose }: Props) {
           </div>
 
           {/* Ações */}
-          {!isClosed && (
+          {!isClosed ? (
             <div className="flex flex-wrap gap-2">
               <Select value={ticket.status} onValueChange={handleStatusChange}>
                 <SelectTrigger className="w-[200px]">
@@ -124,6 +125,19 @@ export function TicketDetailSheet({ ticketId, onClose }: Props) {
               </Button>
               <Button size="sm" variant="default" onClick={() => setCloseOpen(true)}>
                 <CheckCircle2 className="h-4 w-4 mr-1" /> Encerrar
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  await reopenTicket.mutateAsync({ ticketId: ticket.id, linkedTaskId: ticket.linked_task_id });
+                }}
+                disabled={reopenTicket.isPending}
+              >
+                <RotateCcw className="h-4 w-4 mr-1" /> Reabrir Ticket
               </Button>
             </div>
           )}
