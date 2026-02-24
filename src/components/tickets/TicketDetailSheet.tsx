@@ -4,15 +4,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useTicket, useTicketAnexos, useUpdateTicketStatus, useReopenTicket, type Ticket } from "@/hooks/useTickets";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { useTicket, useTicketAnexos, useUpdateTicketStatus, useUpdateTicketSla, useReopenTicket, type Ticket } from "@/hooks/useTickets";
 import { TicketLogTimeline } from "./TicketLogTimeline";
 import { TicketCommentForm } from "./TicketCommentForm";
 import { TicketTransferModal } from "./TicketTransferModal";
 import { TicketCloseModal } from "./TicketCloseModal";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRightLeft, CheckCircle2, Clock, ExternalLink, Image, Paperclip, RotateCcw, X } from "lucide-react";
+import { ArrowRightLeft, CalendarIcon, CheckCircle2, Clock, ExternalLink, Image, Paperclip, RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const isImageFile = (name: string) => /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
 
@@ -50,10 +53,12 @@ export function TicketDetailSheet({ ticketId, onClose }: Props) {
   const { data: ticket } = useTicket(ticketId);
   const { data: anexos } = useTicketAnexos(ticketId);
   const updateStatus = useUpdateTicketStatus();
+  const updateSla = useUpdateTicketSla();
   const reopenTicket = useReopenTicket();
   const [transferOpen, setTransferOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [slaPopoverOpen, setSlaPopoverOpen] = useState(false);
 
   if (!ticket) return null;
 
@@ -98,6 +103,36 @@ export function TicketDetailSheet({ ticketId, onClose }: Props) {
             <div className="flex items-center gap-1">
               <Clock className={cn("h-3.5 w-3.5", slaExpired ? "text-destructive" : "text-muted-foreground")} />
               <span className={cn("text-sm", slaExpired && "text-destructive font-medium")}>{slaText}</span>
+              {!isClosed && (
+                <Popover open={slaPopoverOpen} onOpenChange={setSlaPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-1">
+                      <CalendarIcon className="h-3.5 w-3.5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={ticket.sla_limite ? new Date(ticket.sla_limite) : undefined}
+                      onSelect={async (date) => {
+                        if (date) {
+                          try {
+                            await updateSla.mutateAsync({
+                              ticketId: ticket.id,
+                              slaLimite: date.toISOString(),
+                            });
+                            toast.success("SLA atualizado");
+                            setSlaPopoverOpen(false);
+                          } catch {
+                            toast.error("Erro ao atualizar SLA");
+                          }
+                        }
+                      }}
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
           </div>
 
