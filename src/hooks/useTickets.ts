@@ -642,6 +642,35 @@ export function useBulkUpdateTickets() {
   });
 }
 
+export function useUpdateTicketSla() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ ticketId, slaLimite }: { ticketId: string; slaLimite: string }) => {
+      const { error } = await supabase
+        .from("tickets")
+        .update({ sla_limite: slaLimite })
+        .eq("id", ticketId);
+
+      if (error) throw error;
+
+      await supabase.from("ticket_logs").insert({
+        ticket_id: ticketId,
+        usuario_id: user!.id,
+        usuario_nome: profile?.display_name || profile?.full_name || "",
+        acao: "sla_alterado",
+        descricao: `SLA alterado para ${new Date(slaLimite).toLocaleString("pt-BR")}`,
+        campo_alterado: "sla_limite",
+        valor_novo: slaLimite,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ticketKeys.all });
+    },
+  });
+}
+
 export function useDeleteTicket() {
   const queryClient = useQueryClient();
 

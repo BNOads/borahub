@@ -557,20 +557,30 @@ function TicketTable({
                   </Select>
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center gap-1.5">
-                    <Badge variant="outline" className={cn("text-xs", STATUS_COLORS[t.status])}>{STATUS_LABELS[t.status]}</Badge>
-                    {canResolve && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-500/10 shrink-0"
-                        title="Marcar como resolvido"
-                        onClick={(e) => handleQuickResolve(e, t)}
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
+                  <Select
+                    value={t.status}
+                    onValueChange={async (val) => {
+                      try {
+                        await updateStatus.mutateAsync({
+                          ticketId: t.id,
+                          status: val,
+                          previousStatus: t.status,
+                        });
+                        toast.success(`Status do ticket #${t.numero} alterado para ${STATUS_LABELS[val]}`);
+                      } catch {
+                        toast.error("Erro ao alterar status");
+                      }
+                    }}
+                  >
+                    <SelectTrigger className={cn("h-8 text-xs border-dashed w-[150px]", STATUS_COLORS[t.status])}>
+                      <SelectValue>{STATUS_LABELS[t.status]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(STATUS_LABELS).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>{v}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </TableCell>
                 <TableCell className={cn("hidden md:table-cell text-sm", slaExpired && "text-destructive font-semibold")}>{slaText}</TableCell>
                 {isAdmin && (
