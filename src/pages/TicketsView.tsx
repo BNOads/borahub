@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { useTickets, useQuickTransferTicket, useBulkUpdateTickets, useDeleteTicket, useUpdateTicketStatus, type Ticket } from "@/hooks/useTickets";
+import { useTickets, useQuickTransferTicket, useBulkUpdateTickets, useDeleteTicket, useUpdateTicketStatus, useUpdateTicketSla, type Ticket } from "@/hooks/useTickets";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,7 +27,9 @@ import {
   Plus, Headphones, Ticket as TicketIcon, AlertTriangle, Clock, CheckCircle2,
   Edit3, Trash2, Loader2, X, ArrowUpDown, ArrowUp, ArrowDown,
 } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -366,6 +368,7 @@ function TicketTable({
 }) {
   const quickTransfer = useQuickTransferTicket();
   const updateStatus = useUpdateTicketStatus();
+  const updateSla = useUpdateTicketSla();
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
@@ -582,7 +585,45 @@ function TicketTable({
                     </SelectContent>
                   </Select>
                 </TableCell>
-                <TableCell className={cn("hidden md:table-cell text-sm", slaExpired && "text-destructive font-semibold")}>{slaText}</TableCell>
+                <TableCell className="hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
+                  {t.sla_limite && !["resolvido", "encerrado"].includes(t.status) ? (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className={cn(
+                            "h-7 px-2 text-xs font-normal",
+                            slaExpired && "text-destructive font-semibold"
+                          )}
+                        >
+                          <Clock className="h-3 w-3 mr-1" />
+                          {slaText}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={t.sla_limite ? new Date(t.sla_limite) : undefined}
+                          onSelect={async (date) => {
+                            if (!date) return;
+                            const oldSla = t.sla_limite ? new Date(t.sla_limite) : new Date();
+                            date.setHours(oldSla.getHours(), oldSla.getMinutes(), 0, 0);
+                            try {
+                              await updateSla.mutateAsync({ ticketId: t.id, slaLimite: date.toISOString() });
+                              toast.success(`SLA do ticket #${t.numero} alterado para ${format(date, "dd/MM/yyyy")}`);
+                            } catch {
+                              toast.error("Erro ao alterar SLA");
+                            }
+                          }}
+                          className="pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <span className={cn("text-sm", slaExpired && "text-destructive font-semibold")}>{slaText}</span>
+                  )}
+                </TableCell>
                 {isAdmin && (
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Button
