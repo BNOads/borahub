@@ -43,8 +43,19 @@ function skipWeekend(dateStr: string): string {
 }
 
 function getNextDueDate(currentDueDate: string, recurrenceType: string): string {
+  if (recurrenceType === "daily") {
+    // For daily recurrence, advance one weekday at a time, skipping Sat/Sun entirely
+    let nextDate = addDaysToDate(currentDueDate, 1);
+    while (true) {
+      const d = new Date(nextDate + "T00:00:00");
+      const dow = d.getDay();
+      if (dow !== 0 && dow !== 6) break; // weekday found
+      nextDate = addDaysToDate(nextDate, 1);
+    }
+    return nextDate;
+  }
+
   const daysToAdd: Record<string, number> = {
-    daily: 1,
     weekly: 7,
     biweekly: 14,
     monthly: 30,
@@ -52,7 +63,7 @@ function getNextDueDate(currentDueDate: string, recurrenceType: string): string 
     yearly: 365,
   };
   const nextDate = addDaysToDate(currentDueDate, daysToAdd[recurrenceType] || 1);
-  // Always skip weekends for all recurrence types
+  // For non-daily recurrence, move weekend dates to Monday
   return skipWeekend(nextDate);
 }
 
