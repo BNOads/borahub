@@ -31,7 +31,8 @@ import {
     Edit,
     Users,
     Building2,
-    ListTodo
+    ListTodo,
+    Target
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { NovoUsuarioModal } from '@/components/admin/NovoUsuarioModal';
@@ -39,6 +40,7 @@ import { EditarUsuarioModal } from '@/components/admin/EditarUsuarioModal';
 import { ResetSenhaDialog } from '@/components/admin/ResetSenhaDialog';
 import { UserTasksModal } from '@/components/admin/UserTasksModal';
 import { DepartamentosTab } from '@/components/admin/DepartamentosTab';
+import { MetasOKRsTab } from '@/components/admin/MetasOKRsTab';
 import { Profile } from '@/contexts/AuthContext';
 import { useDepartments } from '@/hooks/useDepartments';
 
@@ -245,7 +247,7 @@ export default function GestaoUsuarios() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                 <div>
-                    <h1 className="text-3xl font-bold">Gestão de Usuários</h1>
+                    <h1 className="text-3xl font-bold">Diretoria</h1>
                     <p className="text-muted-foreground mt-1">
                         {usuarios.length} usuários cadastrados
                     </p>
@@ -262,6 +264,10 @@ export default function GestaoUsuarios() {
                     <TabsTrigger value="departamentos" className="gap-2">
                         <Building2 className="w-4 h-4" />
                         Departamentos
+                    </TabsTrigger>
+                    <TabsTrigger value="metas-okrs" className="gap-2">
+                        <Target className="w-4 h-4" />
+                        Metas e OKRs
                     </TabsTrigger>
                 </TabsList>
 
@@ -428,6 +434,10 @@ export default function GestaoUsuarios() {
 
                 <TabsContent value="departamentos">
                     <DepartamentosTab />
+                </TabsContent>
+
+                <TabsContent value="metas-okrs">
+                    <MetasOKRsTab />
                 </TabsContent>
             </Tabs>
 

@@ -129,7 +129,7 @@ const App = () => (
               <Route path="/perfil" element={<Perfil />} />
               
               {/* Rotas admin */}
-              <Route path="/admin/usuarios" element={
+              <Route path="/admin/diretoria" element={
                 <ProtectedRoute requireAdmin>
                   <GestaoUsuarios />
                 </ProtectedRoute>

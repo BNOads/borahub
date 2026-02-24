@@ -288,9 +288,9 @@ export function Header({ isDark, toggleTheme }: HeaderProps) {
                 {isAdmin && (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate("/admin/usuarios")}>
+                    <DropdownMenuItem onClick={() => navigate("/admin/diretoria")}>
                       <Shield className="mr-2 h-4 w-4" />
-                      Gestao de Usuarios
+                      Diretoria
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setShowNotificationModal(true)}>
                       <Send className="mr-2 h-4 w-4" />

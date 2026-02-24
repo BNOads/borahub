@@ -1732,6 +1732,149 @@ export type Database = {
           },
         ]
       }
+      okr_cycles: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          end_date: string
+          id: string
+          name: string
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          end_date: string
+          id?: string
+          name: string
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          end_date?: string
+          id?: string
+          name?: string
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "okr_cycles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      okr_key_results: {
+        Row: {
+          created_at: string
+          current_value: number
+          id: string
+          objective_id: string
+          order_index: number
+          owner_id: string | null
+          target_value: number
+          title: string
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number
+          id?: string
+          objective_id: string
+          order_index?: number
+          owner_id?: string | null
+          target_value: number
+          title: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number
+          id?: string
+          objective_id?: string
+          order_index?: number
+          owner_id?: string | null
+          target_value?: number
+          title?: string
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "okr_key_results_objective_id_fkey"
+            columns: ["objective_id"]
+            isOneToOne: false
+            referencedRelation: "okr_objectives"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "okr_key_results_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      okr_objectives: {
+        Row: {
+          color: string
+          created_at: string
+          cycle_id: string
+          description: string | null
+          id: string
+          order_index: number
+          owner_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          cycle_id: string
+          description?: string | null
+          id?: string
+          order_index?: number
+          owner_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          cycle_id?: string
+          description?: string | null
+          id?: string
+          order_index?: number
+          owner_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "okr_objectives_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "okr_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "okr_objectives_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pdi_acessos: {
         Row: {
           categoria: string | null
