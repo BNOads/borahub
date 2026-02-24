@@ -78,7 +78,7 @@ export function EventModal({
     description: "",
     event_date: defaultDate || new Date().toISOString().split("T")[0],
     event_time: "09:00",
-    duration_minutes: 60,
+    end_time: "10:00",
     location: "",
     meeting_link: "",
     event_type: "reuniao",
@@ -104,14 +104,34 @@ export function EventModal({
     loadMembers();
   }, [open]);
 
+  // Helper to calculate end time from start + duration
+  const calcEndTime = (startTime: string, durationMin: number) => {
+    const [h, m] = startTime.split(":").map(Number);
+    const totalMin = h * 60 + m + durationMin;
+    const eh = Math.floor(totalMin / 60) % 24;
+    const em = totalMin % 60;
+    return `${String(eh).padStart(2, "0")}:${String(em).padStart(2, "0")}`;
+  };
+
+  // Helper to calculate duration in minutes from two time strings
+  const calcDuration = (start: string, end: string) => {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    let diff = (eh * 60 + em) - (sh * 60 + sm);
+    if (diff <= 0) diff += 24 * 60; // next day
+    return diff;
+  };
+
   useEffect(() => {
     if (event) {
+      const startTime = event.event_time.slice(0, 5);
+      const dur = event.duration_minutes || 60;
       setFormData({
         title: event.title,
         description: event.description || "",
         event_date: event.event_date,
-        event_time: event.event_time.slice(0, 5),
-        duration_minutes: event.duration_minutes || 60,
+        event_time: startTime,
+        end_time: calcEndTime(startTime, dur),
         location: event.location || "",
         meeting_link: event.meeting_link || "",
         event_type: event.event_type || "reuniao",
@@ -126,7 +146,7 @@ export function EventModal({
         description: "",
         event_date: defaultDate || new Date().toISOString().split("T")[0],
         event_time: "09:00",
-        duration_minutes: 60,
+        end_time: "10:00",
         location: "",
         meeting_link: "",
         event_type: "reuniao",
@@ -162,7 +182,7 @@ export function EventModal({
         description: formData.description.trim() || null,
         event_date: formData.event_date,
         event_time: formData.event_time + ":00",
-        duration_minutes: formData.duration_minutes || null,
+        duration_minutes: calcDuration(formData.event_time, formData.end_time) || null,
         location: formData.location.trim() || null,
         meeting_link: formData.meeting_link.trim() || null,
         event_type: formData.event_type,
@@ -296,23 +316,27 @@ export function EventModal({
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="duration" className="text-xs">Duracao (min)</Label>
+                <Label htmlFor="end_time" className="text-xs">Horário Final</Label>
                 <Input
-                  id="duration"
-                  type="number"
-                  placeholder="60"
-                  value={formData.duration_minutes}
+                  id="end_time"
+                  type="time"
+                  value={formData.end_time}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      duration_minutes: parseInt(e.target.value) || 60,
-                    })
+                    setFormData({ ...formData, end_time: e.target.value })
                   }
                   disabled={isLoading}
-                  min={5}
-                  max={480}
                   className="h-9"
                 />
+                {formData.event_time && formData.end_time && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Duração: {(() => {
+                      const dur = calcDuration(formData.event_time, formData.end_time);
+                      const h = Math.floor(dur / 60);
+                      const m = dur % 60;
+                      return h > 0 ? `${h}h${m > 0 ? ` ${m}min` : ""}` : `${m}min`;
+                    })()}
+                  </p>
+                )}
               </div>
             </div>
 
