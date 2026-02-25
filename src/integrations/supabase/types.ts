@@ -3691,6 +3691,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          custom_stages: Json | null
           description: string | null
           google_calendar_id: string | null
           google_sheet_url: string | null
@@ -3703,6 +3704,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          custom_stages?: Json | null
           description?: string | null
           google_calendar_id?: string | null
           google_sheet_url?: string | null
@@ -3715,6 +3717,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          custom_stages?: Json | null
           description?: string | null
           google_calendar_id?: string | null
           google_sheet_url?: string | null

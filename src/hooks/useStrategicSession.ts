@@ -4,6 +4,27 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 // Types
+export interface StageConfig {
+  key: string;
+  label: string;
+  color: string;
+}
+
+export const DEFAULT_STAGES: StageConfig[] = [
+  { key: 'lead', label: 'Lead', color: 'bg-blue-500' },
+  { key: 'qualificado', label: 'Qualificado', color: 'bg-purple-500' },
+  { key: 'agendado', label: 'Agendado', color: 'bg-orange-500' },
+  { key: 'realizado', label: 'Realizado', color: 'bg-emerald-500' },
+  { key: 'venda', label: 'Venda', color: 'bg-green-600' },
+];
+
+export function getSessionStages(session: StrategicSession | undefined): StageConfig[] {
+  if (session?.custom_stages && Array.isArray(session.custom_stages) && session.custom_stages.length > 0) {
+    return session.custom_stages as StageConfig[];
+  }
+  return DEFAULT_STAGES;
+}
+
 export interface StrategicSession {
   id: string;
   name: string;
@@ -12,6 +33,7 @@ export interface StrategicSession {
   google_sheet_url: string | null;
   google_calendar_id: string | null;
   public_slug: string | null;
+  custom_stages: unknown;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -151,7 +173,7 @@ export function useUpdateSession() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, ...values }: Partial<StrategicSession> & { id: string }) => {
-      const { error } = await supabase.from("strategic_sessions").update(values).eq("id", id);
+      const { error } = await supabase.from("strategic_sessions").update(values as any).eq("id", id);
       if (error) throw error;
     },
     onSuccess: (_, vars) => {

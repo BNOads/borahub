@@ -3,7 +3,7 @@ import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, u
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import { Phone, Mail, Calendar, Clock, Search, ChevronLeft, ChevronRight, Filter, X, Trash2, Save, TrendingUp, GraduationCap, CalendarCheck } from "lucide-react";
+import { Phone, Mail, Calendar, Clock, Search, ChevronLeft, ChevronRight, Filter, X, Trash2, Save, TrendingUp, GraduationCap, CalendarCheck, Plus, Pencil, GripVertical } from "lucide-react";
 import { computeLeadScore, type LeadScore } from "@/lib/leadScoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,29 +14,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { STAGES, StrategicLead, useUpdateLeadStage, useUpdateLead, useDeleteLead, useLeadHistory, useSalesLookup, getStudentInfo, useDeduplicateLeads, type StudentInfo } from "@/hooks/useStrategicSession";
+import { STAGES, StrategicLead, StrategicSession, useUpdateLeadStage, useUpdateLead, useDeleteLead, useLeadHistory, useSalesLookup, getStudentInfo, useDeduplicateLeads, useUpdateSession, getSessionStages, DEFAULT_STAGES, type StageConfig, type StudentInfo } from "@/hooks/useStrategicSession";
 import { useCalComEvents, useCalComPastEvents, matchLeadsWithCalCom, type CalComLeadMatch } from "@/hooks/useCalComEvents";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface Props {
   sessionId: string;
+  session: StrategicSession;
   leads: StrategicLead[];
 }
 
-const stageLabels: Record<string, string> = {
-  lead: "Lead",
-  qualificado: "Qualificado",
-  agendado: "Agendado",
-  realizado: "Realizado",
-  venda: "Venda",
-};
-
-const stageColors: Record<string, string> = {
-  lead: "bg-blue-500",
-  qualificado: "bg-purple-500",
-  agendado: "bg-orange-500",
-  realizado: "bg-emerald-500",
-  venda: "bg-green-600",
-};
+const STAGE_COLOR_OPTIONS = [
+  "bg-blue-500", "bg-purple-500", "bg-orange-500", "bg-emerald-500", "bg-green-600",
+  "bg-red-500", "bg-yellow-500", "bg-pink-500", "bg-cyan-500", "bg-indigo-500",
+  "bg-teal-500", "bg-rose-500",
+];
 
 const UTM_FIELD_NAMES: Record<string, string[]> = {
   utm_source: ["utm_source", "utm source", "fonte", "source"],
@@ -131,13 +124,13 @@ function getLeadEntryTimestamp(lead: StrategicLead): number {
   return isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
-function DroppableColumn({ stage, children, count }: { stage: string; children: React.ReactNode; count?: number }) {
+function DroppableColumn({ stage, children, count, label, color }: { stage: string; children: React.ReactNode; count?: number; label: string; color: string }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   return (
     <div ref={setNodeRef} className={`flex-1 min-w-[220px] rounded-lg border p-2 transition-colors ${isOver ? "bg-accent/20 border-primary" : "bg-muted/30 border-border"}`}>
       <div className="flex items-center gap-2 mb-3 px-1">
-        <div className={`w-2.5 h-2.5 rounded-full ${stageColors[stage]}`} />
-        <span className="text-sm font-medium">{stageLabels[stage]}</span>
+        <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
+        <span className="text-sm font-medium">{label}</span>
         {count !== undefined && <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{count}</Badge>}
       </div>
       <div className="space-y-2 min-h-[100px]">{children}</div>
@@ -199,7 +192,14 @@ function DraggableLeadCard({ lead, onClick, studentInfo, calComMatch }: { lead: 
 
 const LEADS_PER_PAGE = 50;
 
-export function StrategicCRMTab({ sessionId, leads }: Props) {
+export function StrategicCRMTab({ sessionId, session, leads }: Props) {
+  const stages = useMemo(() => getSessionStages(session), [session]);
+  const stageMap = useMemo(() => {
+    const m: Record<string, StageConfig> = {};
+    stages.forEach(s => { m[s.key] = s; });
+    return m;
+  }, [stages]);
+
   const [selectedLead, setSelectedLead] = useState<StrategicLead | null>(null);
   const [search, setSearch] = useState("");
   const [stagePages, setStagePages] = useState<Record<string, number>>({});
@@ -208,12 +208,15 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [observation, setObservation] = useState("");
+  const [showStageEditor, setShowStageEditor] = useState(false);
+  const [editingStages, setEditingStages] = useState<StageConfig[]>([]);
   const { data: salesData } = useSalesLookup();
   const { data: calComEvents = [] } = useCalComEvents();
   const { data: calComPastEvents = [] } = useCalComPastEvents();
   const updateStage = useUpdateLeadStage();
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
+  const updateSession = useUpdateSession();
   const deduplicateLeads = useDeduplicateLeads();
   const { data: history = [] } = useLeadHistory(selectedLead?.id);
   const dedupRanRef = useRef(false);
@@ -339,11 +342,17 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
 
   const leadsByStage = useMemo(() => {
     const map: Record<string, StrategicLead[]> = {};
-    STAGES.forEach(s => { map[s] = []; });
-    filteredLeads.forEach(l => { if (map[l.stage]) map[l.stage].push(l); });
+    stages.forEach(s => { map[s.key] = []; });
+    filteredLeads.forEach(l => {
+      if (map[l.stage]) map[l.stage].push(l);
+      else if (!stages.find(s => s.key === l.stage)) {
+        // Put leads with unknown stages into first column
+        if (stages.length > 0) map[stages[0].key].push(l);
+      }
+    });
     Object.values(map).forEach(arr => arr.sort((a, b) => getLeadEntryTimestamp(b) - getLeadEntryTimestamp(a)));
     return map;
-  }, [filteredLeads]);
+  }, [filteredLeads, stages]);
 
   const getPage = (stage: string) => stagePages[stage] || 0;
   const setPage = (stage: string, page: number) => setStagePages(prev => ({ ...prev, [stage]: page }));
@@ -430,23 +439,23 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
       )}
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4">
-          {STAGES.map(stage => {
-            const all = leadsByStage[stage];
-            const page = getPage(stage);
+          {stages.map(stageConfig => {
+            const all = leadsByStage[stageConfig.key] || [];
+            const page = getPage(stageConfig.key);
             const totalPages = Math.ceil(all.length / LEADS_PER_PAGE);
             const paginated = all.slice(page * LEADS_PER_PAGE, (page + 1) * LEADS_PER_PAGE);
             return (
-              <DroppableColumn key={stage} stage={stage} count={all.length}>
+              <DroppableColumn key={stageConfig.key} stage={stageConfig.key} label={stageConfig.label} color={stageConfig.color} count={all.length}>
                 {paginated.map(lead => (
                   <DraggableLeadCard key={lead.id} lead={lead} studentInfo={studentInfoMap.get(lead.id)} calComMatch={calComMatchMap.get(lead.id)} onClick={() => { setSelectedLead(lead); setObservation(lead.observation || ""); }} />
                 ))}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between pt-2 px-1">
-                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={page === 0} onClick={() => setPage(stage, page - 1)}>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={page === 0} onClick={() => setPage(stageConfig.key, page - 1)}>
                       <ChevronLeft className="h-3.5 w-3.5" />
                     </Button>
                     <span className="text-[10px] text-muted-foreground">{page + 1}/{totalPages}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={page >= totalPages - 1} onClick={() => setPage(stage, page + 1)}>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={page >= totalPages - 1} onClick={() => setPage(stageConfig.key, page + 1)}>
                       <ChevronRight className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -454,6 +463,13 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
               </DroppableColumn>
             );
           })}
+          <button
+            className="flex-shrink-0 min-w-[60px] h-auto rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors cursor-pointer"
+            onClick={() => { setEditingStages([...stages]); setShowStageEditor(true); }}
+          >
+            <Pencil className="h-4 w-4" />
+            <span className="text-[10px]">Editar</span>
+          </button>
         </div>
       </DndContext>
 
@@ -490,7 +506,7 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
               <ScrollArea className="h-[calc(100vh-120px)] mt-4">
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div><span className="text-muted-foreground">Estágio:</span> <Badge>{stageLabels[selectedLead.stage]}</Badge></div>
+                    <div><span className="text-muted-foreground">Estágio:</span> <Badge>{stageMap[selectedLead.stage]?.label || selectedLead.stage}</Badge></div>
                     {selectedLead.email && <div><span className="text-muted-foreground">Email:</span> <p>{selectedLead.email}</p></div>}
                     {selectedLead.phone && <div><span className="text-muted-foreground">Telefone:</span> <p>{selectedLead.phone}</p></div>}
                     {selectedLead.sale_value && <div><span className="text-muted-foreground">Valor venda:</span> <p>R$ {selectedLead.sale_value.toLocaleString("pt-BR")}</p></div>}
@@ -668,7 +684,7 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
                         {history.map(h => (
                           <div key={h.id} className="flex items-center gap-2 text-xs border-l-2 border-primary pl-3 py-1">
                             <span className="text-muted-foreground">{new Date(h.changed_at).toLocaleString("pt-BR")}</span>
-                            <span>{stageLabels[h.previous_stage || ''] || '—'} → {stageLabels[h.new_stage]}</span>
+                            <span>{stageMap[h.previous_stage || '']?.label || h.previous_stage || '—'} → {stageMap[h.new_stage]?.label || h.new_stage}</span>
                             {h.changed_by_name && <span className="text-muted-foreground">por {h.changed_by_name}</span>}
                           </div>
                         ))}
@@ -681,6 +697,96 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Stage Editor Modal */}
+      <Dialog open={showStageEditor} onOpenChange={setShowStageEditor}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Gerenciar Colunas do Kanban</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto">
+            {editingStages.map((stage, idx) => (
+              <div key={idx} className="flex items-center gap-2 p-2 rounded-md border">
+                <div className={`w-4 h-4 rounded-full shrink-0 ${stage.color}`} />
+                <Input
+                  value={stage.label}
+                  onChange={e => {
+                    const updated = [...editingStages];
+                    updated[idx] = { ...updated[idx], label: e.target.value, key: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '_') || updated[idx].key };
+                    setEditingStages(updated);
+                  }}
+                  className="h-8 text-sm flex-1"
+                  placeholder="Nome da coluna"
+                />
+                <Select
+                  value={stage.color}
+                  onValueChange={val => {
+                    const updated = [...editingStages];
+                    updated[idx] = { ...updated[idx], color: val };
+                    setEditingStages(updated);
+                  }}
+                >
+                  <SelectTrigger className="h-8 w-[100px]">
+                    <div className="flex items-center gap-1.5">
+                      <div className={`w-3 h-3 rounded-full ${stage.color}`} />
+                      <span className="text-xs">Cor</span>
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STAGE_COLOR_OPTIONS.map(c => (
+                      <SelectItem key={c} value={c}>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${c}`} />
+                          <span className="text-xs">{c.replace("bg-", "").replace("-500", "").replace("-600", "")}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-destructive hover:text-destructive shrink-0"
+                  disabled={editingStages.length <= 1}
+                  onClick={() => setEditingStages(editingStages.filter((_, i) => i !== idx))}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-1.5"
+            onClick={() => {
+              const newKey = `stage_${Date.now()}`;
+              setEditingStages([...editingStages, { key: newKey, label: "Nova Coluna", color: STAGE_COLOR_OPTIONS[editingStages.length % STAGE_COLOR_OPTIONS.length] }]);
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" /> Adicionar Coluna
+          </Button>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" className="flex-1" onClick={() => setShowStageEditor(false)}>Cancelar</Button>
+            <Button
+              className="flex-1"
+              disabled={editingStages.some(s => !s.label.trim()) || updateSession.isPending}
+              onClick={() => {
+                const cleaned = editingStages.map(s => ({
+                  key: s.key || s.label.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                  label: s.label.trim(),
+                  color: s.color,
+                }));
+                updateSession.mutate({ id: sessionId, custom_stages: cleaned as any }, {
+                  onSuccess: () => { setShowStageEditor(false); },
+                });
+              }}
+            >
+              Salvar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
