@@ -107,6 +107,16 @@ export function BulkTaskModal({ open, onOpenChange }: BulkTaskModalProps) {
         return;
       }
 
+      const tooLongTitles = tasksToCreate.filter(t => t.title.length > 500);
+      if (tooLongTitles.length > 0) {
+        toast({
+          title: "Títulos muito longos",
+          description: "Alguns títulos excedem 500 caracteres. Reduza o tamanho.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       await createBulkTasks.mutateAsync({ tasks: tasksToCreate, assignee });
 
       toast({
