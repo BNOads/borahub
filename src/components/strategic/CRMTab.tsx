@@ -3,7 +3,7 @@ import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, u
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import { Phone, Mail, Calendar, Clock, Search, ChevronLeft, ChevronRight, Filter, X, Trash2, Save, TrendingUp } from "lucide-react";
+import { Phone, Mail, Calendar, Clock, Search, ChevronLeft, ChevronRight, Filter, X, Trash2, Save, TrendingUp, GraduationCap } from "lucide-react";
 import { computeLeadScore, type LeadScore } from "@/lib/leadScoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { STAGES, StrategicLead, useUpdateLeadStage, useUpdateLead, useDeleteLead, useLeadHistory } from "@/hooks/useStrategicSession";
+import { STAGES, StrategicLead, useUpdateLeadStage, useUpdateLead, useDeleteLead, useLeadHistory, useSalesLookup, getStudentInfo, type StudentInfo } from "@/hooks/useStrategicSession";
 
 interface Props {
   sessionId: string;
@@ -144,7 +144,7 @@ function DroppableColumn({ stage, children, count }: { stage: string; children: 
   );
 }
 
-function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: () => void }) {
+function DraggableLeadCard({ lead, onClick, studentInfo }: { lead: StrategicLead; onClick: () => void; studentInfo?: StudentInfo }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: lead.id, data: { lead } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.5 : 1 } : undefined;
 
@@ -158,11 +158,25 @@ function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: ()
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium truncate">{lead.name}</span>
             <div className="flex items-center gap-1 shrink-0">
+              {studentInfo?.isStudent && (
+                <Badge className="text-[10px] h-5 bg-cyan-500 hover:bg-cyan-600 text-white gap-0.5">
+                  <GraduationCap className="h-3 w-3" />Aluno
+                </Badge>
+              )}
               <Badge className={`text-[10px] h-5 ${scoring.isQualified ? "bg-green-500 hover:bg-green-600 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}>
                 {scoring.score}pts
               </Badge>
             </div>
           </div>
+          {studentInfo?.isStudent && studentInfo.products.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {studentInfo.products.map((p, i) => (
+                <Badge key={i} variant="outline" className="text-[10px] h-5 border-cyan-300 text-cyan-700 dark:text-cyan-300">
+                  {p.name}
+                </Badge>
+              ))}
+            </div>
+          )}
           {lead.phone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</p>}
           <div className="flex flex-wrap gap-1">
             {entryDate && <Badge variant="secondary" className="text-[10px] h-5"><Clock className="h-2.5 w-2.5 mr-0.5" />{entryDate.date}{entryDate.time ? ` ${entryDate.time}` : ''}</Badge>}
@@ -195,10 +209,21 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [observation, setObservation] = useState("");
+  const { data: salesData } = useSalesLookup();
   const updateStage = useUpdateLeadStage();
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
   const { data: history = [] } = useLeadHistory(selectedLead?.id);
+
+  const studentInfoMap = useMemo(() => {
+    if (!salesData) return new Map<string, StudentInfo>();
+    const map = new Map<string, StudentInfo>();
+    leads.forEach(l => {
+      const info = getStudentInfo(l, salesData);
+      if (info.isStudent) map.set(l.id, info);
+    });
+    return map;
+  }, [leads, salesData]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -398,7 +423,7 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
             return (
               <DroppableColumn key={stage} stage={stage} count={all.length}>
                 {paginated.map(lead => (
-                  <DraggableLeadCard key={lead.id} lead={lead} onClick={() => { setSelectedLead(lead); setObservation(lead.observation || ""); }} />
+                  <DraggableLeadCard key={lead.id} lead={lead} studentInfo={studentInfoMap.get(lead.id)} onClick={() => { setSelectedLead(lead); setObservation(lead.observation || ""); }} />
                 ))}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between pt-2 px-1">
@@ -511,6 +536,28 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
                               <span className="font-mono font-bold">{scoring.score} pts</span>
                             </div>
                           </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Aluno */}
+                  {(() => {
+                    const info = studentInfoMap.get(selectedLead.id);
+                    if (!info?.isStudent) return null;
+                    return (
+                      <div>
+                        <p className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                          <GraduationCap className="h-4 w-4" />Aluno
+                          <Badge className="text-[10px] h-5 bg-cyan-500 hover:bg-cyan-600 text-white">Identificado</Badge>
+                        </p>
+                        <div className="rounded-md border p-3 space-y-1.5">
+                          {info.products.map((p, i) => (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                              <span className="font-medium">{p.name}</span>
+                              <Badge variant="outline" className="text-[10px] h-4 capitalize">{p.platform}</Badge>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     );

@@ -546,6 +546,102 @@ export function useBatchUpdateScoring() {
   });
 }
 
+// Sales lookup for student badge
+export function useSalesLookup() {
+  return useQuery({
+    queryKey: ["sales-student-lookup"],
+    queryFn: async () => {
+      const allData: { client_email: string | null; client_phone: string | null; product_name: string | null; platform: string | null }[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("sales")
+          .select("client_email, client_phone, product_name, platform")
+          .range(offset, offset + batchSize - 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allData.push(...data);
+          offset += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      return allData;
+    },
+    staleTime: 5 * 60 * 1000, // 5 min cache
+  });
+}
+
+function normalizePhone(phone: string | null | undefined): string {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  // Remove leading 55 (Brazil country code)
+  if (digits.length >= 12 && digits.startsWith("55")) return digits.slice(2);
+  return digits;
+}
+
+function normalizeEmail(email: string | null | undefined): string {
+  if (!email) return "";
+  return email.trim().toLowerCase();
+}
+
+export interface StudentInfo {
+  isStudent: boolean;
+  products: { name: string; platform: string }[];
+}
+
+export function getStudentInfo(
+  lead: StrategicLead,
+  salesData: { client_email: string | null; client_phone: string | null; product_name: string | null; platform: string | null }[] | undefined
+): StudentInfo {
+  if (!salesData || salesData.length === 0) return { isStudent: false, products: [] };
+
+  const extra = (lead.extra_data || {}) as Record<string, string>;
+  const leadEmails = new Set<string>();
+  const leadPhones = new Set<string>();
+
+  // Collect all possible emails
+  [lead.email, extra["e-mail"], extra["email"], extra["Email"], extra["E-mail"]].forEach(e => {
+    const n = normalizeEmail(e);
+    if (n) leadEmails.add(n);
+  });
+
+  // Collect all possible phones
+  [lead.phone, extra["whatsapp"], extra["Whatsapp"], extra["telefone"], extra["Telefone"], extra["phone"], extra["Phone"]].forEach(p => {
+    const n = normalizePhone(p);
+    if (n) leadPhones.add(n);
+  });
+
+  if (leadEmails.size === 0 && leadPhones.size === 0) return { isStudent: false, products: [] };
+
+  const matchedProducts = new Map<string, string>();
+
+  for (const sale of salesData) {
+    const saleEmail = normalizeEmail(sale.client_email);
+    const salePhone = normalizePhone(sale.client_phone);
+
+    const emailMatch = saleEmail && leadEmails.has(saleEmail);
+    const phoneMatch = salePhone && leadPhones.has(salePhone);
+
+    if (emailMatch || phoneMatch) {
+      const prodName = sale.product_name || "Produto desconhecido";
+      if (!matchedProducts.has(prodName)) {
+        matchedProducts.set(prodName, sale.platform || "desconhecido");
+      }
+    }
+  }
+
+  if (matchedProducts.size === 0) return { isStudent: false, products: [] };
+
+  return {
+    isStudent: true,
+    products: Array.from(matchedProducts.entries()).map(([name, platform]) => ({ name, platform })),
+  };
+}
+
 // Google Sheets Sync
 export function useSyncGoogleSheet() {
   const qc = useQueryClient();
