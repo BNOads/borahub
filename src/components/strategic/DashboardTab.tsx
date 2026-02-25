@@ -1,8 +1,10 @@
 import { useState, useMemo } from "react";
-import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, Calendar, Video, TrendingUp, Percent, BarChart3 } from "lucide-react";
+import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, Calendar, Video, TrendingUp, Percent, BarChart3, CalendarClock, CalendarCheck2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, FunnelChart, Funnel, LabelList } from "recharts";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from "recharts";
 import { useUTMAnalytics, StrategicSession, StrategicLead } from "@/hooks/useStrategicSession";
 import { computeLeadScore } from "@/lib/leadScoring";
 import { useCalComEvents, useCalComPastEvents, matchLeadsWithCalCom } from "@/hooks/useCalComEvents";
@@ -75,6 +77,10 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const { data: calComEvents = [] } = useCalComEvents();
   const { data: calComPastEvents = [] } = useCalComPastEvents();
   const [meetingFilter, setMeetingFilter] = useState<MeetingFilter>("hoje");
+  const [chartStartDate, setChartStartDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split("T")[0];
+  });
+  const [chartEndDate, setChartEndDate] = useState(() => new Date().toISOString().split("T")[0]);
 
   const calComMatches = useMemo(() => matchLeadsWithCalCom(leads, calComEvents, calComPastEvents), [leads, calComEvents, calComPastEvents]);
   const agendadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasUpcoming).length, [calComMatches]);
@@ -117,9 +123,39 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const vendasCount = utmData?.vendas || 0;
   const qualRate = totalLeads > 0 ? ((qualifiedCount / totalLeads) * 100).toFixed(1) : "0";
   const convRate = totalLeads > 0 ? ((vendasCount / totalLeads) * 100).toFixed(1) : "0";
+  const scheduleRate = totalLeads > 0 ? ((agendadosByCalCom / totalLeads) * 100).toFixed(1) : "0";
+  const completionRate = agendadosByCalCom > 0 ? ((realizadosByCalCom / agendadosByCalCom) * 100).toFixed(1) : "0";
 
   // Pie chart for source distribution
   const sourcePie = (utmData?.bySource || []).filter(s => s.name !== "Sem dados").slice(0, 8);
+
+  // Daily meeting metrics chart
+  const dailyMeetingData = useMemo(() => {
+    const allEvents = [...calComEvents, ...calComPastEvents];
+    const dateMap = new Map<string, { date: string; agendados: number; realizados: number }>();
+
+    // Count upcoming (agendados) by date
+    for (const ev of calComEvents) {
+      if (ev.event_date >= chartStartDate && ev.event_date <= chartEndDate) {
+        if (!dateMap.has(ev.event_date)) dateMap.set(ev.event_date, { date: ev.event_date, agendados: 0, realizados: 0 });
+        dateMap.get(ev.event_date)!.agendados++;
+      }
+    }
+
+    // Count past (realizados) by date
+    for (const ev of calComPastEvents) {
+      if (ev.event_date >= chartStartDate && ev.event_date <= chartEndDate) {
+        if (!dateMap.has(ev.event_date)) dateMap.set(ev.event_date, { date: ev.event_date, agendados: 0, realizados: 0 });
+        dateMap.get(ev.event_date)!.realizados++;
+      }
+    }
+
+    return [...dateMap.values()].sort((a, b) => a.date.localeCompare(b.date)).map(d => ({
+      ...d,
+      date: d.date.split("-").slice(1).join("/"), // MM/DD format
+      taxaRealizacao: d.agendados > 0 ? Math.round((d.realizados / d.agendados) * 100) : 0,
+    }));
+  }, [calComEvents, calComPastEvents, chartStartDate, chartEndDate]);
 
   return (
     <div className="space-y-6 mt-4">
@@ -143,8 +179,8 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         ))}
       </div>
 
-      {/* Conversion metrics row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* Conversion & meeting metrics row */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2">
@@ -166,6 +202,24 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-orange-500" />
+              <span className="text-xs text-muted-foreground">Taxa Agendamento</span>
+            </div>
+            <p className="text-2xl font-bold mt-1">{scheduleRate}%</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="flex items-center gap-2">
+              <CalendarCheck2 className="h-4 w-4 text-emerald-500" />
+              <span className="text-xs text-muted-foreground">Taxa Realização</span>
+            </div>
+            <p className="text-2xl font-bold mt-1">{completionRate}%</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-green-500" />
               <span className="text-xs text-muted-foreground">Taxa Conversão</span>
             </div>
@@ -182,6 +236,48 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Daily meetings chart */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-sm">Reuniões por Dia</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-muted-foreground">De</Label>
+                <Input type="date" value={chartStartDate} onChange={e => setChartStartDate(e.target.value)} className="h-7 text-xs w-[130px]" />
+              </div>
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-muted-foreground">Até</Label>
+                <Input type="date" value={chartEndDate} onChange={e => setChartEndDate(e.target.value)} className="h-7 text-xs w-[130px]" />
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {dailyMeetingData.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">Sem dados de reuniões no período</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={dailyMeetingData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip
+                  formatter={(val: number, name: string) => [
+                    name === "taxaRealizacao" ? `${val}%` : val,
+                    name === "agendados" ? "Agendados" : name === "realizados" ? "Realizados" : "Taxa Realização"
+                  ]}
+                />
+                <Legend formatter={(value) => value === "agendados" ? "Agendados" : value === "realizados" ? "Realizados" : "Taxa Realização %"} />
+                <Bar dataKey="agendados" fill="hsl(35, 80%, 55%)" radius={[4, 4, 0, 0]} barSize={16} />
+                <Bar dataKey="realizados" fill="hsl(160, 60%, 45%)" radius={[4, 4, 0, 0]} barSize={16} />
+                <Line type="monotone" dataKey="taxaRealizacao" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3 }} yAxisId={0} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid md:grid-cols-2 gap-6">
         {/* Reuniões do dia (Cal.com) */}
