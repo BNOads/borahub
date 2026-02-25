@@ -6,28 +6,59 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function parseCSV(text: string): string[][] {
+  const rows: string[][] = [];
+  let current = "";
+  let inQuotes = false;
+  let row: string[] = [];
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"' && text[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+      } else if (ch === ",") {
+        row.push(current);
+        current = "";
+      } else if (ch === "\n" || (ch === "\r" && text[i + 1] === "\n")) {
+        row.push(current);
+        current = "";
+        if (row.some(c => c.trim() !== "")) rows.push(row);
+        row = [];
+        if (ch === "\r") i++;
+      } else {
+        current += ch;
+      }
+    }
+  }
+  if (current || row.length > 0) {
+    row.push(current);
+    if (row.some(c => c.trim() !== "")) rows.push(row);
+  }
+  return rows;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Parse body safely
-    const bodyText = await req.text();
-    console.log("Request body length:", bodyText.length);
-    
-    let body: any;
-    try {
-      body = JSON.parse(bodyText);
-    } catch (parseErr) {
-      console.error("Failed to parse request body:", bodyText.substring(0, 200));
-      throw new Error(`Invalid request body JSON: ${parseErr.message}`);
-    }
-
+    const body = await req.json();
     const { session_id } = body;
     if (!session_id) throw new Error("session_id required");
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
     // Get session
     const { data: session, error: sessionError } = await supabase
@@ -38,42 +69,29 @@ serve(async (req) => {
     if (sessionError || !session) throw new Error("Session not found");
     if (!session.google_sheet_url) throw new Error("No Google Sheet URL configured");
 
-    // Extract spreadsheet ID from URL
+    // Extract spreadsheet ID
     const sheetMatch = session.google_sheet_url.match(/\/d\/([a-zA-Z0-9-_]+)/);
     if (!sheetMatch) throw new Error("Invalid Google Sheet URL");
     const spreadsheetId = sheetMatch[1];
 
-    // Get Google access token - parse service account key safely
-    const rawKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || "{}";
-    console.log("GOOGLE_SERVICE_ACCOUNT_KEY length:", rawKey.length, "starts with:", rawKey.substring(0, 5));
-    
-    let serviceAccountKey: any;
-    try {
-      serviceAccountKey = JSON.parse(rawKey);
-    } catch (keyErr) {
-      console.error("Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY. First 50 chars:", rawKey.substring(0, 50));
-      throw new Error(`Invalid GOOGLE_SERVICE_ACCOUNT_KEY format: ${keyErr.message}. Please re-save the secret with valid JSON.`);
+    // Fetch public CSV
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=0`;
+    console.log("Fetching public CSV:", csvUrl);
+
+    const csvResponse = await fetch(csvUrl, { redirect: "follow" });
+    if (!csvResponse.ok) {
+      const errText = await csvResponse.text();
+      throw new Error(`Failed to fetch Google Sheet (${csvResponse.status}). Make sure the sheet is shared publicly ("Anyone with the link can view"). Details: ${errText.substring(0, 200)}`);
     }
 
-    if (!serviceAccountKey.client_email || !serviceAccountKey.private_key) {
-      throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY missing client_email or private_key fields");
+    const csvText = await csvResponse.text();
+    const rows = parseCSV(csvText);
+
+    if (rows.length < 2) {
+      return new Response(JSON.stringify({ created: 0, updated: 0, total: 0 }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
-
-    const token = await getGoogleAccessToken(serviceAccountKey);
-
-    // Fetch sheet data
-    const sheetResponse = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:Z`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (!sheetResponse.ok) {
-      const errText = await sheetResponse.text();
-      throw new Error(`Google Sheets API error ${sheetResponse.status}: ${errText}`);
-    }
-    const sheetData = await sheetResponse.json();
-
-    const rows = sheetData.values || [];
-    if (rows.length < 2) return new Response(JSON.stringify({ created: 0, updated: 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const headers = rows[0].map((h: string) => h.toLowerCase().trim());
 
@@ -132,7 +150,6 @@ serve(async (req) => {
         source_row_id: sourceRowId,
       };
 
-      // Upsert
       const { data: existing } = await supabase
         .from("strategic_leads")
         .select("id")
@@ -162,49 +179,3 @@ serve(async (req) => {
     });
   }
 });
-
-async function getGoogleAccessToken(serviceAccount: any): Promise<string> {
-  const header = btoa(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const now = Math.floor(Date.now() / 1000);
-  const claim = btoa(JSON.stringify({
-    iss: serviceAccount.client_email,
-    scope: "https://www.googleapis.com/auth/spreadsheets.readonly",
-    aud: "https://oauth2.googleapis.com/token",
-    exp: now + 3600,
-    iat: now,
-  }));
-
-  const signInput = `${header}.${claim}`;
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    pemToArrayBuffer(serviceAccount.private_key),
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signature = await crypto.subtle.sign("RSASSA-PKCS1-v1_5", key, new TextEncoder().encode(signInput));
-  const jwt = `${signInput}.${arrayBufferToBase64Url(signature)}`;
-
-  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`,
-  });
-  const tokenData = await tokenResponse.json();
-  return tokenData.access_token;
-}
-
-function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const b64 = pem.replace(/-----[^-]+-----/g, "").replace(/\s/g, "");
-  const binary = atob(b64);
-  const buffer = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) buffer[i] = binary.charCodeAt(i);
-  return buffer.buffer;
-}
-
-function arrayBufferToBase64Url(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  bytes.forEach(b => binary += String.fromCharCode(b));
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
