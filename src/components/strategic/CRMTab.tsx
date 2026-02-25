@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { STAGES, StrategicLead, useUpdateLeadStage, useUpdateLead, useDeleteLead, useLeadHistory, useSalesLookup, getStudentInfo, type StudentInfo } from "@/hooks/useStrategicSession";
+import { STAGES, StrategicLead, useUpdateLeadStage, useUpdateLead, useDeleteLead, useLeadHistory, useSalesLookup, getStudentInfo, useDeduplicateLeads, type StudentInfo } from "@/hooks/useStrategicSession";
 import { useCalComEvents, useCalComPastEvents, matchLeadsWithCalCom, type CalComLeadMatch } from "@/hooks/useCalComEvents";
 
 interface Props {
@@ -214,7 +214,17 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
   const updateStage = useUpdateLeadStage();
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
+  const deduplicateLeads = useDeduplicateLeads();
   const { data: history = [] } = useLeadHistory(selectedLead?.id);
+  const dedupRanRef = useRef(false);
+
+  // Auto-deduplicate on first load
+  useEffect(() => {
+    if (leads.length > 0 && !dedupRanRef.current) {
+      dedupRanRef.current = true;
+      deduplicateLeads.mutate(sessionId);
+    }
+  }, [leads.length, sessionId]);
 
   const studentInfoMap = useMemo(() => {
     if (!salesData) return new Map<string, StudentInfo>();

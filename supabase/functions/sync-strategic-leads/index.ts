@@ -187,9 +187,18 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Sync complete: ${leadsToUpsert.length} total rows processed`);
+    // Remove duplicates automatically after sync
+    const { data: dedupResult, error: dedupError } = await supabase
+      .rpc("remove_duplicate_strategic_leads", { p_session_id: session_id });
+    
+    const duplicatesRemoved = dedupError ? 0 : (dedupResult || 0);
+    if (duplicatesRemoved > 0) {
+      console.log(`Removed ${duplicatesRemoved} duplicate leads`);
+    }
 
-    return new Response(JSON.stringify({ created, updated, total: rows.length - 1 }), {
+    console.log(`Sync complete: ${leadsToUpsert.length} total rows processed, ${duplicatesRemoved} duplicates removed`);
+
+    return new Response(JSON.stringify({ created, updated, total: rows.length - 1, duplicates_removed: duplicatesRemoved }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
