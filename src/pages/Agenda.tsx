@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useEvents, useDeleteEvent, type Event } from "@/hooks/useEvents";
+import { useCalComEvents } from "@/hooks/useCalComEvents";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -70,8 +71,19 @@ export default function Agenda() {
     });
   };
 
-  const { data: events = [], isLoading } = useEvents();
+  const { data: internalEvents = [], isLoading } = useEvents();
+  const { data: calComEvents = [] } = useCalComEvents();
   const deleteEvent = useDeleteEvent();
+
+  // Merge internal + Cal.com events
+  const events = useMemo(() => {
+    const merged = [...internalEvents, ...calComEvents];
+    return merged.sort((a, b) => {
+      const dateCompare = a.event_date.localeCompare(b.event_date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.event_time.localeCompare(b.event_time);
+    });
+  }, [internalEvents, calComEvents]);
 
   // Eventos do dia selecionado
   const selectedDateEvents = useMemo(() => {
@@ -92,7 +104,10 @@ export default function Agenda() {
       .slice(0, 10); // Mostrar até 10 próximos eventos
   }, [events]);
 
+  const isCalComEvent = (event: Event) => (event as any).source === 'calcom';
+
   const handleEdit = (event: Event) => {
+    if (isCalComEvent(event)) return; // Cal.com events are read-only
     setSelectedEvent(event);
     setShowEventModal(true);
   };
@@ -127,8 +142,10 @@ export default function Agenda() {
 
   const handleEventClick = (event: Event) => {
     setSelectedDate(event.event_date);
-    setSelectedEvent(event);
-    setShowEventModal(true);
+    if (!isCalComEvent(event)) {
+      setSelectedEvent(event);
+      setShowEventModal(true);
+    }
   };
 
   const formatDate = (dateStr: string) => {
@@ -336,6 +353,11 @@ export default function Agenda() {
                           </div>
 
                           <div className="flex flex-col items-end gap-1">
+                            {isCalComEvent(event) && (
+                              <Badge className="text-[10px] px-1.5 py-0 bg-orange-500/20 text-orange-400 border-orange-500/30" variant="outline">
+                                Cal.com
+                              </Badge>
+                            )}
                             <Badge
                               variant="outline"
                               className={cn(
@@ -346,30 +368,32 @@ export default function Agenda() {
                               {eventTypeLabels[event.event_type || "outro"]}
                             </Badge>
 
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEdit(event);
-                                }}
-                              >
-                                <Edit className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-destructive"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(event);
-                                }}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
+                            {!isCalComEvent(event) && (
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(event);
+                                  }}
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(event);
+                                  }}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -428,6 +452,11 @@ export default function Agenda() {
                               <span className="font-medium text-sm truncate">
                                 {event.title}
                               </span>
+                              {isCalComEvent(event) && (
+                                <Badge className="text-[9px] px-1 py-0 bg-orange-500/20 text-orange-400 border-orange-500/30 shrink-0" variant="outline">
+                                  Cal.com
+                                </Badge>
+                              )}
                               {event.recurrence && event.recurrence !== "none" && (
                                 <Repeat className="h-3 w-3 text-accent shrink-0" />
                               )}
