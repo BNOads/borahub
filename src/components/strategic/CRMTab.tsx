@@ -3,9 +3,11 @@ import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, u
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import { Phone, Mail, Star, Calendar, Clock } from "lucide-react";
+import { Phone, Mail, Star, Calendar, Clock, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { STAGES, StrategicLead, useUpdateLeadStage, useLeadHistory } from "@/hooks/useStrategicSession";
@@ -91,13 +93,14 @@ function getLeadEntryTimestamp(lead: StrategicLead): number {
   return isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
-function DroppableColumn({ stage, children }: { stage: string; children: React.ReactNode }) {
+function DroppableColumn({ stage, children, count }: { stage: string; children: React.ReactNode; count?: number }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   return (
     <div ref={setNodeRef} className={`flex-1 min-w-[220px] rounded-lg border p-2 transition-colors ${isOver ? "bg-accent/20 border-primary" : "bg-muted/30 border-border"}`}>
       <div className="flex items-center gap-2 mb-3 px-1">
         <div className={`w-2.5 h-2.5 rounded-full ${stageColors[stage]}`} />
         <span className="text-sm font-medium">{stageLabels[stage]}</span>
+        {count !== undefined && <Badge variant="secondary" className="text-[10px] h-4 px-1.5">{count}</Badge>}
       </div>
       <div className="space-y-2 min-h-[100px]">{children}</div>
     </div>
@@ -138,21 +141,42 @@ function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: ()
   );
 }
 
+const LEADS_PER_PAGE = 50;
+
 export function StrategicCRMTab({ sessionId, leads }: Props) {
   const [selectedLead, setSelectedLead] = useState<StrategicLead | null>(null);
+  const [search, setSearch] = useState("");
+  const [stagePages, setStagePages] = useState<Record<string, number>>({});
   const updateStage = useUpdateLeadStage();
   const { data: history = [] } = useLeadHistory(selectedLead?.id);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
+  const filteredLeads = useMemo(() => {
+    if (!search.trim()) return leads;
+    const q = search.toLowerCase();
+    return leads.filter(l => {
+      const extra = l.extra_data as Record<string, string> | null;
+      const extraMatch = extra ? Object.values(extra).some(v => v && String(v).toLowerCase().includes(q)) : false;
+      return l.name?.toLowerCase().includes(q) ||
+        l.email?.toLowerCase().includes(q) ||
+        l.phone?.toLowerCase().includes(q) ||
+        l.utm_source?.toLowerCase().includes(q) ||
+        l.utm_campaign?.toLowerCase().includes(q) ||
+        extraMatch;
+    });
+  }, [leads, search]);
+
   const leadsByStage = useMemo(() => {
     const map: Record<string, StrategicLead[]> = {};
     STAGES.forEach(s => { map[s] = []; });
-    leads.forEach(l => { if (map[l.stage]) map[l.stage].push(l); });
-    // Sort each stage by entry date descending (most recent first)
+    filteredLeads.forEach(l => { if (map[l.stage]) map[l.stage].push(l); });
     Object.values(map).forEach(arr => arr.sort((a, b) => getLeadEntryTimestamp(b) - getLeadEntryTimestamp(a)));
     return map;
-  }, [leads]);
+  }, [filteredLeads]);
+
+  const getPage = (stage: string) => stagePages[stage] || 0;
+  const setPage = (stage: string, page: number) => setStagePages(prev => ({ ...prev, [stage]: page }));
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -165,16 +189,42 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
   };
 
   return (
-    <div className="mt-4">
+    <div className="mt-4 space-y-3">
+      <div className="relative max-w-sm">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar leads..."
+          value={search}
+          onChange={e => { setSearch(e.target.value); setStagePages({}); }}
+          className="pl-9 h-9"
+        />
+      </div>
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4">
-          {STAGES.map(stage => (
-            <DroppableColumn key={stage} stage={stage}>
-              {leadsByStage[stage].map(lead => (
-                <DraggableLeadCard key={lead.id} lead={lead} onClick={() => setSelectedLead(lead)} />
-              ))}
-            </DroppableColumn>
-          ))}
+          {STAGES.map(stage => {
+            const all = leadsByStage[stage];
+            const page = getPage(stage);
+            const totalPages = Math.ceil(all.length / LEADS_PER_PAGE);
+            const paginated = all.slice(page * LEADS_PER_PAGE, (page + 1) * LEADS_PER_PAGE);
+            return (
+              <DroppableColumn key={stage} stage={stage} count={all.length}>
+                {paginated.map(lead => (
+                  <DraggableLeadCard key={lead.id} lead={lead} onClick={() => setSelectedLead(lead)} />
+                ))}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-2 px-1">
+                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={page === 0} onClick={() => setPage(stage, page - 1)}>
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    <span className="text-[10px] text-muted-foreground">{page + 1}/{totalPages}</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" disabled={page >= totalPages - 1} onClick={() => setPage(stage, page + 1)}>
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </DroppableColumn>
+            );
+          })}
         </div>
       </DndContext>
 
