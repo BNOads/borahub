@@ -21,8 +21,9 @@ serve(async (req) => {
     const url = new URL(req.url);
     const dateFrom = url.searchParams.get('date_from');
     const dateTo = url.searchParams.get('date_to');
+    const status = url.searchParams.get('status') || 'upcoming';
 
-    let apiUrl = 'https://api.cal.com/v2/bookings?status=upcoming';
+    let apiUrl = `https://api.cal.com/v2/bookings?status=${status}`;
     if (dateFrom) apiUrl += `&afterStart=${dateFrom}T00:00:00.000Z`;
     if (dateTo) apiUrl += `&beforeEnd=${dateTo}T23:59:59.999Z`;
 
@@ -57,6 +58,12 @@ serve(async (req) => {
       const eventTime = start.toISOString().split('T')[1].substring(0, 8);
 
       const attendees = (booking.attendees || []).map((a: any) => a.name || a.email);
+      const attendeeEmails = (booking.attendees || [])
+        .map((a: any) => a.email?.trim().toLowerCase())
+        .filter(Boolean);
+      const attendeePhones = (booking.attendees || [])
+        .map((a: any) => a.phone || a.phoneNumber || null)
+        .filter(Boolean);
 
       return {
         id: `calcom-${booking.id}`,
@@ -70,6 +77,9 @@ serve(async (req) => {
         color: '#f97316', // orange
         description: booking.description || null,
         participants: attendees,
+        attendee_emails: attendeeEmails,
+        attendee_phones: attendeePhones,
+        booking_status: booking.status || status,
         source: 'calcom',
         created_at: booking.createdAt || null,
         updated_at: booking.updatedAt || null,
