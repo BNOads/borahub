@@ -1,0 +1,1 @@
+ALTER TABLE public.strategic_leads ADD COLUMN observation text;

@@ -3,15 +3,17 @@ import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, u
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import { Phone, Mail, Star, Calendar, Clock, Search, ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
+import { Phone, Mail, Star, Calendar, Clock, Search, ChevronLeft, ChevronRight, Filter, X, Trash2, Save } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { STAGES, StrategicLead, useUpdateLeadStage, useLeadHistory } from "@/hooks/useStrategicSession";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { STAGES, StrategicLead, useUpdateLeadStage, useUpdateLead, useDeleteLead, useLeadHistory } from "@/hooks/useStrategicSession";
 
 interface Props {
   sessionId: string;
@@ -186,7 +188,10 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [observation, setObservation] = useState("");
   const updateStage = useUpdateLeadStage();
+  const updateLead = useUpdateLead();
+  const deleteLead = useDeleteLead();
   const { data: history = [] } = useLeadHistory(selectedLead?.id);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
@@ -387,7 +392,7 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
             return (
               <DroppableColumn key={stage} stage={stage} count={all.length}>
                 {paginated.map(lead => (
-                  <DraggableLeadCard key={lead.id} lead={lead} onClick={() => setSelectedLead(lead)} />
+                  <DraggableLeadCard key={lead.id} lead={lead} onClick={() => { setSelectedLead(lead); setObservation(lead.observation || ""); }} />
                 ))}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between pt-2 px-1">
@@ -406,12 +411,35 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
         </div>
       </DndContext>
 
-      <Sheet open={!!selectedLead} onOpenChange={open => !open && setSelectedLead(null)}>
+      <Sheet open={!!selectedLead} onOpenChange={open => { if (!open) setSelectedLead(null); else if (selectedLead) setObservation(selectedLead.observation || ""); }}>
         <SheetContent className="w-full sm:max-w-md">
           {selectedLead && (
             <>
               <SheetHeader>
-                <SheetTitle>{selectedLead.name}</SheetTitle>
+                <div className="flex items-center justify-between">
+                  <SheetTitle>{selectedLead.name}</SheetTitle>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir lead?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Essa ação não pode ser desfeita. O lead "{selectedLead.name}" será removido permanentemente.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => { deleteLead.mutate(selectedLead.id); setSelectedLead(null); }}>
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </SheetHeader>
               <ScrollArea className="h-[calc(100vh-120px)] mt-4">
                 <div className="space-y-4">
@@ -472,6 +500,29 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
                       </div>
                     </div>
                   )}
+
+                  <div>
+                    <p className="text-sm font-medium mb-1.5">Observação</p>
+                    <Textarea
+                      value={observation}
+                      onChange={e => setObservation(e.target.value)}
+                      placeholder="Adicione uma observação sobre este lead..."
+                      className="min-h-[80px] text-sm"
+                    />
+                    {observation !== (selectedLead.observation || "") && (
+                      <Button
+                        size="sm"
+                        className="mt-2 gap-1"
+                        onClick={() => {
+                          updateLead.mutate({ id: selectedLead.id, observation: observation || null } as any);
+                          setSelectedLead({ ...selectedLead, observation });
+                        }}
+                        disabled={updateLead.isPending}
+                      >
+                        <Save className="h-3.5 w-3.5" /> Salvar
+                      </Button>
+                    )}
+                  </div>
 
                   <div>
                     <p className="text-sm font-medium mb-2">Histórico</p>

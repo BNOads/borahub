@@ -3529,6 +3529,7 @@ export type Database = {
           meeting_date: string | null
           meeting_notes: string | null
           name: string
+          observation: string | null
           order_index: number
           phone: string | null
           qualification_notes: string | null
@@ -3553,6 +3554,7 @@ export type Database = {
           meeting_date?: string | null
           meeting_notes?: string | null
           name: string
+          observation?: string | null
           order_index?: number
           phone?: string | null
           qualification_notes?: string | null
@@ -3577,6 +3579,7 @@ export type Database = {
           meeting_date?: string | null
           meeting_notes?: string | null
           name?: string
+          observation?: string | null
           order_index?: number
           phone?: string | null
           qualification_notes?: string | null
