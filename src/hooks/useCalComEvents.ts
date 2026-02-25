@@ -10,25 +10,37 @@ export type CalComEvent = Event & {
   booking_status?: string;
 };
 
+async function fetchCalComByStatus(status: string, token: string): Promise<CalComEvent[]> {
+  try {
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    const url = `https://${projectId}.supabase.co/functions/v1/fetch-calcom-events?status=${status}`;
+    const resp = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      },
+    });
+    if (!resp.ok) {
+      console.error(`Error fetching Cal.com ${status} events:`, resp.status);
+      return [];
+    }
+    const result = await resp.json();
+    return (result?.data || []) as CalComEvent[];
+  } catch (error) {
+    console.error(`Exception fetching Cal.com ${status}:`, error);
+    return [];
+  }
+}
+
 export function useCalComEvents() {
   const { authReady, session } = useAuth();
 
   return useQuery({
     queryKey: ["calcom-events"],
     queryFn: async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("fetch-calcom-events");
-
-        if (error) {
-          console.error("Error fetching Cal.com events:", error);
-          return [];
-        }
-
-        return (data?.data || []) as CalComEvent[];
-      } catch (error) {
-        console.error("Exception in useCalComEvents:", error);
-        return [];
-      }
+      const token = session?.access_token;
+      if (!token) return [];
+      return fetchCalComByStatus("upcoming", token);
     },
     retry: 1,
     staleTime: 5 * 60 * 1000,
@@ -42,32 +54,9 @@ export function useCalComPastEvents() {
   return useQuery({
     queryKey: ["calcom-events-past"],
     queryFn: async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("fetch-calcom-events", {
-          body: null,
-          headers: {},
-        });
-
-        // Fetch past bookings via query params
-        const url = new URL(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-calcom-events?status=past`);
-        const resp = await fetch(url.toString(), {
-          headers: {
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-        });
-
-        if (!resp.ok) {
-          console.error("Error fetching past Cal.com events:", resp.status);
-          return [];
-        }
-
-        const result = await resp.json();
-        return (result?.data || []) as CalComEvent[];
-      } catch (error) {
-        console.error("Exception in useCalComPastEvents:", error);
-        return [];
-      }
+      const token = session?.access_token;
+      if (!token) return [];
+      return fetchCalComByStatus("past", token);
     },
     retry: 1,
     staleTime: 5 * 60 * 1000,
@@ -102,7 +91,6 @@ export function matchLeadsWithCalCom(
 ): Map<string, CalComLeadMatch> {
   const result = new Map<string, CalComLeadMatch>();
 
-  // Build email/phone index from events
   type EventRef = { date: string; type: 'upcoming' | 'past' };
   const emailIndex = new Map<string, EventRef[]>();
   const phoneIndex = new Map<string, EventRef[]>();
