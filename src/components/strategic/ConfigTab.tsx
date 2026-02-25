@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Copy, Check, Plus, Trash2, RefreshCw, Loader2, ExternalLink } from "lucide-react";
+import { Copy, Check, Plus, Trash2, RefreshCw, Loader2, ExternalLink, Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,8 +16,11 @@ import {
   useCreateCriterion,
   useDeleteCriterion,
   useSyncGoogleSheet,
+  useStrategicLeads,
+  useBatchUpdateScoring,
   StrategicSession,
 } from "@/hooks/useStrategicSession";
+import { computeLeadScore } from "@/lib/leadScoring";
 
 interface Props {
   session: StrategicSession;
@@ -32,6 +35,8 @@ export function StrategicConfigTab({ session }: Props) {
   const createCriterion = useCreateCriterion();
   const deleteCriterion = useDeleteCriterion();
   const syncSheet = useSyncGoogleSheet();
+  const { data: leads = [] } = useStrategicLeads(session.id);
+  const batchScoring = useBatchUpdateScoring();
 
   const [name, setName] = useState(session.name);
   const [description, setDescription] = useState(session.description || "");
@@ -148,6 +153,30 @@ export function StrategicConfigTab({ session }: Props) {
               <Button variant="outline" size="icon" onClick={handleAddLink}><Plus className="h-4 w-4" /></Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Lead Scoring */}
+      <Card>
+        <CardHeader><CardTitle className="text-base">Lead Scoring</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Recalcula o scoring de todos os leads baseado em faturamento (≥15k), lucro (≥10k) e empreita (bônus). Os valores são persistidos no banco para uso em filtros e dashboard.
+          </p>
+          <Button
+            onClick={() => {
+              const updates = leads.map(lead => {
+                const s = computeLeadScore(lead);
+                return { id: lead.id, is_qualified: s.isQualified, qualification_score: s.score };
+              });
+              batchScoring.mutate(updates);
+            }}
+            disabled={batchScoring.isPending || leads.length === 0}
+            className="gap-2"
+          >
+            {batchScoring.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
+            Recalcular Scoring ({leads.length} leads)
+          </Button>
         </CardContent>
       </Card>
 

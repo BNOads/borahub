@@ -518,6 +518,34 @@ export function useUTMAnalytics(sessionId: string | undefined) {
   });
 }
 
+// Batch update lead scoring
+export function useBatchUpdateScoring() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (updates: { id: string; is_qualified: boolean; qualification_score: number }[]) => {
+      // Process in batches of 50
+      for (let i = 0; i < updates.length; i += 50) {
+        const batch = updates.slice(i, i + 50);
+        const promises = batch.map(u =>
+          supabase.from("strategic_leads").update({
+            is_qualified: u.is_qualified,
+            qualification_score: u.qualification_score,
+          }).eq("id", u.id)
+        );
+        const results = await Promise.all(promises);
+        const err = results.find(r => r.error);
+        if (err?.error) throw err.error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-leads"] });
+      qc.invalidateQueries({ queryKey: ["strategic-utm-analytics"] });
+      toast.success("Lead scoring recalculado para todos os leads");
+    },
+    onError: () => toast.error("Erro ao recalcular scoring"),
+  });
+}
+
 // Google Sheets Sync
 export function useSyncGoogleSheet() {
   const qc = useQueryClient();

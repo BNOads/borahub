@@ -3,7 +3,8 @@ import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, u
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import { Phone, Mail, Star, Calendar, Clock, Search, ChevronLeft, ChevronRight, Filter, X, Trash2, Save } from "lucide-react";
+import { Phone, Mail, Calendar, Clock, Search, ChevronLeft, ChevronRight, Filter, X, Trash2, Save, TrendingUp } from "lucide-react";
+import { computeLeadScore, type LeadScore } from "@/lib/leadScoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -148,6 +149,7 @@ function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: ()
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.5 : 1 } : undefined;
 
   const entryDate = getLeadEntryDate(lead);
+  const scoring = computeLeadScore(lead);
 
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
@@ -155,7 +157,11 @@ function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: ()
         <CardContent className="p-3 space-y-1.5">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium truncate">{lead.name}</span>
-            {lead.is_qualified && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
+            <div className="flex items-center gap-1 shrink-0">
+              <Badge className={`text-[10px] h-5 ${scoring.isQualified ? "bg-green-500 hover:bg-green-600 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}>
+                {scoring.score}pts
+              </Badge>
+            </div>
           </div>
           {lead.phone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</p>}
           <div className="flex flex-wrap gap-1">
@@ -474,9 +480,41 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
                     );
                   })()}
 
-                  {selectedLead.is_qualified && (
-                    <Badge className="bg-amber-500 text-white"><Star className="h-3 w-3 mr-1" />Qualificado</Badge>
-                  )}
+                  {/* Lead Scoring */}
+                  {(() => {
+                    const scoring = computeLeadScore(selectedLead);
+                    return (
+                      <div>
+                        <p className="text-sm font-medium mb-2 flex items-center gap-1.5"><TrendingUp className="h-4 w-4" />Lead Scoring</p>
+                        <div className="rounded-md border p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Status</span>
+                            <Badge className={`${scoring.isQualified ? "bg-green-500 hover:bg-green-600 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}>
+                              {scoring.isQualified ? "Qualificado" : "Desqualificado"}
+                            </Badge>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div className="flex justify-between border rounded p-1.5">
+                              <span className="text-muted-foreground">Faturamento</span>
+                              <span className={`font-mono font-medium ${scoring.faturamentoQualifies ? "text-green-600" : "text-red-500"}`}>{scoring.breakdown.faturamento} pts</span>
+                            </div>
+                            <div className="flex justify-between border rounded p-1.5">
+                              <span className="text-muted-foreground">Lucro</span>
+                              <span className={`font-mono font-medium ${scoring.lucroQualifies ? "text-green-600" : "text-red-500"}`}>{scoring.breakdown.lucro} pts</span>
+                            </div>
+                            <div className="flex justify-between border rounded p-1.5">
+                              <span className="text-muted-foreground">Empreita</span>
+                              <span className="font-mono font-medium">{scoring.breakdown.empreita} pts</span>
+                            </div>
+                            <div className="flex justify-between border rounded p-1.5 bg-muted/30">
+                              <span className="font-medium">Total</span>
+                              <span className="font-mono font-bold">{scoring.score} pts</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   {selectedLead.meeting_notes && (
                     <div>
                       <p className="text-sm font-medium mb-1">Anotações da reunião</p>
