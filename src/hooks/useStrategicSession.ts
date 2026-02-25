@@ -38,6 +38,7 @@ export interface StrategicLead {
   extra_data: Record<string, unknown>;
   source_row_id: string | null;
   order_index: number;
+  observation: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -257,6 +258,21 @@ export function useUpdateLead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["strategic-leads"] });
     },
+  });
+}
+
+export function useDeleteLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("strategic_leads").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-leads"] });
+      toast.success("Lead excluído");
+    },
+    onError: () => toast.error("Erro ao excluir lead"),
   });
 }
 
