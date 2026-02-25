@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.fetch-calcom-events]
 verify_jwt = false
+
+[functions.cron-sync-strategic-leads]
+verify_jwt = false
