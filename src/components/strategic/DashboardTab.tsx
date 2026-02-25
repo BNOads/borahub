@@ -62,10 +62,9 @@ function UTMBarChart({ data, title }: { data: { name: string; total: number; qua
           <BarChart data={filtered} layout="vertical" margin={{ left: 10, right: 10 }}>
             <XAxis type="number" tick={{ fontSize: 10 }} />
             <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10 }} />
-            <Tooltip formatter={(val: number, name: string) => [val, name === "total" ? "Total" : name === "qualified" ? "Qualificados" : "Vendas"]} />
+            <Tooltip formatter={(val: number, name: string) => [val, name === "total" ? "Total" : "Qualificados"]} />
             <Bar dataKey="total" name="Total" fill={CHART_COLORS.total} radius={[0, 4, 4, 0]} barSize={14} />
             <Bar dataKey="qualified" name="Qualificados" fill={CHART_COLORS.qualified} radius={[0, 4, 4, 0]} barSize={14} />
-            <Bar dataKey="vendas" name="Vendas" fill={CHART_COLORS.vendas} radius={[0, 4, 4, 0]} barSize={14} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
@@ -141,7 +140,7 @@ function SortableUTMTable({ data, title, label }: { data: { name: string; total:
                 <th className="pb-2 font-medium text-muted-foreground cursor-pointer select-none" onClick={() => toggleSort("name")}>{label}{arrow("name")}</th>
                 <th className="pb-2 font-medium text-muted-foreground text-right cursor-pointer select-none" onClick={() => toggleSort("total")}>Leads{arrow("total")}</th>
                 <th className="pb-2 font-medium text-muted-foreground text-right cursor-pointer select-none" onClick={() => toggleSort("qualified")}>Qualificados{arrow("qualified")}</th>
-                <th className="pb-2 font-medium text-muted-foreground text-right cursor-pointer select-none" onClick={() => toggleSort("vendas")}>Vendas{arrow("vendas")}</th>
+                
                 <th className="pb-2 font-medium text-muted-foreground text-right cursor-pointer select-none" onClick={() => toggleSort("qualPercent")}>Qualif. %{arrow("qualPercent")}</th>
               </tr>
             </thead>
@@ -151,7 +150,7 @@ function SortableUTMTable({ data, title, label }: { data: { name: string; total:
                   <td className="py-2 font-medium">{s.name}</td>
                   <td className="py-2 text-right">{s.total}</td>
                   <td className="py-2 text-right">{s.qualified}</td>
-                  <td className="py-2 text-right">{s.vendas}</td>
+                  
                   <td className="py-2 text-right">
                     <span
                       className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold"
