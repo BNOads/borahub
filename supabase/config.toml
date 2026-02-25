@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.fetch-google-calendar-events]
 verify_jwt = false
+
+[functions.fetch-calcom-events]
+verify_jwt = false
