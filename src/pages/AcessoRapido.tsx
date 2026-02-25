@@ -27,7 +27,8 @@ import {
   FileAudio,
   PenTool,
   GraduationCap,
-  Headphones
+  Headphones,
+  Crosshair
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NoteWidget } from "@/components/notes/NoteWidget";
@@ -165,6 +166,13 @@ const tools = [
     href: "/suporte",
     icon: Headphones,
     color: "bg-cyan-500/10 text-cyan-500",
+  },
+  {
+    name: "Sessão Estratégica",
+    description: "CRM Kanban, KPIs, relatórios SDR/Closer e integração Google",
+    href: "/sessao-estrategica",
+    icon: Crosshair,
+    color: "bg-red-500/10 text-red-500",
   },
 ];
 
