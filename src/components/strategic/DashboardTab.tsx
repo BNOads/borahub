@@ -272,8 +272,8 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const dailyLeadsData = useMemo(() => {
     const dateMap = new Map<string, { date: string; qualificados: number; desqualificados: number; total: number }>();
     for (const lead of leads) {
-      // Use extra_data.data (actual lead capture date) if available, fallback to created_at
-      const rawDate = (lead.extra_data as Record<string, string> | null)?.data || lead.created_at;
+      // Use ONLY extra_data.data (actual lead capture date) — skip leads without it
+      const rawDate = (lead.extra_data as Record<string, string> | null)?.data;
       if (!rawDate) continue;
       // Parse ISO or date-only string to YYYY-MM-DD
       const date = rawDate.length >= 10 ? rawDate.substring(0, 10) : rawDate;
