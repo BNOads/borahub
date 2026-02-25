@@ -47,7 +47,7 @@ export default function SessaoEstrategicaDetalhe() {
           <StrategicDashboardTab session={session} leads={leads} stageCounts={stageCounts} />
         </TabsContent>
         <TabsContent value="crm">
-          <StrategicCRMTab sessionId={session.id} leads={leads} />
+          <StrategicCRMTab sessionId={session.id} session={session} leads={leads} />
         </TabsContent>
         <TabsContent value="relatorios">
           <StrategicReportsTab sessionId={session.id} />
