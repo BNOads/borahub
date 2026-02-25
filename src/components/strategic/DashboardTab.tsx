@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
-import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, Calendar, Video, TrendingUp, Percent, BarChart3, CalendarClock, CalendarCheck2 } from "lucide-react";
+import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, Calendar, Video, TrendingUp, Percent, BarChart3, CalendarClock, CalendarCheck2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, ComposedChart } from "recharts";
@@ -78,6 +79,8 @@ type SortDir = "asc" | "desc";
 function SortableUTMTable({ data, title, label }: { data: { name: string; total: number; qualified: number; vendas: number; convPercent: number }[]; title: string; label: string }) {
   const [sortKey, setSortKey] = useState<SortKey>("total");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 5;
 
   const filtered = data.filter(s => s.name !== "Sem dados");
   if (filtered.length === 0) return null;
@@ -87,6 +90,26 @@ function SortableUTMTable({ data, title, label }: { data: { name: string; total:
     qualPercent: s.total > 0 ? Math.round((s.qualified / s.total) * 100 * 10) / 10 : 0,
   }));
 
+  // Find min/max qualPercent for color scale
+  const allQualPercents = withQualPercent.map(s => s.qualPercent);
+  const minQual = Math.min(...allQualPercents);
+  const maxQual = Math.max(...allQualPercents);
+
+  const getQualColor = (val: number) => {
+    if (maxQual === minQual) return "hsl(210, 15%, 95%)";
+    const ratio = (val - minQual) / (maxQual - minQual);
+    // Red (0) -> Yellow (0.5) -> Green (1)
+    const hue = Math.round(ratio * 120); // 0=red, 60=yellow, 120=green
+    return `hsl(${hue}, 65%, 90%)`;
+  };
+
+  const getQualTextColor = (val: number) => {
+    if (maxQual === minQual) return "hsl(210, 15%, 30%)";
+    const ratio = (val - minQual) / (maxQual - minQual);
+    const hue = Math.round(ratio * 120);
+    return `hsl(${hue}, 70%, 30%)`;
+  };
+
   const sorted = [...withQualPercent].sort((a, b) => {
     const aVal = a[sortKey];
     const bVal = b[sortKey];
@@ -94,9 +117,13 @@ function SortableUTMTable({ data, title, label }: { data: { name: string; total:
     return sortDir === "asc" ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
   });
 
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const paginated = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("desc"); }
+    setPage(0);
   };
 
   const arrow = (key: SortKey) => sortKey === key ? (sortDir === "asc" ? " ↑" : " ↓") : "";
@@ -119,22 +146,38 @@ function SortableUTMTable({ data, title, label }: { data: { name: string; total:
               </tr>
             </thead>
             <tbody>
-              {sorted.map(s => (
+              {paginated.map(s => (
                 <tr key={s.name} className="border-b last:border-0">
                   <td className="py-2 font-medium">{s.name}</td>
                   <td className="py-2 text-right">{s.total}</td>
                   <td className="py-2 text-right">{s.qualified}</td>
                   <td className="py-2 text-right">{s.vendas}</td>
                   <td className="py-2 text-right">
-                    <Badge variant={s.qualPercent > 0 ? "default" : "outline"} className="text-xs">
+                    <span
+                      className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold"
+                      style={{ backgroundColor: getQualColor(s.qualPercent), color: getQualTextColor(s.qualPercent) }}
+                    >
                       {s.qualPercent}%
-                    </Badge>
+                    </span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-3 pt-2 border-t">
+            <span className="text-xs text-muted-foreground">{sorted.length} itens · Página {page + 1}/{totalPages}</span>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
