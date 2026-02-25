@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, ExternalLink, Calendar, Loader2, Percent, TrendingUp, BarChart3, ChevronLeft, ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, ExternalLink, Calendar, Loader2, Percent, TrendingUp, BarChart3, CalendarClock, CalendarCheck2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,26 @@ import { Label } from "@/components/ui/label";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, Line, CartesianGrid, Legend } from "recharts";
 import { usePublicSession, usePublicLeads, usePublicDailyReports, usePublicLinks, useGoogleCalendarEvents, useUTMAnalytics } from "@/hooks/useStrategicSession";
 import { computeLeadScore } from "@/lib/leadScoring";
+import { matchLeadsWithCalCom, type CalComEvent } from "@/hooks/useCalComEvents";
+
+function usePublicCalComEvents(status: string) {
+  return useQuery({
+    queryKey: ["public-calcom-events", status],
+    queryFn: async () => {
+      try {
+        const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+        const url = `https://${projectId}.supabase.co/functions/v1/fetch-calcom-events?status=${status}`;
+        const resp = await fetch(url, {
+          headers: { 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+        });
+        if (!resp.ok) return [];
+        const result = await resp.json();
+        return (result?.data || []) as CalComEvent[];
+      } catch { return []; }
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 const PIE_COLORS = [
   "hsl(210, 70%, 55%)", "hsl(280, 60%, 55%)", "hsl(35, 80%, 55%)",
@@ -114,10 +135,17 @@ export default function PublicSessaoEstrategica() {
   const { data: calendarEvents = [] } = useGoogleCalendarEvents(session?.google_calendar_id);
   const { data: utmData } = useUTMAnalytics(session?.id);
 
+  const { data: calComUpcoming = [] } = usePublicCalComEvents("upcoming");
+  const { data: calComPast = [] } = usePublicCalComEvents("past");
+
   const [chartStartDate, setChartStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split("T")[0];
   });
   const [chartEndDate, setChartEndDate] = useState(() => new Date().toISOString().split("T")[0]);
+
+  const calComMatches = useMemo(() => matchLeadsWithCalCom(leads, calComUpcoming, calComPast), [leads, calComUpcoming, calComPast]);
+  const agendadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasUpcoming || m.hasPast).length, [calComMatches]);
+  const realizadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasPast).length, [calComMatches]);
 
   if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   if (!session) return <div className="text-center py-20 text-muted-foreground">Sessão não encontrada</div>;
@@ -126,16 +154,18 @@ export default function PublicSessaoEstrategica() {
   const totalLeads = leads.length;
 
   const stageCounts = {
-    lead: leads.filter(l => l.stage === "lead").length,
+    lead: totalLeads,
     qualificado: qualifiedByScoring,
-    agendado: leads.filter(l => l.stage === "agendado").length,
-    realizado: leads.filter(l => l.stage === "realizado").length,
+    agendado: agendadosByCalCom,
+    realizado: realizadosByCalCom,
     venda: leads.filter(l => l.stage === "venda").length,
   };
 
   const qualRate = totalLeads > 0 ? ((qualifiedByScoring / totalLeads) * 100).toFixed(1) : "0";
   const vendasCount = stageCounts.venda;
   const convRate = totalLeads > 0 ? ((vendasCount / totalLeads) * 100).toFixed(1) : "0";
+  const scheduleRate = totalLeads > 0 ? ((agendadosByCalCom / totalLeads) * 100).toFixed(1) : "0";
+  const completionRate = agendadosByCalCom > 0 ? ((realizadosByCalCom / agendadosByCalCom) * 100).toFixed(1) : "0";
 
   const kpis = [
     { key: "lead", label: "Leads", icon: Users, color: "text-blue-500" },
@@ -171,7 +201,7 @@ export default function PublicSessaoEstrategica() {
       </div>
 
       {/* Metrics row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card>
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2"><BarChart3 className="h-4 w-4 text-muted-foreground" /><span className="text-xs text-muted-foreground">Total de Leads</span></div>
@@ -182,6 +212,18 @@ export default function PublicSessaoEstrategica() {
           <CardContent className="pt-4 pb-3 px-4">
             <div className="flex items-center gap-2"><Percent className="h-4 w-4 text-purple-500" /><span className="text-xs text-muted-foreground">Taxa Qualificação</span></div>
             <p className="text-2xl font-bold mt-1">{qualRate}%</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-orange-500" /><span className="text-xs text-muted-foreground">Taxa Agendamento</span></div>
+            <p className="text-2xl font-bold mt-1">{scheduleRate}%</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 pb-3 px-4">
+            <div className="flex items-center gap-2"><CalendarCheck2 className="h-4 w-4 text-emerald-500" /><span className="text-xs text-muted-foreground">Taxa Realização</span></div>
+            <p className="text-2xl font-bold mt-1">{completionRate}%</p>
           </CardContent>
         </Card>
         <Card>
