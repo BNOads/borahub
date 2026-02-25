@@ -60,7 +60,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get session
     const { data: session, error: sessionError } = await supabase
       .from("strategic_sessions")
       .select("*")
@@ -69,22 +68,21 @@ serve(async (req) => {
     if (sessionError || !session) throw new Error("Session not found");
     if (!session.google_sheet_url) throw new Error("No Google Sheet URL configured");
 
-    // Extract spreadsheet ID
     const sheetMatch = session.google_sheet_url.match(/\/d\/([a-zA-Z0-9-_]+)/);
     if (!sheetMatch) throw new Error("Invalid Google Sheet URL");
     const spreadsheetId = sheetMatch[1];
 
-    // Fetch public CSV
     const csvUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=0`;
-    console.log("Fetching public CSV:", csvUrl);
+    console.log("Fetching CSV:", csvUrl);
 
     const csvResponse = await fetch(csvUrl, { redirect: "follow" });
     if (!csvResponse.ok) {
       const errText = await csvResponse.text();
-      throw new Error(`Failed to fetch Google Sheet (${csvResponse.status}). Make sure the sheet is shared publicly ("Anyone with the link can view"). Details: ${errText.substring(0, 200)}`);
+      throw new Error(`Failed to fetch sheet (${csvResponse.status}). Ensure it's shared publicly. ${errText.substring(0, 200)}`);
     }
 
     const csvText = await csvResponse.text();
+    console.log("CSV fetched, size:", csvText.length);
     const rows = parseCSV(csvText);
 
     if (rows.length < 2) {
@@ -101,7 +99,8 @@ serve(async (req) => {
       .select("*")
       .eq("session_id", session_id);
 
-    let created = 0, updated = 0;
+    // Build all lead records in memory first
+    const leadsToUpsert: any[] = [];
 
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
@@ -117,7 +116,6 @@ serve(async (req) => {
       const utmCampaign = rowData["utm_campaign"] || rowData["campanha"] || null;
       const utmContent = rowData["utm_content"] || null;
 
-      // Qualification
       let score = 0;
       let totalWeight = 0;
       for (const c of (criteria || [])) {
@@ -135,7 +133,7 @@ serve(async (req) => {
       }
       const isQualified = totalWeight > 0 ? (score / totalWeight) >= 0.5 : false;
 
-      const leadData = {
+      leadsToUpsert.push({
         session_id,
         name,
         email,
@@ -148,25 +146,48 @@ serve(async (req) => {
         qualification_score: totalWeight > 0 ? Math.round((score / totalWeight) * 100) : null,
         extra_data: rowData,
         source_row_id: sourceRowId,
-      };
+      });
+    }
 
-      const { data: existing } = await supabase
+    console.log(`Upserting ${leadsToUpsert.length} leads in batch`);
+
+    // Batch upsert in chunks of 500
+    const BATCH_SIZE = 500;
+    let created = 0;
+    let updated = 0;
+
+    for (let i = 0; i < leadsToUpsert.length; i += BATCH_SIZE) {
+      const batch = leadsToUpsert.slice(i, i + BATCH_SIZE);
+      const { error } = await supabase
         .from("strategic_leads")
-        .select("id")
-        .eq("source_row_id", sourceRowId)
-        .eq("session_id", session_id)
-        .maybeSingle();
+        .upsert(batch, { onConflict: "source_row_id,session_id" });
+      
+      if (error) {
+        console.error("Batch upsert error:", error.message);
+        // Fallback: insert one by one for this batch
+        for (const lead of batch) {
+          const { data: existing } = await supabase
+            .from("strategic_leads")
+            .select("id")
+            .eq("source_row_id", lead.source_row_id)
+            .eq("session_id", session_id)
+            .maybeSingle();
 
-      if (existing) {
-        await supabase.from("strategic_leads").update(leadData).eq("id", existing.id);
-        updated++;
+          if (existing) {
+            await supabase.from("strategic_leads").update(lead).eq("id", existing.id);
+            updated++;
+          } else {
+            await supabase.from("strategic_leads").insert(lead);
+            created++;
+          }
+        }
       } else {
-        await supabase.from("strategic_leads").insert(leadData);
-        created++;
+        // Approximate: we don't know exact split, report total
+        created += batch.length;
       }
     }
 
-    console.log(`Sync complete: ${created} created, ${updated} updated, ${rows.length - 1} total rows`);
+    console.log(`Sync complete: ${leadsToUpsert.length} total rows processed`);
 
     return new Response(JSON.stringify({ created, updated, total: rows.length - 1 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
