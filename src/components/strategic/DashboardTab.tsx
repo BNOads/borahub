@@ -259,11 +259,14 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       }
     }
 
-    return [...dateMap.values()].sort((a, b) => a.date.localeCompare(b.date)).map(d => ({
-      ...d,
-      date: d.date.split("-").slice(1).join("/"),
-      taxaRealizacao: d.agendados > 0 ? Math.round((d.realizados / d.agendados) * 100) : 0,
-    }));
+    return [...dateMap.values()].sort((a, b) => a.date.localeCompare(b.date)).map(d => {
+      const [, mm, dd] = d.date.split("-");
+      return {
+        ...d,
+        date: `${dd}/${mm}`,
+        taxaRealizacao: d.agendados > 0 ? Math.round((d.realizados / d.agendados) * 100) : 0,
+      };
+    });
   }, [calComEvents, calComPastEvents, chartStartDate, chartEndDate]);
 
   // Daily leads chart with qualified/unqualified
@@ -285,11 +288,14 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         entry.desqualificados++;
       }
     }
-    return [...dateMap.values()].sort((a, b) => a.date.localeCompare(b.date)).map(d => ({
-      ...d,
-      date: d.date.split("-").slice(1).join("/"),
-      taxaQualificacao: d.total > 0 ? Math.round((d.qualificados / d.total) * 100) : 0,
-    }));
+    return [...dateMap.values()].sort((a, b) => a.date.localeCompare(b.date)).map(d => {
+      const [, mm, dd] = d.date.split("-");
+      return {
+        ...d,
+        date: `${dd}/${mm}`,
+        taxaQualificacao: d.total > 0 ? Math.round((d.qualificados / d.total) * 100) : 0,
+      };
+    });
   }, [leads, chartStartDate, chartEndDate]);
 
   return (
