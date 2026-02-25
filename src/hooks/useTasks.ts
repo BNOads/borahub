@@ -458,6 +458,10 @@ export function useCreateBulkTasks() {
 
   return useMutation({
     mutationFn: async ({ tasks, assignee }: { tasks: TaskInsert[]; assignee: string }) => {
+      if (!session?.user?.id) {
+        throw new Error("Usuário não autenticado. Faça login novamente.");
+      }
+
       // Sanitiza títulos - remove caracteres invisíveis e espaços extras
       const sanitizedTasks = tasks.map(task => ({
         ...task,
@@ -465,22 +469,31 @@ export function useCreateBulkTasks() {
       }));
 
       // Valida que todos os títulos são válidos
-      const invalidTasks = sanitizedTasks.filter(t => !t.title || t.title.length === 0);
-      if (invalidTasks.length > 0) {
-        throw new Error("Alguns títulos estão vazios após limpeza");
+      const validTasks = sanitizedTasks.filter(t => t.title && t.title.length > 0);
+      if (validTasks.length === 0) {
+        throw new Error("Nenhum título válido encontrado após limpeza");
       }
 
       // Get assignee's ID
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("id")
         .eq("full_name", assignee)
         .single();
 
-      const tasksToInsert = sanitizedTasks.map(task => ({
-        ...task,
-        created_by_id: session?.user?.id,
-        assigned_to_id: profileData?.id,
+      if (profileError) {
+        console.error("Erro ao buscar perfil:", profileError);
+      }
+
+      const tasksToInsert = validTasks.map(task => ({
+        title: task.title,
+        assignee: task.assignee,
+        due_date: task.due_date,
+        priority: task.priority || "media",
+        completed: task.completed ?? false,
+        position: task.position ?? 0,
+        created_by_id: session.user.id,
+        assigned_to_id: profileData?.id || null,
       }));
 
       const { data, error } = await supabase
@@ -489,7 +502,7 @@ export function useCreateBulkTasks() {
         .select();
 
       if (error) {
-        console.error("Erro ao inserir tarefas:", error);
+        console.error("Erro ao inserir tarefas em massa:", error, JSON.stringify(tasksToInsert[0]));
         throw error;
       }
 
