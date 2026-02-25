@@ -1,93 +1,73 @@
 
 
-# Plano: Lead Scoring + Badge de Qualificação
+# Plano: Badge de Aluno nos Leads
 
 ## Contexto
 
-Os leads possuem nos campos `extra_data` os valores de **faturamento**, **lucro** e **empreita** como textos descritivos (ex: "Entre R$15.000,00 e R$30.000,00 mensal", "Não", "Sim"). Já existem os campos `is_qualified` e `qualification_score` na tabela `strategic_leads`, mas estão todos `false`/`null`.
+A tabela `sales` já contém 1906 vendas sincronizadas da Hotmart e Asaas, com campos `client_email`, `client_phone` e `product_name`. Os leads possuem `email` e `phone` nos campos diretos, e também `e-mail` e `whatsapp` no `extra_data`.
 
-## Regras de Lead Scoring
+A abordagem ideal é consultar a tabela `sales` localmente (já sincronizada) em vez de chamar as APIs externas a cada render — isso é mais rápido, confiável e não consome rate limits.
 
-Mapear as faixas textuais para pontuações numéricas:
+## Lógica
 
-```text
-FATURAMENTO (peso principal — fator qualificante: >= 15k)
-  Até R$3.000        → 0 pts
-  R$3k - R$5k        → 5 pts
-  R$5k - R$10k       → 10 pts
-  R$10k - R$15k      → 15 pts
-  R$15k - R$30k      → 25 pts  ← a partir daqui qualifica
-  R$30k - R$50k      → 35 pts
-  R$50k - R$100k     → 45 pts
-  Acima de R$100k     → 60 pts
-
-LUCRO (fator qualificante: >= 10k)
-  Até R$3.000        → 0 pts
-  R$3k - R$5k        → 5 pts
-  R$5k - R$10k       → 10 pts
-  R$10k - R$15k      → 20 pts  ← a partir daqui qualifica
-  R$15k - R$30k      → 25 pts
-  R$30k - R$50k      → 35 pts
-  R$50k - R$100k     → 45 pts
-  Acima de R$100k     → 60 pts
-
-EMPREITA (bônus, não determinante)
-  "Não"              → +10 pts (bônus)
-  "Sim" / outro      → 0 pts
-
-QUALIFICAÇÃO:
-  is_qualified = TRUE quando:
-    faturamento >= 15k E lucro >= 10k
-  
-  qualification_score = soma dos pontos
-```
+1. Ao carregar os leads do CRM, buscar todos os registros distintos de `(client_email, client_phone, product_name, platform)` da tabela `sales`
+2. Para cada lead, comparar o `email` e `phone` (normalizados) contra os dados de vendas
+3. Se houver match por email OU telefone, marcar como "Aluno" e listar os produtos
 
 ## Alterações
 
-### 1. Função de scoring no frontend (`CRMTab.tsx`)
+### 1. Novo hook `useLeadStudentStatus` em `useStrategicSession.ts`
 
-Criar uma função `computeLeadScore(lead)` que:
-- Lê `extra_data.faturamento`, `extra_data.lucro`, `extra_data.empreita`
-- Normaliza o texto (trim, lowercase) e faz matching por substring nas faixas conhecidas
-- Retorna `{ score: number, isQualified: boolean, breakdown: { faturamento, lucro, empreita } }`
+Query que traz todos os pares únicos de `(client_email, client_phone, product_name, platform)` da tabela `sales`:
 
-### 2. Badge de qualificação nos cards do Kanban
+```typescript
+useQuery({
+  queryKey: ["sales-student-lookup"],
+  queryFn: async () => {
+    const { data } = await supabase
+      .from("sales")
+      .select("client_email, client_phone, product_name, platform");
+    return data;
+  },
+});
+```
 
-No componente `DraggableLeadCard`:
-- Remover a estrela dourada atual
-- Adicionar badge **verde** "Qualificado" ou **vermelha** "Desqualificado" baseada no scoring calculado
-- Exibir o score numérico ao lado
+Uma função utilitária `getStudentInfo(lead, salesData)` normaliza email/telefone (remove espaços, lowercase, strip "+55") e busca matches, retornando `{ isStudent: boolean, products: string[] }`.
 
-### 3. Detalhes do lead (Sheet lateral)
+### 2. Badge "Aluno" no card do Kanban (`CRMTab.tsx`)
 
-Na Sheet de detalhes:
-- Substituir a badge atual de qualificado pela nova com cor
-- Adicionar seção "Lead Scoring" com breakdown:
-  - Faturamento: X pts
-  - Lucro: X pts
-  - Empreita: X pts
-  - Total: X pts
-  - Status: Qualificado/Desqualificado
+Dentro do `DraggableLeadCard`, adicionar uma badge azul/ciano `🎓 Aluno` quando o lead for identificado como aluno. A badge será discreta, ao lado da badge de scoring.
 
-### 4. Atualizar `is_qualified` e `qualification_score` no banco
+### 3. Detalhes de produtos no Sheet lateral
 
-Quando o scoring é calculado no CRM (ao carregar os leads), chamar `updateLead` em batch ou sob demanda para persistir `is_qualified` e `qualification_score` no banco, permitindo que filtros e dashboard usem os valores corretos.
+Quando o lead for aluno, no detalhe exibir uma seção "Aluno" com:
+- Lista dos produtos que possui
+- Plataforma de origem (Hotmart / Asaas)
+- Badge visual "Aluno" em destaque
 
-Alternativa mais performática: calcular o scoring apenas no frontend para exibição e persistir apenas quando o lead é visualizado individualmente (evita updates em massa a cada render).
+### 4. Performance
 
-### 5. Filtro por qualificação
-
-O filtro "Qualificado" já existe nos filtros dinâmicos. Ele continuará funcionando baseado no campo `is_qualified` do banco. Adicionarei um botão "Recalcular Scoring" na aba de Configuração que aplica o scoring a todos os leads e persiste os resultados.
+- Os dados de vendas são cacheados pelo React Query (staleTime alto)
+- O matching é feito via `useMemo` para evitar recálculos
+- A normalização de telefone remove prefixos como "+55", "55", espaços e traços para matching robusto
 
 ## Detalhes Técnicos
 
-- A função de parsing dos valores textuais usará matching por substrings-chave (`"15.000"`, `"30.000"`, `"100.000"`, etc.) para lidar com variações de formatação
-- O scoring é computado no frontend via `useMemo` para performance
-- A persistência em lote será feita via um botão explícito para não sobrecarregar requests
+Normalização de telefone para matching:
+```text
+Lead phone: "5511958971759"
+Sale phone: "+55 11 95897-1759"
+→ Ambos normalizam para: "11958971759"
+```
 
-## Arquivos a serem modificados
+Normalização de email:
+```text
+Comparação case-insensitive, trim de espaços
+Busca também no extra_data["e-mail"] e extra_data["whatsapp"]
+```
 
-- `src/components/strategic/CRMTab.tsx` — scoring, badges, breakdown no detalhe
-- `src/components/strategic/ConfigTab.tsx` — botão "Recalcular Lead Scoring"
-- `src/hooks/useStrategicSession.ts` — mutation para atualização em batch do scoring
+## Arquivos a modificar
+
+- `src/hooks/useStrategicSession.ts` — novo hook para buscar dados de vendas
+- `src/components/strategic/CRMTab.tsx` — badge de aluno nos cards e seção de produtos no detalhe
 
