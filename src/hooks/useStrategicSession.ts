@@ -395,13 +395,28 @@ export function useUTMAnalytics(sessionId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("strategic_leads")
-        .select("utm_source, stage, is_qualified")
+        .select("utm_source, stage, is_qualified, extra_data")
         .eq("session_id", sessionId!);
       if (error) throw error;
       
+      const utmSourceKeys = ["utm_source", "fonte", "source"];
+      
       const sources: Record<string, { total: number; qualified: number; vendas: number }> = {};
-      (data || []).forEach((lead: { utm_source: string | null; stage: string; is_qualified: boolean }) => {
-        const src = lead.utm_source || "Direto";
+      (data || []).forEach((lead: any) => {
+        // Try to get utm_source from extra_data first, then fallback to column
+        let src = lead.utm_source;
+        if ((!src || !src.trim()) && lead.extra_data && typeof lead.extra_data === 'object') {
+          for (const key of utmSourceKeys) {
+            for (const [k, v] of Object.entries(lead.extra_data as Record<string, string>)) {
+              if (k.toLowerCase() === key.toLowerCase() && v && String(v).trim()) {
+                src = String(v).trim();
+                break;
+              }
+            }
+            if (src && src.trim()) break;
+          }
+        }
+        src = src && src.trim() ? src.trim() : "Direto";
         if (!sources[src]) sources[src] = { total: 0, qualified: 0, vendas: 0 };
         sources[src].total++;
         if (lead.is_qualified) sources[src].qualified++;
