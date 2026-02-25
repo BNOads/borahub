@@ -1,0 +1,1 @@
+ALTER TABLE public.tasks ALTER COLUMN title TYPE varchar(500);
