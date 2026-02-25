@@ -4392,6 +4392,10 @@ export type Database = {
         Returns: boolean
       }
       is_finance_department: { Args: { _user_id: string }; Returns: boolean }
+      remove_duplicate_strategic_leads: {
+        Args: { p_session_id: string }
+        Returns: number
+      }
     }
     Enums: {
       app_role: "admin" | "collaborator" | "manager" | "guest"

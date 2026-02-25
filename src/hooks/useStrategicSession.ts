@@ -276,6 +276,26 @@ export function useDeleteLead() {
   });
 }
 
+export function useDeduplicateLeads() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const { data, error } = await supabase.rpc("remove_duplicate_strategic_leads", { p_session_id: sessionId });
+      if (error) throw error;
+      return data as number;
+    },
+    onSuccess: (count) => {
+      qc.invalidateQueries({ queryKey: ["strategic-leads"] });
+      if (count > 0) {
+        toast.success(`${count} leads duplicados removidos`);
+      } else {
+        toast.info("Nenhum lead duplicado encontrado");
+      }
+    },
+    onError: () => toast.error("Erro ao remover duplicados"),
+  });
+}
+
 // Lead History
 export function useLeadHistory(leadId: string | undefined) {
   return useQuery({
