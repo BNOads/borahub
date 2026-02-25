@@ -3,7 +3,7 @@ import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, u
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import { Phone, Mail, Star, Calendar } from "lucide-react";
+import { Phone, Mail, Star, Calendar, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -31,6 +31,22 @@ const stageColors: Record<string, string> = {
   venda: "bg-green-600",
 };
 
+const DATE_FIELD_NAMES = ["data", "date", "data de entrada", "data_entrada", "data de cadastro", "data_cadastro", "created_at", "timestamp", "data de inscrição", "data_inscricao", "data inscrição", "cadastro", "criado em", "criado_em"];
+
+function getLeadEntryDate(lead: StrategicLead): string | null {
+  const extra = lead.extra_data as Record<string, string> | null;
+  if (!extra) return null;
+  for (const key of DATE_FIELD_NAMES) {
+    const val = extra[key] || extra[key.toLowerCase()];
+    if (val && val.trim()) return val.trim();
+  }
+  // Also try matching any key containing "data" or "date"
+  for (const [k, v] of Object.entries(extra)) {
+    if ((k.toLowerCase().includes("data") || k.toLowerCase().includes("date")) && v && v.trim()) return v.trim();
+  }
+  return null;
+}
+
 function DroppableColumn({ stage, children }: { stage: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
   return (
@@ -48,7 +64,7 @@ function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: ()
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: lead.id, data: { lead } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.5 : 1 } : undefined;
 
-  const createdDate = lead.created_at ? new Date(lead.created_at).toLocaleDateString("pt-BR") : null;
+  const entryDate = getLeadEntryDate(lead);
 
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
@@ -60,7 +76,7 @@ function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: ()
           </div>
           {lead.phone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</p>}
           <div className="flex flex-wrap gap-1">
-            {createdDate && <Badge variant="secondary" className="text-[10px] h-5"><Calendar className="h-2.5 w-2.5 mr-0.5" />{createdDate}</Badge>}
+            {entryDate && <Badge variant="secondary" className="text-[10px] h-5"><Clock className="h-2.5 w-2.5 mr-0.5" />{entryDate}</Badge>}
             {lead.utm_source && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_source}</Badge>}
             {lead.utm_medium && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_medium}</Badge>}
             {lead.utm_campaign && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_campaign}</Badge>}
@@ -131,7 +147,7 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
                     {selectedLead.phone && <div><span className="text-muted-foreground">Telefone:</span> <p>{selectedLead.phone}</p></div>}
                     {selectedLead.sale_value && <div><span className="text-muted-foreground">Valor venda:</span> <p>R$ {selectedLead.sale_value.toLocaleString("pt-BR")}</p></div>}
                     {selectedLead.meeting_date && <div><span className="text-muted-foreground">Reunião:</span> <p>{new Date(selectedLead.meeting_date).toLocaleString("pt-BR")}</p></div>}
-                    {selectedLead.created_at && <div><span className="text-muted-foreground">Entrada:</span> <p>{new Date(selectedLead.created_at).toLocaleDateString("pt-BR")}</p></div>}
+                    {(() => { const d = getLeadEntryDate(selectedLead); return d ? <div><span className="text-muted-foreground">Entrada:</span> <p>{d}</p></div> : null; })()}
                   </div>
 
                   {/* UTMs completas */}
