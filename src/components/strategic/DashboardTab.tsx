@@ -134,7 +134,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         {/* UTM Chart */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Fontes UTM</CardTitle>
+            <CardTitle className="text-base">Origens</CardTitle>
           </CardHeader>
           <CardContent>
             {utmData.length === 0 ? (
