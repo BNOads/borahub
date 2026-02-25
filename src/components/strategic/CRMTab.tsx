@@ -164,7 +164,7 @@ function DraggableLeadCard({ lead, onClick, studentInfo }: { lead: StrategicLead
                 </Badge>
               )}
               <Badge className={`text-[10px] h-5 ${scoring.isQualified ? "bg-green-500 hover:bg-green-600 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}>
-                {scoring.score}pts
+                {scoring.isQualified ? "Qualificado" : "Desqualificado"}
               </Badge>
             </div>
           </div>
