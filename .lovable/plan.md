@@ -1,63 +1,93 @@
 
 
-# Plano: Sincronização Google Sheets via Link Público (sem API Key)
+# Plano: Lead Scoring + Badge de Qualificação
 
-## Problema Atual
+## Contexto
 
-A sincronização com Google Sheets usa a **Google Sheets API v4** com Service Account, que requer um JSON de credenciais (`GOOGLE_SERVICE_ACCOUNT_KEY`). Esse secret está configurado com valor inválido (Client ID ao invés de JSON), causando o erro persistente de parsing.
+Os leads possuem nos campos `extra_data` os valores de **faturamento**, **lucro** e **empreita** como textos descritivos (ex: "Entre R$15.000,00 e R$30.000,00 mensal", "Não", "Sim"). Já existem os campos `is_qualified` e `qualification_score` na tabela `strategic_leads`, mas estão todos `false`/`null`.
 
-## Solução
+## Regras de Lead Scoring
 
-Substituir completamente a abordagem de API por **link público do Google Sheets em formato JSON**. O Google Sheets permite exportar dados como JSON/CSV quando a planilha é compartilhada publicamente ("Qualquer pessoa com o link pode visualizar").
+Mapear as faixas textuais para pontuações numéricas:
 
-### Como funciona
+```text
+FATURAMENTO (peso principal — fator qualificante: >= 15k)
+  Até R$3.000        → 0 pts
+  R$3k - R$5k        → 5 pts
+  R$5k - R$10k       → 10 pts
+  R$10k - R$15k      → 15 pts
+  R$15k - R$30k      → 25 pts  ← a partir daqui qualifica
+  R$30k - R$50k      → 35 pts
+  R$50k - R$100k     → 45 pts
+  Acima de R$100k     → 60 pts
 
-Quando uma planilha Google é pública, pode-se acessar seus dados via:
+LUCRO (fator qualificante: >= 10k)
+  Até R$3.000        → 0 pts
+  R$3k - R$5k        → 5 pts
+  R$5k - R$10k       → 10 pts
+  R$10k - R$15k      → 20 pts  ← a partir daqui qualifica
+  R$15k - R$30k      → 25 pts
+  R$30k - R$50k      → 35 pts
+  R$50k - R$100k     → 45 pts
+  Acima de R$100k     → 60 pts
+
+EMPREITA (bônus, não determinante)
+  "Não"              → +10 pts (bônus)
+  "Sim" / outro      → 0 pts
+
+QUALIFICAÇÃO:
+  is_qualified = TRUE quando:
+    faturamento >= 15k E lucro >= 10k
+  
+  qualification_score = soma dos pontos
 ```
-https://docs.google.com/spreadsheets/d/{SPREADSHEET_ID}/gviz/tq?tqx=out:json
-```
-
-Isso retorna os dados em formato JSON sem necessidade de autenticação, API key ou service account.
 
 ## Alterações
 
-### 1. Edge Function `sync-strategic-leads/index.ts` — Reescrita simplificada
-- Remover toda a lógica de Service Account (funções `getGoogleAccessToken`, `pemToArrayBuffer`, `arrayBufferToBase64Url`)
-- Remover referência ao secret `GOOGLE_SERVICE_ACCOUNT_KEY`
-- Extrair o ID da planilha da URL salva na sessão
-- Buscar dados via endpoint público `gviz/tq?tqx=out:json`
-- Parsear a resposta (Google retorna um wrapper `google.visualization.Query.setResponse(...)` que precisa ser extraído)
-- Manter toda a lógica de qualificação e upsert de leads intacta
+### 1. Função de scoring no frontend (`CRMTab.tsx`)
 
-### 2. Nenhuma alteração no frontend
-- O hook `useSyncGoogleSheet` e o `ConfigTab` permanecem iguais
-- O campo "URL da Google Sheet" já existe na configuração
+Criar uma função `computeLeadScore(lead)` que:
+- Lê `extra_data.faturamento`, `extra_data.lucro`, `extra_data.empreita`
+- Normaliza o texto (trim, lowercase) e faz matching por substring nas faixas conhecidas
+- Retorna `{ score: number, isQualified: boolean, breakdown: { faturamento, lucro, empreita } }`
 
-### 3. Nenhuma alteração no banco de dados
+### 2. Badge de qualificação nos cards do Kanban
 
-## Pré-requisito para o usuário
-A planilha Google Sheets precisa estar com compartilhamento público ativado ("Qualquer pessoa com o link pode visualizar"). Sem isso, o endpoint retorna erro.
+No componente `DraggableLeadCard`:
+- Remover a estrela dourada atual
+- Adicionar badge **verde** "Qualificado" ou **vermelha** "Desqualificado" baseada no scoring calculado
+- Exibir o score numérico ao lado
+
+### 3. Detalhes do lead (Sheet lateral)
+
+Na Sheet de detalhes:
+- Substituir a badge atual de qualificado pela nova com cor
+- Adicionar seção "Lead Scoring" com breakdown:
+  - Faturamento: X pts
+  - Lucro: X pts
+  - Empreita: X pts
+  - Total: X pts
+  - Status: Qualificado/Desqualificado
+
+### 4. Atualizar `is_qualified` e `qualification_score` no banco
+
+Quando o scoring é calculado no CRM (ao carregar os leads), chamar `updateLead` em batch ou sob demanda para persistir `is_qualified` e `qualification_score` no banco, permitindo que filtros e dashboard usem os valores corretos.
+
+Alternativa mais performática: calcular o scoring apenas no frontend para exibição e persistir apenas quando o lead é visualizado individualmente (evita updates em massa a cada render).
+
+### 5. Filtro por qualificação
+
+O filtro "Qualificado" já existe nos filtros dinâmicos. Ele continuará funcionando baseado no campo `is_qualified` do banco. Adicionarei um botão "Recalcular Scoring" na aba de Configuração que aplica o scoring a todos os leads e persiste os resultados.
 
 ## Detalhes Técnicos
 
-### Parsing da resposta pública do Google Sheets
-O endpoint `gviz/tq` retorna algo como:
-```
-google.visualization.Query.setResponse({...json...});
-```
-É necessário extrair o JSON interno com regex e mapear `cols` (headers) e `rows` (dados) para o formato que a lógica de sync já espera.
+- A função de parsing dos valores textuais usará matching por substrings-chave (`"15.000"`, `"30.000"`, `"100.000"`, etc.) para lidar com variações de formatação
+- O scoring é computado no frontend via `useMemo` para performance
+- A persistência em lote será feita via um botão explícito para não sobrecarregar requests
 
-Alternativamente, usar o endpoint CSV:
-```
-https://docs.google.com/spreadsheets/d/{ID}/export?format=csv
-```
-que é mais simples de parsear e mais confiável. Essa será a abordagem escolhida.
+## Arquivos a serem modificados
 
-### Fluxo da Edge Function simplificada
-1. Receber `session_id`
-2. Buscar sessão e extrair spreadsheet ID da URL
-3. Fetch CSV público: `https://docs.google.com/spreadsheets/d/{ID}/export?format=csv&gid=0`
-4. Parsear CSV em linhas/colunas
-5. Aplicar critérios de qualificação (mesma lógica atual)
-6. Upsert leads no banco
+- `src/components/strategic/CRMTab.tsx` — scoring, badges, breakdown no detalhe
+- `src/components/strategic/ConfigTab.tsx` — botão "Recalcular Lead Scoring"
+- `src/hooks/useStrategicSession.ts` — mutation para atualização em batch do scoring
 
