@@ -1,0 +1,519 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+
+// Types
+export interface StrategicSession {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  google_sheet_url: string | null;
+  google_calendar_id: string | null;
+  public_slug: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StrategicLead {
+  id: string;
+  session_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  stage: string;
+  is_qualified: boolean;
+  qualification_score: number | null;
+  qualification_notes: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_content: string | null;
+  meeting_date: string | null;
+  meeting_notes: string | null;
+  sale_value: number | null;
+  assigned_to: string | null;
+  extra_data: Record<string, unknown>;
+  source_row_id: string | null;
+  order_index: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StrategicLeadHistory {
+  id: string;
+  lead_id: string;
+  previous_stage: string | null;
+  new_stage: string;
+  changed_by: string | null;
+  changed_by_name: string | null;
+  changed_at: string;
+}
+
+export interface StrategicDailyReport {
+  id: string;
+  session_id: string;
+  report_date: string;
+  report_type: string;
+  author_id: string | null;
+  author_name: string;
+  contacts: number;
+  followups: number;
+  meetings_scheduled: number;
+  meetings_held: number;
+  no_shows: number;
+  sales: number;
+  summary: string | null;
+  created_at: string;
+}
+
+export interface StrategicLink {
+  id: string;
+  session_id: string;
+  name: string;
+  url: string;
+  category: string | null;
+  order_index: number;
+  created_at: string;
+}
+
+export interface QualificationCriterion {
+  id: string;
+  session_id: string;
+  field_name: string;
+  operator: string;
+  value: string;
+  weight: number;
+  created_at: string;
+}
+
+const STAGES = ['lead', 'qualificado', 'agendado', 'realizado', 'venda'] as const;
+export { STAGES };
+
+// Sessions
+export function useStrategicSessions() {
+  return useQuery({
+    queryKey: ["strategic-sessions"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_sessions")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as StrategicSession[];
+    },
+  });
+}
+
+export function useStrategicSession(id: string | undefined) {
+  return useQuery({
+    queryKey: ["strategic-session", id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_sessions")
+        .select("*")
+        .eq("id", id!)
+        .single();
+      if (error) throw error;
+      return data as StrategicSession;
+    },
+    enabled: !!id,
+  });
+}
+
+export function useCreateSession() {
+  const qc = useQueryClient();
+  const { profile } = useAuth();
+  return useMutation({
+    mutationFn: async (values: { name: string; description?: string }) => {
+      const slug = Math.random().toString(36).substring(2, 8);
+      const { data, error } = await supabase.from("strategic_sessions").insert({
+        name: values.name,
+        description: values.description || null,
+        public_slug: slug,
+        created_by: profile?.id,
+      }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-sessions"] });
+      toast.success("Sessão criada com sucesso");
+    },
+    onError: () => toast.error("Erro ao criar sessão"),
+  });
+}
+
+export function useUpdateSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...values }: Partial<StrategicSession> & { id: string }) => {
+      const { error } = await supabase.from("strategic_sessions").update(values).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["strategic-sessions"] });
+      qc.invalidateQueries({ queryKey: ["strategic-session", vars.id] });
+      toast.success("Sessão atualizada");
+    },
+    onError: () => toast.error("Erro ao atualizar sessão"),
+  });
+}
+
+// Leads
+export function useStrategicLeads(sessionId: string | undefined, filters?: { stage?: string; utm_source?: string; is_qualified?: boolean }) {
+  return useQuery({
+    queryKey: ["strategic-leads", sessionId, filters],
+    queryFn: async () => {
+      let query = supabase
+        .from("strategic_leads")
+        .select("*")
+        .eq("session_id", sessionId!)
+        .order("order_index");
+      if (filters?.stage) query = query.eq("stage", filters.stage);
+      if (filters?.utm_source) query = query.eq("utm_source", filters.utm_source);
+      if (filters?.is_qualified !== undefined) query = query.eq("is_qualified", filters.is_qualified);
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as StrategicLead[];
+    },
+    enabled: !!sessionId,
+  });
+}
+
+export function useUpdateLeadStage() {
+  const qc = useQueryClient();
+  const { profile } = useAuth();
+  return useMutation({
+    mutationFn: async ({ leadId, newStage, previousStage }: { leadId: string; newStage: string; previousStage: string }) => {
+      const { error: updateError } = await supabase
+        .from("strategic_leads")
+        .update({ stage: newStage })
+        .eq("id", leadId);
+      if (updateError) throw updateError;
+
+      const { error: historyError } = await supabase
+        .from("strategic_lead_history")
+        .insert({
+          lead_id: leadId,
+          previous_stage: previousStage,
+          new_stage: newStage,
+          changed_by: profile?.id || null,
+          changed_by_name: profile?.full_name || profile?.display_name || null,
+        });
+      if (historyError) throw historyError;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-leads"] });
+    },
+  });
+}
+
+export function useCreateLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: Partial<StrategicLead> & { session_id: string; name: string }) => {
+      const { extra_data, ...rest } = values;
+      const insertData = { ...rest, extra_data: extra_data ? JSON.parse(JSON.stringify(extra_data)) : undefined };
+      const { data, error } = await supabase.from("strategic_leads").insert(insertData as any).select().single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-leads"] });
+      toast.success("Lead adicionado");
+    },
+    onError: () => toast.error("Erro ao adicionar lead"),
+  });
+}
+
+export function useUpdateLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...values }: Partial<StrategicLead> & { id: string }) => {
+      const { extra_data, ...rest } = values;
+      const updateData = { ...rest, extra_data: extra_data ? JSON.parse(JSON.stringify(extra_data)) : undefined };
+      const { error } = await supabase.from("strategic_leads").update(updateData as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-leads"] });
+    },
+  });
+}
+
+// Lead History
+export function useLeadHistory(leadId: string | undefined) {
+  return useQuery({
+    queryKey: ["strategic-lead-history", leadId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_lead_history")
+        .select("*")
+        .eq("lead_id", leadId!)
+        .order("changed_at", { ascending: false });
+      if (error) throw error;
+      return data as StrategicLeadHistory[];
+    },
+    enabled: !!leadId,
+  });
+}
+
+// Daily Reports
+export function useStrategicDailyReports(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ["strategic-daily-reports", sessionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_daily_reports")
+        .select("*")
+        .eq("session_id", sessionId!)
+        .order("report_date", { ascending: false });
+      if (error) throw error;
+      return data as StrategicDailyReport[];
+    },
+    enabled: !!sessionId,
+  });
+}
+
+export function useCreateDailyReport() {
+  const qc = useQueryClient();
+  const { profile } = useAuth();
+  return useMutation({
+    mutationFn: async (values: Omit<StrategicDailyReport, "id" | "created_at" | "author_id" | "author_name">) => {
+      const { error } = await supabase.from("strategic_daily_reports").insert({
+        ...values,
+        author_id: profile?.id || null,
+        author_name: profile?.full_name || profile?.display_name || "Anônimo",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-daily-reports"] });
+      toast.success("Relatório salvo");
+    },
+    onError: () => toast.error("Erro ao salvar relatório"),
+  });
+}
+
+// Links
+export function useStrategicLinks(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ["strategic-links", sessionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_links")
+        .select("*")
+        .eq("session_id", sessionId!)
+        .order("order_index");
+      if (error) throw error;
+      return data as StrategicLink[];
+    },
+    enabled: !!sessionId,
+  });
+}
+
+export function useCreateLink() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: { session_id: string; name: string; url: string; category?: string }) => {
+      const { error } = await supabase.from("strategic_links").insert(values);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-links"] });
+      toast.success("Link adicionado");
+    },
+    onError: () => toast.error("Erro ao adicionar link"),
+  });
+}
+
+export function useDeleteLink() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("strategic_links").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-links"] });
+    },
+  });
+}
+
+// Qualification Criteria
+export function useQualificationCriteria(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ["strategic-criteria", sessionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_qualification_criteria")
+        .select("*")
+        .eq("session_id", sessionId!)
+        .order("created_at");
+      if (error) throw error;
+      return data as QualificationCriterion[];
+    },
+    enabled: !!sessionId,
+  });
+}
+
+export function useCreateCriterion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (values: { session_id: string; field_name: string; operator: string; value: string; weight?: number }) => {
+      const { error } = await supabase.from("strategic_qualification_criteria").insert(values);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-criteria"] });
+      toast.success("Critério adicionado");
+    },
+    onError: () => toast.error("Erro ao adicionar critério"),
+  });
+}
+
+export function useDeleteCriterion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("strategic_qualification_criteria").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-criteria"] });
+    },
+  });
+}
+
+// UTM Analytics
+export function useUTMAnalytics(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ["strategic-utm-analytics", sessionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_leads")
+        .select("utm_source, stage, is_qualified")
+        .eq("session_id", sessionId!);
+      if (error) throw error;
+      
+      const sources: Record<string, { total: number; qualified: number; vendas: number }> = {};
+      (data || []).forEach((lead: { utm_source: string | null; stage: string; is_qualified: boolean }) => {
+        const src = lead.utm_source || "Direto";
+        if (!sources[src]) sources[src] = { total: 0, qualified: 0, vendas: 0 };
+        sources[src].total++;
+        if (lead.is_qualified) sources[src].qualified++;
+        if (lead.stage === "venda") sources[src].vendas++;
+      });
+
+      return Object.entries(sources).map(([source, stats]) => ({
+        source,
+        ...stats,
+        qualifiedPercent: stats.total > 0 ? Math.round((stats.qualified / stats.total) * 100) : 0,
+      }));
+    },
+    enabled: !!sessionId,
+  });
+}
+
+// Google Sheets Sync
+export function useSyncGoogleSheet() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (sessionId: string) => {
+      const { data, error } = await supabase.functions.invoke("sync-strategic-leads", {
+        body: { session_id: sessionId },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-leads"] });
+      toast.success("Sincronização concluída");
+    },
+    onError: () => toast.error("Erro ao sincronizar planilha"),
+  });
+}
+
+// Google Calendar Events
+export function useGoogleCalendarEvents(calendarId: string | undefined | null, date?: string) {
+  return useQuery({
+    queryKey: ["strategic-calendar-events", calendarId, date],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("fetch-google-calendar-events", {
+        body: { calendar_id: calendarId, date: date || new Date().toISOString().split("T")[0] },
+      });
+      if (error) throw error;
+      return data?.events || [];
+    },
+    enabled: !!calendarId,
+    refetchInterval: 60000, // refresh every minute
+  });
+}
+
+// Public session by slug
+export function usePublicSession(slug: string | undefined) {
+  return useQuery({
+    queryKey: ["public-strategic-session", slug],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_sessions")
+        .select("*")
+        .eq("public_slug", slug!)
+        .single();
+      if (error) throw error;
+      return data as StrategicSession;
+    },
+    enabled: !!slug,
+  });
+}
+
+export function usePublicLeads(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ["public-strategic-leads", sessionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_leads")
+        .select("stage, is_qualified, utm_source")
+        .eq("session_id", sessionId!);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!sessionId,
+  });
+}
+
+export function usePublicDailyReports(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ["public-strategic-reports", sessionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_daily_reports")
+        .select("*")
+        .eq("session_id", sessionId!)
+        .order("report_date", { ascending: false })
+        .limit(2);
+      if (error) throw error;
+      return data as StrategicDailyReport[];
+    },
+    enabled: !!sessionId,
+  });
+}
+
+export function usePublicLinks(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ["public-strategic-links", sessionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_links")
+        .select("*")
+        .eq("session_id", sessionId!)
+        .order("order_index");
+      if (error) throw error;
+      return data as StrategicLink[];
+    },
+    enabled: !!sessionId,
+  });
+}

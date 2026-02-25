@@ -50,6 +50,9 @@ import MentoriaView from "./pages/MentoriaView";
 import PublicFunnelReport from "./pages/PublicFunnelReport";
 import DirectRedirect from "./pages/DirectRedirect";
 import TicketsView from "./pages/TicketsView";
+import SessaoEstrategica from "./pages/SessaoEstrategica";
+import SessaoEstrategicaDetalhe from "./pages/SessaoEstrategicaDetalhe";
+import PublicSessaoEstrategica from "./pages/PublicSessaoEstrategica";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,6 +79,7 @@ const App = () => (
             <Route path="/q/:slug" element={<PublicQuiz />} />
             <Route path="/relatorio-funil/:id" element={<PublicFunnelReport />} />
             <Route path="/d/:slug" element={<DirectRedirect />} />
+            <Route path="/se/:slug" element={<PublicSessaoEstrategica />} />
 
             {/* Rota de troca obrigatória de senha */}
             <Route path="/troca-senha" element={
@@ -126,6 +130,8 @@ const App = () => (
               <Route path="/agente-copy" element={<AgenteCopy />} />
               <Route path="/mentoria" element={<MentoriaView />} />
               <Route path="/suporte" element={<TicketsView />} />
+              <Route path="/sessao-estrategica" element={<SessaoEstrategica />} />
+              <Route path="/sessao-estrategica/:id" element={<SessaoEstrategicaDetalhe />} />
               <Route path="/perfil" element={<Perfil />} />
               
               {/* Rotas admin */}

@@ -3407,6 +3407,330 @@ export type Database = {
         }
         Relationships: []
       }
+      strategic_daily_reports: {
+        Row: {
+          author_id: string | null
+          author_name: string
+          contacts: number
+          created_at: string
+          followups: number
+          id: string
+          meetings_held: number
+          meetings_scheduled: number
+          no_shows: number
+          report_date: string
+          report_type: string
+          sales: number
+          session_id: string
+          summary: string | null
+        }
+        Insert: {
+          author_id?: string | null
+          author_name: string
+          contacts?: number
+          created_at?: string
+          followups?: number
+          id?: string
+          meetings_held?: number
+          meetings_scheduled?: number
+          no_shows?: number
+          report_date: string
+          report_type: string
+          sales?: number
+          session_id: string
+          summary?: string | null
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string
+          contacts?: number
+          created_at?: string
+          followups?: number
+          id?: string
+          meetings_held?: number
+          meetings_scheduled?: number
+          no_shows?: number
+          report_date?: string
+          report_type?: string
+          sales?: number
+          session_id?: string
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategic_daily_reports_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategic_daily_reports_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "strategic_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategic_lead_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          changed_by_name: string | null
+          id: string
+          lead_id: string
+          new_stage: string
+          previous_stage: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          id?: string
+          lead_id: string
+          new_stage: string
+          previous_stage?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          id?: string
+          lead_id?: string
+          new_stage?: string
+          previous_stage?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategic_lead_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategic_lead_history_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "strategic_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategic_leads: {
+        Row: {
+          assigned_to: string | null
+          created_at: string
+          email: string | null
+          extra_data: Json
+          id: string
+          is_qualified: boolean
+          meeting_date: string | null
+          meeting_notes: string | null
+          name: string
+          order_index: number
+          phone: string | null
+          qualification_notes: string | null
+          qualification_score: number | null
+          sale_value: number | null
+          session_id: string
+          source_row_id: string | null
+          stage: string
+          updated_at: string
+          utm_campaign: string | null
+          utm_content: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string
+          email?: string | null
+          extra_data?: Json
+          id?: string
+          is_qualified?: boolean
+          meeting_date?: string | null
+          meeting_notes?: string | null
+          name: string
+          order_index?: number
+          phone?: string | null
+          qualification_notes?: string | null
+          qualification_score?: number | null
+          sale_value?: number | null
+          session_id: string
+          source_row_id?: string | null
+          stage?: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string
+          email?: string | null
+          extra_data?: Json
+          id?: string
+          is_qualified?: boolean
+          meeting_date?: string | null
+          meeting_notes?: string | null
+          name?: string
+          order_index?: number
+          phone?: string | null
+          qualification_notes?: string | null
+          qualification_score?: number | null
+          sale_value?: number | null
+          session_id?: string
+          source_row_id?: string | null
+          stage?: string
+          updated_at?: string
+          utm_campaign?: string | null
+          utm_content?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategic_leads_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strategic_leads_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "strategic_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategic_links: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          name: string
+          order_index: number
+          session_id: string
+          url: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          order_index?: number
+          session_id: string
+          url: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          order_index?: number
+          session_id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategic_links_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "strategic_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategic_qualification_criteria: {
+        Row: {
+          created_at: string
+          field_name: string
+          id: string
+          operator: string
+          session_id: string
+          value: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          field_name: string
+          id?: string
+          operator: string
+          session_id: string
+          value: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          field_name?: string
+          id?: string
+          operator?: string
+          session_id?: string
+          value?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategic_qualification_criteria_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "strategic_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      strategic_sessions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          google_calendar_id: string | null
+          google_sheet_url: string | null
+          id: string
+          name: string
+          public_slug: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          google_calendar_id?: string | null
+          google_sheet_url?: string | null
+          id?: string
+          name: string
+          public_slug?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          google_calendar_id?: string | null
+          google_sheet_url?: string | null
+          id?: string
+          name?: string
+          public_slug?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategic_sessions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subtasks: {
         Row: {
           completed: boolean
