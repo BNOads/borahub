@@ -90,12 +90,14 @@ export function useCreateMeeting() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (data: { title: string; meeting_date: string }) => {
+    mutationFn: async (data: { title: string; meeting_date: string; meeting_time?: string; participants?: string[] }) => {
       const { data: meeting, error } = await supabase
         .from("meetings")
         .insert({
           title: data.title,
           meeting_date: data.meeting_date,
+          meeting_time: data.meeting_time || null,
+          participants: data.participants || [],
           created_by: user?.id,
         })
         .select()
