@@ -38,11 +38,11 @@ const stageColors: Record<string, string> = {
 };
 
 const UTM_FIELD_NAMES: Record<string, string[]> = {
-  utm_source: ["utm_source", "fonte", "source"],
-  utm_medium: ["utm_medium", "medium", "mídia", "midia"],
-  utm_campaign: ["utm_campaign", "campanha", "campaign"],
-  utm_content: ["utm_content", "content", "conteúdo", "conteudo"],
-  utm_term: ["utm_term", "term", "termo"],
+  utm_source: ["utm_source", "utm source", "fonte", "source"],
+  utm_medium: ["utm_medium", "utm medium", "medium", "mídia", "midia"],
+  utm_campaign: ["utm_campaign", "utm campaign", "campanha", "campaign"],
+  utm_content: ["utm_content", "utm content", "content", "conteúdo", "conteudo"],
+  utm_term: ["utm_term", "utm term", "term", "termo"],
 };
 
 const UTM_LABELS: Record<string, string> = {

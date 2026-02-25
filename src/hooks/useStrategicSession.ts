@@ -446,11 +446,11 @@ export function useUTMAnalytics(sessionId: string | undefined) {
       }
 
       const UTM_KEYS: Record<string, string[]> = {
-        utm_source: ["utm_source", "fonte", "source"],
-        utm_medium: ["utm_medium", "medium", "mídia", "midia"],
-        utm_campaign: ["utm_campaign", "campanha", "campaign"],
-        utm_content: ["utm_content", "content", "conteúdo", "conteudo"],
-        utm_term: ["utm_term", "term", "termo"],
+        utm_source: ["utm_source", "utm source", "fonte", "source"],
+        utm_medium: ["utm_medium", "utm medium", "medium", "mídia", "midia"],
+        utm_campaign: ["utm_campaign", "utm campaign", "campanha", "campaign"],
+        utm_content: ["utm_content", "utm content", "content", "conteúdo", "conteudo"],
+        utm_term: ["utm_term", "utm term", "term", "termo"],
       };
 
       function extractUtm(lead: any, utmKey: string): string {
