@@ -83,7 +83,8 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const [chartEndDate, setChartEndDate] = useState(() => new Date().toISOString().split("T")[0]);
 
   const calComMatches = useMemo(() => matchLeadsWithCalCom(leads, calComEvents, calComPastEvents), [leads, calComEvents, calComPastEvents]);
-  const agendadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasUpcoming).length, [calComMatches]);
+  // Agendados = leads that have ANY Cal.com match (upcoming or past)
+  const agendadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasUpcoming || m.hasPast).length, [calComMatches]);
   const realizadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasPast).length, [calComMatches]);
 
   const now = new Date();
@@ -117,8 +118,8 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
 
   const qualifiedByScoring = useMemo(() => leads.filter(l => computeLeadScore(l).isQualified).length, [leads]);
 
-  // Conversion rates
-  const totalLeads = utmData?.total || 0;
+  // Conversion rates - use leads.length as base for scheduling rate
+  const totalLeads = leads.length;
   const qualifiedCount = qualifiedByScoring;
   const vendasCount = utmData?.vendas || 0;
   const qualRate = totalLeads > 0 ? ((qualifiedCount / totalLeads) * 100).toFixed(1) : "0";
@@ -131,10 +132,8 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
 
   // Daily meeting metrics chart
   const dailyMeetingData = useMemo(() => {
-    const allEvents = [...calComEvents, ...calComPastEvents];
     const dateMap = new Map<string, { date: string; agendados: number; realizados: number }>();
 
-    // Count upcoming (agendados) by date
     for (const ev of calComEvents) {
       if (ev.event_date >= chartStartDate && ev.event_date <= chartEndDate) {
         if (!dateMap.has(ev.event_date)) dateMap.set(ev.event_date, { date: ev.event_date, agendados: 0, realizados: 0 });
@@ -142,7 +141,6 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       }
     }
 
-    // Count past (realizados) by date
     for (const ev of calComPastEvents) {
       if (ev.event_date >= chartStartDate && ev.event_date <= chartEndDate) {
         if (!dateMap.has(ev.event_date)) dateMap.set(ev.event_date, { date: ev.event_date, agendados: 0, realizados: 0 });
@@ -152,10 +150,31 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
 
     return [...dateMap.values()].sort((a, b) => a.date.localeCompare(b.date)).map(d => ({
       ...d,
-      date: d.date.split("-").slice(1).join("/"), // MM/DD format
+      date: d.date.split("-").slice(1).join("/"),
       taxaRealizacao: d.agendados > 0 ? Math.round((d.realizados / d.agendados) * 100) : 0,
     }));
   }, [calComEvents, calComPastEvents, chartStartDate, chartEndDate]);
+
+  // Daily leads chart with qualified/unqualified
+  const dailyLeadsData = useMemo(() => {
+    const dateMap = new Map<string, { date: string; qualificados: number; desqualificados: number; total: number }>();
+    for (const lead of leads) {
+      const date = lead.created_at?.split("T")[0];
+      if (!date || date < chartStartDate || date > chartEndDate) continue;
+      if (!dateMap.has(date)) dateMap.set(date, { date, qualificados: 0, desqualificados: 0, total: 0 });
+      const entry = dateMap.get(date)!;
+      entry.total++;
+      if (computeLeadScore(lead).isQualified) {
+        entry.qualificados++;
+      } else {
+        entry.desqualificados++;
+      }
+    }
+    return [...dateMap.values()].sort((a, b) => a.date.localeCompare(b.date)).map(d => ({
+      ...d,
+      date: d.date.split("-").slice(1).join("/"),
+    }));
+  }, [leads, chartStartDate, chartEndDate]);
 
   return (
     <div className="space-y-6 mt-4">
@@ -236,6 +255,42 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Daily leads chart - qualified vs unqualified */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-sm">Leads por Dia</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-muted-foreground">De</Label>
+                <Input type="date" value={chartStartDate} onChange={e => setChartStartDate(e.target.value)} className="h-7 text-xs w-[130px]" />
+              </div>
+              <div className="flex items-center gap-1">
+                <Label className="text-xs text-muted-foreground">Até</Label>
+                <Input type="date" value={chartEndDate} onChange={e => setChartEndDate(e.target.value)} className="h-7 text-xs w-[130px]" />
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {dailyLeadsData.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4">Sem dados de leads no período</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={dailyLeadsData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(val: number, name: string) => [val, name === "qualificados" ? "Qualificados" : name === "desqualificados" ? "Desqualificados" : "Total"]} />
+                <Legend formatter={(value) => value === "qualificados" ? "Qualificados" : value === "desqualificados" ? "Desqualificados" : "Total"} />
+                <Bar dataKey="qualificados" stackId="a" fill="hsl(145, 60%, 45%)" radius={[0, 0, 0, 0]} barSize={20} />
+                <Bar dataKey="desqualificados" stackId="a" fill="hsl(0, 65%, 55%)" radius={[4, 4, 0, 0]} barSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Daily meetings chart */}
       <Card>
