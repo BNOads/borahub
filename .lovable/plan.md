@@ -1,80 +1,55 @@
 
 
-# Plano: Integrar Agenda com API Cal.com
+# Plano: Reestruturar Sessões Estratégicas — Unificar Funcionalidades na Página Principal
 
-## Resumo
+## Problema Atual
 
-Criar uma edge function que consulta a API Cal.com (v2) para buscar bookings/reuniões, e exibir esses eventos na Agenda junto com os eventos internos, usando uma badge visual "Cal.com" para diferenciá-los.
+A página `/sessao-estrategica` funciona como uma listagem de "funis" com navegação para uma página de detalhe separada (`/sessao-estrategica/:id`). O usuário quer que as sessões sejam tratadas como **reuniões** e que todas as funcionalidades (Dashboard, CRM, Relatórios, Configuração) fiquem disponíveis diretamente na página principal, sem precisar navegar para outra rota.
 
----
+## O que Muda
 
-## 1. Armazenar a chave API
+1. **Página principal (`SessaoEstrategica.tsx`)** — Será completamente reestruturada:
+   - Seletor de sessão no topo (dropdown ou lista lateral) em vez de cards com navegação
+   - 4 abas principais: **Dashboard** (KPIs + reuniões Cal.com + UTM), **CRM** (Kanban + Google Sheets), **Relatórios** (SDR/Closer), **Configuração** (integrações, links, critérios, link público)
+   - Tudo dentro da mesma página, sem redirecionamento
 
-Salvar o secret `CAL_COM_API_KEY` com o valor fornecido pelo usuário nas secrets do projeto.
+2. **Componentes reutilizados da página de detalhe:**
+   - `StrategicDashboardTab` — Dashboard com KPIs, reuniões do dia (Cal.com) e gráfico UTM
+   - `StrategicCRMTab` — Kanban drag-and-drop de leads com 5 estágios
+   - `StrategicReportsTab` — Relatórios diários SDR/Closer
+   - `StrategicConfigTab` — Google Sheets, Calendar, links úteis, critérios de qualificação, link público
 
----
+3. **Página de detalhe (`SessaoEstrategicaDetalhe.tsx`)** — Mantida como rota alternativa mas agora redundante (pode ser removida futuramente ou redirecionar)
 
-## 2. Edge Function: `fetch-calcom-events/index.ts`
+## Estrutura da Nova Página
 
-- Endpoint: recebe `date_from` e `date_to` (opcionais)
-- Chama `GET https://api.cal.com/v2/bookings` com headers:
-  - `Authorization: Bearer CAL_COM_API_KEY`
-  - `cal-api-version: 2024-08-13`
-- Filtra por status (aceitos/confirmados)
-- Mapeia cada booking para o formato compatível com o Event do sistema:
-  - `title` = booking title/eventType name
-  - `event_date` = data do start
-  - `event_time` = hora do start
-  - `duration_minutes` = duração
-  - `meeting_link` = meetingUrl do booking
-  - `location` = location do booking
-  - `event_type` = "reuniao"
-  - `source` = "calcom" (campo extra para identificação visual)
-  - Participantes (attendees)
-
----
-
-## 3. Hook: atualizar `useEvents.ts`
-
-Criar um novo hook `useCalComEvents()` que:
-- Chama a edge function `fetch-calcom-events`
-- Retorna eventos no mesmo formato de `Event` (com campo extra `source: 'calcom'`)
-- Cache de 5 minutos (staleTime)
-
----
-
-## 4. Integrar na Agenda
-
-No `Agenda.tsx`:
-- Importar `useCalComEvents()`
-- Combinar eventos internos + Cal.com em uma lista unificada, ordenada por data/hora
-- Nos cards de evento, se `source === 'calcom'`, exibir badge "Cal.com" com cor distinta (laranja)
-- Eventos Cal.com são somente leitura (sem botões de editar/excluir)
-
----
-
-## 5. Integrar nos Calendários
-
-Nos componentes `YearCalendar`, `MonthCalendar` e `WeekCalendar`:
-- Os eventos Cal.com já aparecerão automaticamente pois são passados via prop `events`
-- Adicionar cor/indicador visual para diferenciar eventos Cal.com dos internos
-
----
-
-## 6. Config no `supabase/config.toml`
-
-```toml
-[functions.fetch-calcom-events]
-verify_jwt = false
+```text
+┌──────────────────────────────────────────┐
+│ Sessões Estratégicas  [Sessão ▼] [+Nova] │
+├──────────────────────────────────────────┤
+│ Dashboard │ CRM │ Relatórios │ Config    │
+├──────────────────────────────────────────┤
+│                                          │
+│  (conteúdo da aba selecionada            │
+│   usando a sessão ativa do dropdown)     │
+│                                          │
+└──────────────────────────────────────────┘
 ```
-
----
 
 ## Detalhes Técnicos
 
-- API Cal.com v2: `GET https://api.cal.com/v2/bookings?status=accepted&afterStart={date}`
-- Header obrigatório: `cal-api-version: 2024-08-13`
-- Auth: `Bearer {CAL_COM_API_KEY}`
-- Eventos Cal.com terão `id` prefixado com `calcom-` para evitar colisão com IDs internos
-- Não serão salvos no banco — são buscados em tempo real da API
+### `SessaoEstrategica.tsx` — Reescrita
+- Dropdown `<Select>` no header para escolher a sessão ativa
+- Estado local `selectedSessionId` controlando qual sessão está selecionada
+- 4 `TabsContent` reutilizando os componentes já existentes:
+  - `<StrategicDashboardTab session={session} leads={leads} stageCounts={stageCounts} />`
+  - `<StrategicCRMTab sessionId={session.id} leads={leads} />` com seção Google Sheets acima
+  - `<StrategicReportsTab sessionId={session.id} />`
+  - `<StrategicConfigTab session={session} />`
+- Hooks utilizados: `useStrategicSessions`, `useStrategicSession`, `useStrategicLeads`, `useCalComEvents`, `useCreateSession`
+- Modal de criação de sessão mantido como está
+
+### Nenhuma alteração no banco de dados
+- Todos os dados já existem nas tabelas `strategic_sessions`, `strategic_leads`, etc.
+- Nenhuma migração necessária
 
