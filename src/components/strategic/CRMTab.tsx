@@ -178,14 +178,11 @@ function DraggableLeadCard({ lead, onClick, studentInfo }: { lead: StrategicLead
             </div>
           )}
           {lead.phone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</p>}
-          <div className="flex flex-wrap gap-1">
-            {entryDate && <Badge variant="secondary" className="text-[10px] h-5"><Clock className="h-2.5 w-2.5 mr-0.5" />{entryDate.date}{entryDate.time ? ` ${entryDate.time}` : ''}</Badge>}
-            {(() => { const v = getLeadUtm(lead, 'utm_source'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
-            {(() => { const v = getLeadUtm(lead, 'utm_medium'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
-            {(() => { const v = getLeadUtm(lead, 'utm_campaign'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
-            {(() => { const v = getLeadUtm(lead, 'utm_content'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
-            {(() => { const v = getLeadUtm(lead, 'utm_term'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
-          </div>
+          {entryDate && (
+            <div className="flex flex-wrap gap-1">
+              <Badge variant="secondary" className="text-[10px] h-5"><Clock className="h-2.5 w-2.5 mr-0.5" />{entryDate.date}{entryDate.time ? ` ${entryDate.time}` : ''}</Badge>
+            </div>
+          )}
           {lead.meeting_date && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Calendar className="h-3 w-3" />
