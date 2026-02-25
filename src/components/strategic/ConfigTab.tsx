@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Copy, Check, Plus, Trash2, RefreshCw, Loader2, ExternalLink, Calculator } from "lucide-react";
+import { Copy, Check, Plus, Trash2, RefreshCw, Loader2, ExternalLink, Calculator, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   useUpdateSession,
@@ -18,9 +19,12 @@ import {
   useSyncGoogleSheet,
   useStrategicLeads,
   useBatchUpdateScoring,
+  useSyncLogs,
   StrategicSession,
 } from "@/hooks/useStrategicSession";
 import { computeLeadScore } from "@/lib/leadScoring";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Props {
   session: StrategicSession;
@@ -37,6 +41,7 @@ export function StrategicConfigTab({ session }: Props) {
   const syncSheet = useSyncGoogleSheet();
   const { data: leads = [] } = useStrategicLeads(session.id);
   const batchScoring = useBatchUpdateScoring();
+  const { data: syncLogs = [] } = useSyncLogs(session.id);
 
   const [name, setName] = useState(session.name);
   const [description, setDescription] = useState(session.description || "");
@@ -205,6 +210,44 @@ export function StrategicConfigTab({ session }: Props) {
             <Input value={newCriterionValue} onChange={e => setNewCriterionValue(e.target.value)} placeholder="Valor" />
             <Button variant="outline" onClick={handleAddCriterion}><Plus className="h-4 w-4 mr-1" />Adicionar</Button>
           </div>
+        </CardContent>
+      </Card>
+      {/* Sync Logs */}
+      <Card>
+        <CardHeader><CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4" />Log de Sincronizações</CardTitle></CardHeader>
+        <CardContent>
+          {syncLogs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma sincronização registrada ainda.</p>
+          ) : (
+            <div className="space-y-2 max-h-80 overflow-y-auto">
+              {syncLogs.map((log: any) => (
+                <div key={log.id} className="flex items-center justify-between border rounded-md p-3 text-sm">
+                  <div className="flex items-center gap-3">
+                    {log.status === "ok" ? (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
+                    ) : (
+                      <XCircle className="h-4 w-4 text-destructive shrink-0" />
+                    )}
+                    <div>
+                      <p className="font-medium">
+                        {format(new Date(log.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                      {log.status === "ok" ? (
+                        <p className="text-muted-foreground text-xs">
+                          {log.total_rows} registros • {log.duplicates_removed} duplicatas removidas
+                        </p>
+                      ) : (
+                        <p className="text-destructive text-xs">{log.error_message}</p>
+                      )}
+                    </div>
+                  </div>
+                  <Badge variant={log.source === "cron" ? "secondary" : "outline"}>
+                    {log.source === "cron" ? "Automático" : "Manual"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
