@@ -1,13 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import { Phone, Mail, Star, Calendar, Clock, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Phone, Mail, Star, Calendar, Clock, Search, ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { STAGES, StrategicLead, useUpdateLeadStage, useLeadHistory } from "@/hooks/useStrategicSession";
@@ -147,25 +148,90 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
   const [selectedLead, setSelectedLead] = useState<StrategicLead | null>(null);
   const [search, setSearch] = useState("");
   const [stagePages, setStagePages] = useState<Record<string, number>>({});
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [showFilters, setShowFilters] = useState(false);
   const updateStage = useUpdateLeadStage();
   const { data: history = [] } = useLeadHistory(selectedLead?.id);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  const filteredLeads = useMemo(() => {
-    if (!search.trim()) return leads;
-    const q = search.toLowerCase();
-    return leads.filter(l => {
+  // Extract all unique field names and their unique values from extra_data
+  const fieldOptions = useMemo(() => {
+    const fieldsMap: Record<string, Set<string>> = {};
+    // Add built-in fields
+    const builtIn: Record<string, (l: StrategicLead) => string | null | undefined> = {
+      "Qualificado": l => l.is_qualified ? "Sim" : "Não",
+      "UTM Source": l => l.utm_source,
+      "UTM Medium": l => l.utm_medium,
+      "UTM Campaign": l => l.utm_campaign,
+      "UTM Content": l => l.utm_content,
+    };
+    for (const [label, getter] of Object.entries(builtIn)) {
+      fieldsMap[label] = new Set();
+      leads.forEach(l => {
+        const v = getter(l);
+        if (v && v.trim()) fieldsMap[label].add(v.trim());
+      });
+    }
+    // Add extra_data fields
+    leads.forEach(l => {
       const extra = l.extra_data as Record<string, string> | null;
-      const extraMatch = extra ? Object.values(extra).some(v => v && String(v).toLowerCase().includes(q)) : false;
-      return l.name?.toLowerCase().includes(q) ||
-        l.email?.toLowerCase().includes(q) ||
-        l.phone?.toLowerCase().includes(q) ||
-        l.utm_source?.toLowerCase().includes(q) ||
-        l.utm_campaign?.toLowerCase().includes(q) ||
-        extraMatch;
+      if (!extra) return;
+      Object.entries(extra).forEach(([key, val]) => {
+        if (!key.trim()) return;
+        if (!fieldsMap[key]) fieldsMap[key] = new Set();
+        if (val && String(val).trim()) fieldsMap[key].add(String(val).trim());
+      });
     });
-  }, [leads, search]);
+    // Only keep fields with 2+ distinct values (useful for filtering) and <= 200 values
+    const result: { field: string; values: string[] }[] = [];
+    Object.entries(fieldsMap).forEach(([field, vals]) => {
+      if (vals.size >= 2 && vals.size <= 200) {
+        result.push({ field, values: Array.from(vals).sort() });
+      }
+    });
+    return result;
+  }, [leads]);
+
+  const filteredLeads = useMemo(() => {
+    let filtered = leads;
+
+    // Apply text search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      filtered = filtered.filter(l => {
+        const extra = l.extra_data as Record<string, string> | null;
+        const extraMatch = extra ? Object.values(extra).some(v => v && String(v).toLowerCase().includes(q)) : false;
+        return l.name?.toLowerCase().includes(q) ||
+          l.email?.toLowerCase().includes(q) ||
+          l.phone?.toLowerCase().includes(q) ||
+          l.utm_source?.toLowerCase().includes(q) ||
+          l.utm_campaign?.toLowerCase().includes(q) ||
+          extraMatch;
+      });
+    }
+
+    // Apply field filters
+    const activeEntries = Object.entries(activeFilters).filter(([, v]) => v);
+    if (activeEntries.length > 0) {
+      filtered = filtered.filter(l => {
+        const extra = l.extra_data as Record<string, string> | null;
+        return activeEntries.every(([field, filterVal]) => {
+          // Check built-in fields
+          if (field === "Qualificado") return (l.is_qualified ? "Sim" : "Não") === filterVal;
+          if (field === "UTM Source") return l.utm_source === filterVal;
+          if (field === "UTM Medium") return l.utm_medium === filterVal;
+          if (field === "UTM Campaign") return l.utm_campaign === filterVal;
+          if (field === "UTM Content") return l.utm_content === filterVal;
+          // Check extra_data
+          if (!extra) return false;
+          return String(extra[field] || '').trim() === filterVal;
+        });
+      });
+    }
+
+    return filtered;
+  }, [leads, search, activeFilters]);
 
   const leadsByStage = useMemo(() => {
     const map: Record<string, StrategicLead[]> = {};
@@ -177,6 +243,8 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
 
   const getPage = (stage: string) => stagePages[stage] || 0;
   const setPage = (stage: string, page: number) => setStagePages(prev => ({ ...prev, [stage]: page }));
+
+  const activeFilterCount = Object.values(activeFilters).filter(Boolean).length;
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -190,15 +258,66 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
 
   return (
     <div className="mt-4 space-y-3">
-      <div className="relative max-w-sm">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar leads..."
-          value={search}
-          onChange={e => { setSearch(e.target.value); setStagePages({}); }}
-          className="pl-9 h-9"
-        />
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar leads..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setStagePages({}); }}
+            className="pl-9 h-9"
+          />
+        </div>
+        <Button
+          variant={showFilters ? "default" : "outline"}
+          size="sm"
+          onClick={() => setShowFilters(!showFilters)}
+          className="h-9 gap-1.5"
+        >
+          <Filter className="h-3.5 w-3.5" />
+          Filtros
+          {activeFilterCount > 0 && (
+            <Badge variant="secondary" className="h-4 px-1 text-[10px] ml-0.5">{activeFilterCount}</Badge>
+          )}
+        </Button>
+        {activeFilterCount > 0 && (
+          <Button variant="ghost" size="sm" onClick={() => { setActiveFilters({}); setStagePages({}); }} className="h-9 text-xs gap-1">
+            <X className="h-3 w-3" /> Limpar
+          </Button>
+        )}
       </div>
+
+      {showFilters && (
+        <div className="flex flex-wrap gap-2 p-3 rounded-lg border bg-muted/20">
+          {fieldOptions.map(({ field, values }) => (
+            <div key={field} className="min-w-[160px]">
+              <Select
+                value={activeFilters[field] || ""}
+                onValueChange={val => {
+                  setActiveFilters(prev => {
+                    const next = { ...prev };
+                    if (val === "__clear__") { delete next[field]; } else { next[field] = val; }
+                    return next;
+                  });
+                  setStagePages({});
+                }}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder={field} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__clear__">
+                    <span className="text-muted-foreground">Todos — {field}</span>
+                  </SelectItem>
+                  {values.map(v => (
+                    <SelectItem key={v} value={v}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ))}
+        </div>
+      )}
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
         <div className="flex gap-3 overflow-x-auto pb-4">
           {STAGES.map(stage => {
