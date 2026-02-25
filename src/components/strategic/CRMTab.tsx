@@ -179,15 +179,6 @@ function DraggableLeadCard({ lead, onClick, studentInfo, calComMatch }: { lead: 
               </Badge>
             </div>
           </div>
-          {studentInfo?.isStudent && studentInfo.products.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {studentInfo.products.map((p, i) => (
-                <Badge key={i} variant="outline" className="text-[10px] h-5 border-cyan-300 text-cyan-700 dark:text-cyan-300">
-                  {p.name}
-                </Badge>
-              ))}
-            </div>
-          )}
           {lead.phone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</p>}
           {entryDate && (
             <div className="flex flex-wrap gap-1">
