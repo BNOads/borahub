@@ -34,6 +34,30 @@ const stageColors: Record<string, string> = {
   venda: "bg-green-600",
 };
 
+const UTM_FIELD_NAMES: Record<string, string[]> = {
+  utm_source: ["utm_source", "fonte", "source"],
+  utm_medium: ["utm_medium", "medium", "mídia", "midia"],
+  utm_campaign: ["utm_campaign", "campanha", "campaign"],
+  utm_content: ["utm_content", "content", "conteúdo", "conteudo"],
+};
+
+function getLeadUtm(lead: StrategicLead, utmKey: string): string | null {
+  // First check top-level field
+  const topLevel = (lead as any)[utmKey];
+  if (topLevel && String(topLevel).trim()) return String(topLevel).trim();
+  // Then check extra_data with multiple possible column names
+  const extra = lead.extra_data as Record<string, string> | null;
+  if (!extra) return null;
+  const candidates = UTM_FIELD_NAMES[utmKey] || [utmKey];
+  for (const key of candidates) {
+    // Try exact and case-insensitive match
+    for (const [k, v] of Object.entries(extra)) {
+      if (k.toLowerCase() === key.toLowerCase() && v && String(v).trim()) return String(v).trim();
+    }
+  }
+  return null;
+}
+
 const DATE_FIELD_NAMES = ["data", "date", "data de entrada", "data_entrada", "data de cadastro", "data_cadastro", "created_at", "timestamp", "data de inscrição", "data_inscricao", "data inscrição", "cadastro", "criado em", "criado_em"];
 
 function getLeadEntryDate(lead: StrategicLead): { date: string; time: string } | null {
@@ -125,10 +149,10 @@ function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: ()
           {lead.phone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</p>}
           <div className="flex flex-wrap gap-1">
             {entryDate && <Badge variant="secondary" className="text-[10px] h-5"><Clock className="h-2.5 w-2.5 mr-0.5" />{entryDate.date}{entryDate.time ? ` ${entryDate.time}` : ''}</Badge>}
-            {lead.utm_source && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_source}</Badge>}
-            {lead.utm_medium && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_medium}</Badge>}
-            {lead.utm_campaign && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_campaign}</Badge>}
-            {lead.utm_content && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_content}</Badge>}
+            {(() => { const v = getLeadUtm(lead, 'utm_source'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
+            {(() => { const v = getLeadUtm(lead, 'utm_medium'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
+            {(() => { const v = getLeadUtm(lead, 'utm_campaign'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
+            {(() => { const v = getLeadUtm(lead, 'utm_content'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
           </div>
           {lead.meeting_date && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -366,17 +390,24 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
                   </div>
 
                   {/* UTMs completas */}
-                  {(selectedLead.utm_source || selectedLead.utm_medium || selectedLead.utm_campaign || selectedLead.utm_content) && (
-                    <div>
-                      <p className="text-sm font-medium mb-1.5">UTMs</p>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        {selectedLead.utm_source && <div><span className="text-muted-foreground">Source:</span> <span className="ml-1">{selectedLead.utm_source}</span></div>}
-                        {selectedLead.utm_medium && <div><span className="text-muted-foreground">Medium:</span> <span className="ml-1">{selectedLead.utm_medium}</span></div>}
-                        {selectedLead.utm_campaign && <div><span className="text-muted-foreground">Campaign:</span> <span className="ml-1">{selectedLead.utm_campaign}</span></div>}
-                        {selectedLead.utm_content && <div><span className="text-muted-foreground">Content:</span> <span className="ml-1">{selectedLead.utm_content}</span></div>}
+                  {(() => {
+                    const src = getLeadUtm(selectedLead, 'utm_source');
+                    const med = getLeadUtm(selectedLead, 'utm_medium');
+                    const camp = getLeadUtm(selectedLead, 'utm_campaign');
+                    const cont = getLeadUtm(selectedLead, 'utm_content');
+                    if (!src && !med && !camp && !cont) return null;
+                    return (
+                      <div>
+                        <p className="text-sm font-medium mb-1.5">UTMs</p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {src && <div><span className="text-muted-foreground">Source:</span> <span className="ml-1">{src}</span></div>}
+                          {med && <div><span className="text-muted-foreground">Medium:</span> <span className="ml-1">{med}</span></div>}
+                          {camp && <div><span className="text-muted-foreground">Campaign:</span> <span className="ml-1">{camp}</span></div>}
+                          {cont && <div><span className="text-muted-foreground">Content:</span> <span className="ml-1">{cont}</span></div>}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {selectedLead.is_qualified && (
                     <Badge className="bg-amber-500 text-white"><Star className="h-3 w-3 mr-1" />Qualificado</Badge>
