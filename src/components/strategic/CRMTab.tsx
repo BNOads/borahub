@@ -233,6 +233,7 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
     // Add built-in fields
     const builtIn: Record<string, (l: StrategicLead) => string | null | undefined> = {
       "Qualificado": l => l.is_qualified ? "Sim" : "Não",
+      "Aluno": l => studentInfoMap.has(l.id) ? "Sim" : "Não",
       [UTM_LABELS.utm_source]: l => getLeadUtm(l, 'utm_source'),
       [UTM_LABELS.utm_medium]: l => getLeadUtm(l, 'utm_medium'),
       [UTM_LABELS.utm_campaign]: l => getLeadUtm(l, 'utm_campaign'),
@@ -292,6 +293,7 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
         return activeEntries.every(([field, filterVal]) => {
           // Check built-in fields
           if (field === "Qualificado") return (l.is_qualified ? "Sim" : "Não") === filterVal;
+          if (field === "Aluno") return (studentInfoMap.has(l.id) ? "Sim" : "Não") === filterVal;
           if (field === UTM_LABELS.utm_source) return getLeadUtm(l, 'utm_source') === filterVal;
           if (field === UTM_LABELS.utm_medium) return getLeadUtm(l, 'utm_medium') === filterVal;
           if (field === UTM_LABELS.utm_campaign) return getLeadUtm(l, 'utm_campaign') === filterVal;
