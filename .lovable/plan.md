@@ -1,55 +1,35 @@
 
 
-# Plano: Reestruturar Sessões Estratégicas — Unificar Funcionalidades na Página Principal
+# Plano: Corrigir Sessões Estratégicas
 
-## Problema Atual
+## 3 Correções Identificadas
 
-A página `/sessao-estrategica` funciona como uma listagem de "funis" com navegação para uma página de detalhe separada (`/sessao-estrategica/:id`). O usuário quer que as sessões sejam tratadas como **reuniões** e que todas as funcionalidades (Dashboard, CRM, Relatórios, Configuração) fiquem disponíveis diretamente na página principal, sem precisar navegar para outra rota.
+### 1. Remover o seletor/filtro "a" do header
+O dropdown `<Select>` no topo mostra "a" (nome da sessão) e parece um filtro sem sentido. Será removido. A sessão será selecionada automaticamente (primeira disponível). Se futuramente o usuário tiver múltiplas sessões, o seletor pode ser reintroduzido com melhor UX.
 
-## O que Muda
+**Arquivo:** `src/pages/SessaoEstrategica.tsx`
+- Remover o componente `<Select>` do header (linhas 64-75)
+- Manter o `useEffect` que auto-seleciona a primeira sessão
 
-1. **Página principal (`SessaoEstrategica.tsx`)** — Será completamente reestruturada:
-   - Seletor de sessão no topo (dropdown ou lista lateral) em vez de cards com navegação
-   - 4 abas principais: **Dashboard** (KPIs + reuniões Cal.com + UTM), **CRM** (Kanban + Google Sheets), **Relatórios** (SDR/Closer), **Configuração** (integrações, links, critérios, link público)
-   - Tudo dentro da mesma página, sem redirecionamento
+### 2. Exibir reuniões do Cal.com no "Reuniões de Hoje"
+Atualmente o `DashboardTab` usa `useGoogleCalendarEvents` que requer Google Calendar ID configurado. Será substituído pelo `useCalComEvents` que já está integrado e funcionando.
 
-2. **Componentes reutilizados da página de detalhe:**
-   - `StrategicDashboardTab` — Dashboard com KPIs, reuniões do dia (Cal.com) e gráfico UTM
-   - `StrategicCRMTab` — Kanban drag-and-drop de leads com 5 estágios
-   - `StrategicReportsTab` — Relatórios diários SDR/Closer
-   - `StrategicConfigTab` — Google Sheets, Calendar, links úteis, critérios de qualificação, link público
+**Arquivo:** `src/components/strategic/DashboardTab.tsx`
+- Substituir `useGoogleCalendarEvents` por `useCalComEvents`
+- Adaptar o mapeamento dos campos (Cal.com usa `title`, `event_date`, `event_time`, `duration_minutes` em vez de `summary`, `start`, `end`)
+- Remover a condição `!session.google_calendar_id` — sempre mostrar reuniões Cal.com
+- Manter indicador "Ao vivo" para reuniões em andamento
 
-3. **Página de detalhe (`SessaoEstrategicaDetalhe.tsx`)** — Mantida como rota alternativa mas agora redundante (pode ser removida futuramente ou redirecionar)
+### 3. Corrigir sincronização Google Sheets (edge function)
+O erro `SyntaxError: Unexpected non-whitespace character after JSON at position 12` ocorre no `JSON.parse` dentro da edge function. Duas causas possíveis:
+- Body da requisição chegando corrompido
+- Secret `GOOGLE_SERVICE_ACCOUNT_KEY` com formato incorreto
 
-## Estrutura da Nova Página
+**Arquivo:** `supabase/functions/sync-strategic-leads/index.ts`
+- Adicionar headers CORS completos (incluindo `x-supabase-client-platform` etc.)
+- Ler body como texto primeiro (`req.text()`) e fazer `JSON.parse` manualmente com try/catch e mensagem de erro clara
+- Envolver o `JSON.parse` do `GOOGLE_SERVICE_ACCOUNT_KEY` em try/catch separado com mensagem descritiva
+- Adicionar logs de debug para facilitar diagnóstico futuro
 
-```text
-┌──────────────────────────────────────────┐
-│ Sessões Estratégicas  [Sessão ▼] [+Nova] │
-├──────────────────────────────────────────┤
-│ Dashboard │ CRM │ Relatórios │ Config    │
-├──────────────────────────────────────────┤
-│                                          │
-│  (conteúdo da aba selecionada            │
-│   usando a sessão ativa do dropdown)     │
-│                                          │
-└──────────────────────────────────────────┘
-```
-
-## Detalhes Técnicos
-
-### `SessaoEstrategica.tsx` — Reescrita
-- Dropdown `<Select>` no header para escolher a sessão ativa
-- Estado local `selectedSessionId` controlando qual sessão está selecionada
-- 4 `TabsContent` reutilizando os componentes já existentes:
-  - `<StrategicDashboardTab session={session} leads={leads} stageCounts={stageCounts} />`
-  - `<StrategicCRMTab sessionId={session.id} leads={leads} />` com seção Google Sheets acima
-  - `<StrategicReportsTab sessionId={session.id} />`
-  - `<StrategicConfigTab session={session} />`
-- Hooks utilizados: `useStrategicSessions`, `useStrategicSession`, `useStrategicLeads`, `useCalComEvents`, `useCreateSession`
-- Modal de criação de sessão mantido como está
-
-### Nenhuma alteração no banco de dados
-- Todos os dados já existem nas tabelas `strategic_sessions`, `strategic_leads`, etc.
-- Nenhuma migração necessária
+## Nenhuma alteração no banco de dados
 
