@@ -420,12 +420,11 @@ export function useDeleteCriterion() {
   });
 }
 
-// UTM Analytics
+// UTM Analytics - full breakdown by all dimensions
 export function useUTMAnalytics(sessionId: string | undefined) {
   return useQuery({
     queryKey: ["strategic-utm-analytics", sessionId],
     queryFn: async () => {
-      // Paginate to get all leads (beyond 1000 limit)
       const allData: any[] = [];
       let offset = 0;
       const batchSize = 1000;
@@ -433,7 +432,7 @@ export function useUTMAnalytics(sessionId: string | undefined) {
       while (hasMore) {
         const { data, error } = await supabase
           .from("strategic_leads")
-          .select("utm_source, stage, is_qualified, extra_data")
+          .select("utm_source, utm_medium, utm_campaign, utm_content, stage, is_qualified, extra_data, created_at")
           .eq("session_id", sessionId!)
           .range(offset, offset + batchSize - 1);
         if (error) throw error;
@@ -445,36 +444,75 @@ export function useUTMAnalytics(sessionId: string | undefined) {
           hasMore = false;
         }
       }
-      
-      const utmSourceKeys = ["utm_source", "fonte", "source"];
-      
-      const sources: Record<string, { total: number; qualified: number; vendas: number }> = {};
-      (allData).forEach((lead: any) => {
-        // Try to get utm_source from extra_data first, then fallback to column
-        let src = lead.utm_source;
-        if ((!src || !src.trim()) && lead.extra_data && typeof lead.extra_data === 'object') {
-          for (const key of utmSourceKeys) {
-            for (const [k, v] of Object.entries(lead.extra_data as Record<string, string>)) {
-              if (k.toLowerCase() === key.toLowerCase() && v && String(v).trim()) {
-                src = String(v).trim();
-                break;
-              }
-            }
-            if (src && src.trim()) break;
+
+      const UTM_KEYS: Record<string, string[]> = {
+        utm_source: ["utm_source", "fonte", "source"],
+        utm_medium: ["utm_medium", "medium", "mídia", "midia"],
+        utm_campaign: ["utm_campaign", "campanha", "campaign"],
+        utm_content: ["utm_content", "content", "conteúdo", "conteudo"],
+        utm_term: ["utm_term", "term", "termo"],
+      };
+
+      function extractUtm(lead: any, utmKey: string): string {
+        const topLevel = lead[utmKey];
+        if (topLevel && String(topLevel).trim()) return String(topLevel).trim();
+        const extra = lead.extra_data;
+        if (!extra || typeof extra !== 'object') return "";
+        const candidates = UTM_KEYS[utmKey] || [utmKey];
+        for (const key of candidates) {
+          for (const [k, v] of Object.entries(extra as Record<string, string>)) {
+            if (k.toLowerCase() === key.toLowerCase() && v && String(v).trim()) return String(v).trim();
           }
         }
-        src = src && src.trim() ? src.trim() : "Direto";
-        if (!sources[src]) sources[src] = { total: 0, qualified: 0, vendas: 0 };
-        sources[src].total++;
-        if (lead.is_qualified) sources[src].qualified++;
-        if (lead.stage === "venda") sources[src].vendas++;
-      });
+        return "";
+      }
 
-      return Object.entries(sources).map(([source, stats]) => ({
-        source,
-        ...stats,
-        qualifiedPercent: stats.total > 0 ? Math.round((stats.qualified / stats.total) * 100) : 0,
+      function aggregate(dimension: string) {
+        const map: Record<string, { total: number; qualified: number; vendas: number }> = {};
+        allData.forEach((lead: any) => {
+          let val = extractUtm(lead, dimension);
+          if (!val) val = "Sem dados";
+          if (!map[val]) map[val] = { total: 0, qualified: 0, vendas: 0 };
+          map[val].total++;
+          if (lead.is_qualified) map[val].qualified++;
+          if (lead.stage === "venda") map[val].vendas++;
+        });
+        return Object.entries(map)
+          .map(([name, stats]) => ({ name, ...stats, convPercent: stats.total > 0 ? Math.round((stats.vendas / stats.total) * 100) : 0 }))
+          .sort((a, b) => b.total - a.total);
+      }
+
+      // Stage funnel
+      const stageOrder = ['lead', 'qualificado', 'agendado', 'realizado', 'venda'];
+      const stageLabels: Record<string, string> = { lead: 'Lead', qualificado: 'Qualificado', agendado: 'Agendado', realizado: 'Realizado', venda: 'Venda' };
+      const funnel = stageOrder.map(s => ({
+        name: stageLabels[s],
+        value: allData.filter(l => l.stage === s).length,
       }));
+
+      // Daily leads over time
+      const dailyMap: Record<string, number> = {};
+      allData.forEach(l => {
+        const d = l.created_at?.split("T")[0];
+        if (d) dailyMap[d] = (dailyMap[d] || 0) + 1;
+      });
+      const daily = Object.entries(dailyMap).sort(([a], [b]) => a.localeCompare(b)).map(([date, count]) => ({
+        date: date.split("-").reverse().join("/"),
+        leads: count,
+      }));
+
+      return {
+        bySource: aggregate("utm_source"),
+        byMedium: aggregate("utm_medium"),
+        byCampaign: aggregate("utm_campaign"),
+        byContent: aggregate("utm_content"),
+        byTerm: aggregate("utm_term"),
+        funnel,
+        daily,
+        total: allData.length,
+        qualified: allData.filter(l => l.is_qualified).length,
+        vendas: allData.filter(l => l.stage === "venda").length,
+      };
     },
     enabled: !!sessionId,
   });
