@@ -33,18 +33,62 @@ const stageColors: Record<string, string> = {
 
 const DATE_FIELD_NAMES = ["data", "date", "data de entrada", "data_entrada", "data de cadastro", "data_cadastro", "created_at", "timestamp", "data de inscrição", "data_inscricao", "data inscrição", "cadastro", "criado em", "criado_em"];
 
-function getLeadEntryDate(lead: StrategicLead): string | null {
+function getLeadEntryDate(lead: StrategicLead): { date: string; time: string } | null {
   const extra = lead.extra_data as Record<string, string> | null;
   if (!extra) return null;
+  let raw: string | null = null;
   for (const key of DATE_FIELD_NAMES) {
     const val = extra[key] || extra[key.toLowerCase()];
-    if (val && val.trim()) return val.trim();
+    if (val && val.trim()) { raw = val.trim(); break; }
   }
-  // Also try matching any key containing "data" or "date"
-  for (const [k, v] of Object.entries(extra)) {
-    if ((k.toLowerCase().includes("data") || k.toLowerCase().includes("date")) && v && v.trim()) return v.trim();
+  if (!raw) {
+    for (const [k, v] of Object.entries(extra)) {
+      if ((k.toLowerCase().includes("data") || k.toLowerCase().includes("date")) && v && v.trim()) { raw = v.trim(); break; }
+    }
   }
-  return null;
+  if (!raw) return null;
+  return formatEntryDate(raw);
+}
+
+function formatEntryDate(raw: string): { date: string; time: string } {
+  // Try parsing as Date object first
+  const d = new Date(raw);
+  if (!isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return { date: `${dd}/${mm}/${yyyy}`, time: `${hh}:${min}` };
+  }
+  // Try dd/mm/yyyy or dd/mm/yyyy hh:mm patterns
+  const match = raw.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/);
+  if (match) {
+    const dd = match[1].padStart(2, '0');
+    const mm = match[2].padStart(2, '0');
+    const yyyy = match[3].length === 2 ? `20${match[3]}` : match[3];
+    const time = match[4] ? `${match[4].padStart(2, '0')}:${match[5]}` : '';
+    return { date: `${dd}/${mm}/${yyyy}`, time };
+  }
+  return { date: raw, time: '' };
+}
+
+function getLeadEntryTimestamp(lead: StrategicLead): number {
+  const extra = lead.extra_data as Record<string, string> | null;
+  if (!extra) return 0;
+  let raw: string | null = null;
+  for (const key of DATE_FIELD_NAMES) {
+    const val = extra[key] || extra[key.toLowerCase()];
+    if (val && val.trim()) { raw = val.trim(); break; }
+  }
+  if (!raw) {
+    for (const [k, v] of Object.entries(extra)) {
+      if ((k.toLowerCase().includes("data") || k.toLowerCase().includes("date")) && v && v.trim()) { raw = v.trim(); break; }
+    }
+  }
+  if (!raw) return 0;
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
 function DroppableColumn({ stage, children }: { stage: string; children: React.ReactNode }) {
@@ -76,7 +120,7 @@ function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: ()
           </div>
           {lead.phone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</p>}
           <div className="flex flex-wrap gap-1">
-            {entryDate && <Badge variant="secondary" className="text-[10px] h-5"><Clock className="h-2.5 w-2.5 mr-0.5" />{entryDate}</Badge>}
+            {entryDate && <Badge variant="secondary" className="text-[10px] h-5"><Clock className="h-2.5 w-2.5 mr-0.5" />{entryDate.date}{entryDate.time ? ` ${entryDate.time}` : ''}</Badge>}
             {lead.utm_source && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_source}</Badge>}
             {lead.utm_medium && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_medium}</Badge>}
             {lead.utm_campaign && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_campaign}</Badge>}
@@ -105,6 +149,8 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
     const map: Record<string, StrategicLead[]> = {};
     STAGES.forEach(s => { map[s] = []; });
     leads.forEach(l => { if (map[l.stage]) map[l.stage].push(l); });
+    // Sort each stage by entry date descending (most recent first)
+    Object.values(map).forEach(arr => arr.sort((a, b) => getLeadEntryTimestamp(b) - getLeadEntryTimestamp(a)));
     return map;
   }, [leads]);
 
@@ -147,7 +193,7 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
                     {selectedLead.phone && <div><span className="text-muted-foreground">Telefone:</span> <p>{selectedLead.phone}</p></div>}
                     {selectedLead.sale_value && <div><span className="text-muted-foreground">Valor venda:</span> <p>R$ {selectedLead.sale_value.toLocaleString("pt-BR")}</p></div>}
                     {selectedLead.meeting_date && <div><span className="text-muted-foreground">Reunião:</span> <p>{new Date(selectedLead.meeting_date).toLocaleString("pt-BR")}</p></div>}
-                    {(() => { const d = getLeadEntryDate(selectedLead); return d ? <div><span className="text-muted-foreground">Entrada:</span> <p>{d}</p></div> : null; })()}
+                    {(() => { const d = getLeadEntryDate(selectedLead); return d ? <div><span className="text-muted-foreground">Entrada:</span> <p>{d.date}{d.time ? ` às ${d.time}` : ''}</p></div> : null; })()}
                   </div>
 
                   {/* UTMs completas */}
