@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, Calendar, Video } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,15 +20,48 @@ const kpiCards = [
   { key: "venda", label: "Vendas", icon: DollarSign, color: "text-green-600" },
 ];
 
+type MeetingFilter = "hoje" | "amanha" | "7dias";
+
+const filterLabels: Record<MeetingFilter, string> = {
+  hoje: "Hoje",
+  amanha: "Amanhã",
+  "7dias": "Próx. 7 dias",
+};
+
 export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const { data: utmData = [] } = useUTMAnalytics(session.id);
   const { data: calComEvents = [] } = useCalComEvents();
+  const [meetingFilter, setMeetingFilter] = useState<MeetingFilter>("hoje");
 
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
 
-  // Filter Cal.com events for today
-  const todayEvents = calComEvents.filter((e: any) => e.event_date === todayStr);
+  const filteredEvents = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const in7days = new Date(today);
+    in7days.setDate(in7days.getDate() + 7);
+
+    return calComEvents.filter((e: any) => {
+      const eventDate = new Date(e.event_date + "T00:00:00");
+      switch (meetingFilter) {
+        case "hoje":
+          return e.event_date === todayStr;
+        case "amanha": {
+          const tomorrowStr = tomorrow.toISOString().split("T")[0];
+          return e.event_date === tomorrowStr;
+        }
+        case "7dias":
+          return eventDate >= today && eventDate < in7days;
+        default:
+          return false;
+      }
+    });
+  }, [calComEvents, meetingFilter, todayStr]);
 
   return (
     <div className="space-y-6 mt-4">
@@ -52,16 +86,27 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              Reuniões de Hoje
-              <Badge variant="outline" className="text-xs ml-auto">Cal.com</Badge>
+              Reuniões
+              <div className="flex gap-1 ml-auto">
+                {(Object.keys(filterLabels) as MeetingFilter[]).map(f => (
+                  <Badge
+                    key={f}
+                    variant={meetingFilter === f ? "default" : "outline"}
+                    className="text-xs cursor-pointer"
+                    onClick={() => setMeetingFilter(f)}
+                  >
+                    {filterLabels[f]}
+                  </Badge>
+                ))}
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {todayEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma reunião hoje</p>
+            {filteredEvents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma reunião {filterLabels[meetingFilter].toLowerCase()}</p>
             ) : (
               <div className="space-y-2">
-                {todayEvents.map((event: any, i: number) => {
+                {filteredEvents.map((event: any, i: number) => {
                   const [h, m] = (event.event_time || "00:00").split(":").map(Number);
                   const start = new Date(event.event_date + "T" + (event.event_time || "00:00:00"));
                   const end = new Date(start.getTime() + (event.duration_minutes || 30) * 60000);
