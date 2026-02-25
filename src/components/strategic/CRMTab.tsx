@@ -39,6 +39,15 @@ const UTM_FIELD_NAMES: Record<string, string[]> = {
   utm_medium: ["utm_medium", "medium", "mídia", "midia"],
   utm_campaign: ["utm_campaign", "campanha", "campaign"],
   utm_content: ["utm_content", "content", "conteúdo", "conteudo"],
+  utm_term: ["utm_term", "term", "termo"],
+};
+
+const UTM_LABELS: Record<string, string> = {
+  utm_source: "Origem",
+  utm_medium: "Público",
+  utm_campaign: "Campanha",
+  utm_content: "Criativo",
+  utm_term: "Tráfego",
 };
 
 function getLeadUtm(lead: StrategicLead, utmKey: string): string | null {
@@ -153,6 +162,7 @@ function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: ()
             {(() => { const v = getLeadUtm(lead, 'utm_medium'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
             {(() => { const v = getLeadUtm(lead, 'utm_campaign'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
             {(() => { const v = getLeadUtm(lead, 'utm_content'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
+            {(() => { const v = getLeadUtm(lead, 'utm_term'); return v ? <Badge variant="outline" className="text-[10px] h-5">{v}</Badge> : null; })()}
           </div>
           {lead.meeting_date && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -173,6 +183,8 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
   const [search, setSearch] = useState("");
   const [stagePages, setStagePages] = useState<Record<string, number>>({});
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const updateStage = useUpdateLeadStage();
   const { data: history = [] } = useLeadHistory(selectedLead?.id);
@@ -185,10 +197,11 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
     // Add built-in fields
     const builtIn: Record<string, (l: StrategicLead) => string | null | undefined> = {
       "Qualificado": l => l.is_qualified ? "Sim" : "Não",
-      "UTM Source": l => l.utm_source,
-      "UTM Medium": l => l.utm_medium,
-      "UTM Campaign": l => l.utm_campaign,
-      "UTM Content": l => l.utm_content,
+      [UTM_LABELS.utm_source]: l => getLeadUtm(l, 'utm_source'),
+      [UTM_LABELS.utm_medium]: l => getLeadUtm(l, 'utm_medium'),
+      [UTM_LABELS.utm_campaign]: l => getLeadUtm(l, 'utm_campaign'),
+      [UTM_LABELS.utm_content]: l => getLeadUtm(l, 'utm_content'),
+      [UTM_LABELS.utm_term]: l => getLeadUtm(l, 'utm_term'),
     };
     for (const [label, getter] of Object.entries(builtIn)) {
       fieldsMap[label] = new Set();
@@ -243,10 +256,11 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
         return activeEntries.every(([field, filterVal]) => {
           // Check built-in fields
           if (field === "Qualificado") return (l.is_qualified ? "Sim" : "Não") === filterVal;
-          if (field === "UTM Source") return l.utm_source === filterVal;
-          if (field === "UTM Medium") return l.utm_medium === filterVal;
-          if (field === "UTM Campaign") return l.utm_campaign === filterVal;
-          if (field === "UTM Content") return l.utm_content === filterVal;
+          if (field === UTM_LABELS.utm_source) return getLeadUtm(l, 'utm_source') === filterVal;
+          if (field === UTM_LABELS.utm_medium) return getLeadUtm(l, 'utm_medium') === filterVal;
+          if (field === UTM_LABELS.utm_campaign) return getLeadUtm(l, 'utm_campaign') === filterVal;
+          if (field === UTM_LABELS.utm_content) return getLeadUtm(l, 'utm_content') === filterVal;
+          if (field === UTM_LABELS.utm_term) return getLeadUtm(l, 'utm_term') === filterVal;
           // Check extra_data
           if (!extra) return false;
           return String(extra[field] || '').trim() === filterVal;
@@ -254,8 +268,23 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
       });
     }
 
+    // Apply date filter
+    if (dateFrom || dateTo) {
+      filtered = filtered.filter(l => {
+        const entry = getLeadEntryDate(l);
+        if (!entry) return false;
+        // Parse dd/mm/yyyy to comparable format
+        const parts = entry.date.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (!parts) return false;
+        const isoDate = `${parts[3]}-${parts[2]}-${parts[1]}`;
+        if (dateFrom && isoDate < dateFrom) return false;
+        if (dateTo && isoDate > dateTo) return false;
+        return true;
+      });
+    }
+
     return filtered;
-  }, [leads, search, activeFilters]);
+  }, [leads, search, activeFilters, dateFrom, dateTo]);
 
   const leadsByStage = useMemo(() => {
     const map: Record<string, StrategicLead[]> = {};
@@ -268,7 +297,7 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
   const getPage = (stage: string) => stagePages[stage] || 0;
   const setPage = (stage: string, page: number) => setStagePages(prev => ({ ...prev, [stage]: page }));
 
-  const activeFilterCount = Object.values(activeFilters).filter(Boolean).length;
+  const activeFilterCount = Object.values(activeFilters).filter(Boolean).length + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -305,7 +334,7 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
           )}
         </Button>
         {activeFilterCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={() => { setActiveFilters({}); setStagePages({}); }} className="h-9 text-xs gap-1">
+          <Button variant="ghost" size="sm" onClick={() => { setActiveFilters({}); setDateFrom(""); setDateTo(""); setStagePages({}); }} className="h-9 text-xs gap-1">
             <X className="h-3 w-3" /> Limpar
           </Button>
         )}
@@ -313,6 +342,12 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
 
       {showFilters && (
         <div className="flex flex-wrap gap-2 p-3 rounded-lg border bg-muted/20">
+          <div className="flex items-center gap-1.5 min-w-[300px]">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">Data:</label>
+            <Input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setStagePages({}); }} className="h-8 text-xs" />
+            <span className="text-xs text-muted-foreground">até</span>
+            <Input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setStagePages({}); }} className="h-8 text-xs" />
+          </div>
           {fieldOptions.map(({ field, values }) => (
             <div key={field} className="min-w-[160px]">
               <Select
@@ -395,15 +430,17 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
                     const med = getLeadUtm(selectedLead, 'utm_medium');
                     const camp = getLeadUtm(selectedLead, 'utm_campaign');
                     const cont = getLeadUtm(selectedLead, 'utm_content');
-                    if (!src && !med && !camp && !cont) return null;
+                    const term = getLeadUtm(selectedLead, 'utm_term');
+                    if (!src && !med && !camp && !cont && !term) return null;
                     return (
                       <div>
                         <p className="text-sm font-medium mb-1.5">UTMs</p>
                         <div className="grid grid-cols-2 gap-2 text-xs">
-                          {src && <div><span className="text-muted-foreground">Source:</span> <span className="ml-1">{src}</span></div>}
-                          {med && <div><span className="text-muted-foreground">Medium:</span> <span className="ml-1">{med}</span></div>}
-                          {camp && <div><span className="text-muted-foreground">Campaign:</span> <span className="ml-1">{camp}</span></div>}
-                          {cont && <div><span className="text-muted-foreground">Content:</span> <span className="ml-1">{cont}</span></div>}
+                          {src && <div><span className="text-muted-foreground">Origem:</span> <span className="ml-1">{src}</span></div>}
+                          {med && <div><span className="text-muted-foreground">Público:</span> <span className="ml-1">{med}</span></div>}
+                          {camp && <div><span className="text-muted-foreground">Campanha:</span> <span className="ml-1">{camp}</span></div>}
+                          {cont && <div><span className="text-muted-foreground">Criativo:</span> <span className="ml-1">{cont}</span></div>}
+                          {term && <div><span className="text-muted-foreground">Tráfego:</span> <span className="ml-1">{term}</span></div>}
                         </div>
                       </div>
                     );
