@@ -167,17 +167,33 @@ export function useStrategicLeads(sessionId: string | undefined, filters?: { sta
   return useQuery({
     queryKey: ["strategic-leads", sessionId, filters],
     queryFn: async () => {
-      let query = supabase
-        .from("strategic_leads")
-        .select("*")
-        .eq("session_id", sessionId!)
-        .order("order_index");
-      if (filters?.stage) query = query.eq("stage", filters.stage);
-      if (filters?.utm_source) query = query.eq("utm_source", filters.utm_source);
-      if (filters?.is_qualified !== undefined) query = query.eq("is_qualified", filters.is_qualified);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as StrategicLead[];
+      const allData: StrategicLead[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        let query = supabase
+          .from("strategic_leads")
+          .select("*")
+          .eq("session_id", sessionId!)
+          .order("order_index")
+          .range(offset, offset + batchSize - 1);
+        if (filters?.stage) query = query.eq("stage", filters.stage);
+        if (filters?.utm_source) query = query.eq("utm_source", filters.utm_source);
+        if (filters?.is_qualified !== undefined) query = query.eq("is_qualified", filters.is_qualified);
+        const { data, error } = await query;
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allData.push(...(data as StrategicLead[]));
+          offset += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return allData;
     },
     enabled: !!sessionId,
   });
@@ -393,16 +409,31 @@ export function useUTMAnalytics(sessionId: string | undefined) {
   return useQuery({
     queryKey: ["strategic-utm-analytics", sessionId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("strategic_leads")
-        .select("utm_source, stage, is_qualified, extra_data")
-        .eq("session_id", sessionId!);
-      if (error) throw error;
+      // Paginate to get all leads (beyond 1000 limit)
+      const allData: any[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("strategic_leads")
+          .select("utm_source, stage, is_qualified, extra_data")
+          .eq("session_id", sessionId!)
+          .range(offset, offset + batchSize - 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allData.push(...data);
+          offset += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
       
       const utmSourceKeys = ["utm_source", "fonte", "source"];
       
       const sources: Record<string, { total: number; qualified: number; vendas: number }> = {};
-      (data || []).forEach((lead: any) => {
+      (allData).forEach((lead: any) => {
         // Try to get utm_source from extra_data first, then fallback to column
         let src = lead.utm_source;
         if ((!src || !src.trim()) && lead.extra_data && typeof lead.extra_data === 'object') {
