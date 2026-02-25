@@ -41,3 +41,9 @@ verify_jwt = false
 
 [functions.generate-copy]
 verify_jwt = false
+
+[functions.sync-strategic-leads]
+verify_jwt = false
+
+[functions.fetch-google-calendar-events]
+verify_jwt = false
