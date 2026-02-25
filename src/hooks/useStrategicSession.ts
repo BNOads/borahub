@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { computeLeadScore } from "@/lib/leadScoring";
 
 // Types
 export interface StageConfig {
@@ -464,6 +465,7 @@ export function useDeleteCriterion() {
 
 // UTM Analytics - full breakdown by all dimensions
 export function useUTMAnalytics(sessionId: string | undefined) {
+  // Import computeLeadScore inline to determine qualification status
   return useQuery({
     queryKey: ["strategic-utm-analytics", sessionId],
     queryFn: async () => {
@@ -516,7 +518,7 @@ export function useUTMAnalytics(sessionId: string | undefined) {
           if (!val) val = "Sem dados";
           if (!map[val]) map[val] = { total: 0, qualified: 0, vendas: 0 };
           map[val].total++;
-          if (lead.is_qualified) map[val].qualified++;
+          if (computeLeadScore(lead).isQualified) map[val].qualified++;
           if (lead.stage === "venda") map[val].vendas++;
         });
         return Object.entries(map)
@@ -552,8 +554,8 @@ export function useUTMAnalytics(sessionId: string | undefined) {
         funnel,
         daily,
         total: allData.length,
-        qualified: allData.filter(l => l.is_qualified).length,
-        vendas: allData.filter(l => l.stage === "venda").length,
+        qualified: allData.filter((l: any) => computeLeadScore(l).isQualified).length,
+        vendas: allData.filter((l: any) => l.stage === "venda").length,
       };
     },
     enabled: !!sessionId,
