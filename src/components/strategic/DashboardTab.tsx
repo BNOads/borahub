@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, FunnelChart, Funnel, LabelList } from "recharts";
 import { useUTMAnalytics, StrategicSession, StrategicLead } from "@/hooks/useStrategicSession";
 import { computeLeadScore } from "@/lib/leadScoring";
-import { useCalComEvents } from "@/hooks/useCalComEvents";
+import { useCalComEvents, useCalComPastEvents, matchLeadsWithCalCom } from "@/hooks/useCalComEvents";
 
 interface Props {
   session: StrategicSession;
@@ -73,7 +73,12 @@ function UTMBarChart({ data, title }: { data: { name: string; total: number; qua
 export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const { data: analytics } = useUTMAnalytics(session.id);
   const { data: calComEvents = [] } = useCalComEvents();
+  const { data: calComPastEvents = [] } = useCalComPastEvents();
   const [meetingFilter, setMeetingFilter] = useState<MeetingFilter>("hoje");
+
+  const calComMatches = useMemo(() => matchLeadsWithCalCom(leads, calComEvents, calComPastEvents), [leads, calComEvents, calComPastEvents]);
+  const agendadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasUpcoming).length, [calComMatches]);
+  const realizadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasPast).length, [calComMatches]);
 
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
@@ -125,7 +130,12 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
             <CardContent className="pt-4 pb-3 px-4">
               <div className="flex items-center justify-between">
                 <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
-                <span className="text-2xl font-bold">{kpi.key === "qualificado" ? qualifiedByScoring : (stageCounts[kpi.key] || 0)}</span>
+                <span className="text-2xl font-bold">
+                  {kpi.key === "qualificado" ? qualifiedByScoring
+                    : kpi.key === "agendado" ? agendadosByCalCom
+                    : kpi.key === "realizado" ? realizadosByCalCom
+                    : (stageCounts[kpi.key] || 0)}
+                </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
             </CardContent>

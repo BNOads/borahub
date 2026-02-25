@@ -3,7 +3,7 @@ import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, u
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import { Phone, Mail, Calendar, Clock, Search, ChevronLeft, ChevronRight, Filter, X, Trash2, Save, TrendingUp, GraduationCap } from "lucide-react";
+import { Phone, Mail, Calendar, Clock, Search, ChevronLeft, ChevronRight, Filter, X, Trash2, Save, TrendingUp, GraduationCap, CalendarCheck } from "lucide-react";
 import { computeLeadScore, type LeadScore } from "@/lib/leadScoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { STAGES, StrategicLead, useUpdateLeadStage, useUpdateLead, useDeleteLead, useLeadHistory, useSalesLookup, getStudentInfo, type StudentInfo } from "@/hooks/useStrategicSession";
+import { useCalComEvents, useCalComPastEvents, matchLeadsWithCalCom, type CalComLeadMatch } from "@/hooks/useCalComEvents";
 
 interface Props {
   sessionId: string;
@@ -144,7 +145,7 @@ function DroppableColumn({ stage, children, count }: { stage: string; children: 
   );
 }
 
-function DraggableLeadCard({ lead, onClick, studentInfo }: { lead: StrategicLead; onClick: () => void; studentInfo?: StudentInfo }) {
+function DraggableLeadCard({ lead, onClick, studentInfo, calComMatch }: { lead: StrategicLead; onClick: () => void; studentInfo?: StudentInfo; calComMatch?: CalComLeadMatch }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: lead.id, data: { lead } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.5 : 1 } : undefined;
 
@@ -161,6 +162,16 @@ function DraggableLeadCard({ lead, onClick, studentInfo }: { lead: StrategicLead
               {studentInfo?.isStudent && (
                 <Badge className="text-[10px] h-5 bg-cyan-500 hover:bg-cyan-600 text-white gap-0.5">
                   <GraduationCap className="h-3 w-3" />Aluno
+                </Badge>
+              )}
+              {calComMatch?.hasUpcoming && (
+                <Badge className="text-[10px] h-5 bg-orange-500 hover:bg-orange-600 text-white gap-0.5">
+                  <CalendarCheck className="h-3 w-3" />Agendado
+                </Badge>
+              )}
+              {calComMatch?.hasPast && (
+                <Badge className="text-[10px] h-5 bg-emerald-500 hover:bg-emerald-600 text-white gap-0.5">
+                  <CalendarCheck className="h-3 w-3" />Realizado
                 </Badge>
               )}
               <Badge className={`text-[10px] h-5 ${scoring.isQualified ? "bg-green-500 hover:bg-green-600 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}>
@@ -207,6 +218,8 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
   const [showFilters, setShowFilters] = useState(false);
   const [observation, setObservation] = useState("");
   const { data: salesData } = useSalesLookup();
+  const { data: calComEvents = [] } = useCalComEvents();
+  const { data: calComPastEvents = [] } = useCalComPastEvents();
   const updateStage = useUpdateLeadStage();
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
@@ -221,6 +234,8 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
     });
     return map;
   }, [leads, salesData]);
+
+  const calComMatchMap = useMemo(() => matchLeadsWithCalCom(leads, calComEvents, calComPastEvents), [leads, calComEvents, calComPastEvents]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
@@ -422,7 +437,7 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
             return (
               <DroppableColumn key={stage} stage={stage} count={all.length}>
                 {paginated.map(lead => (
-                  <DraggableLeadCard key={lead.id} lead={lead} studentInfo={studentInfoMap.get(lead.id)} onClick={() => { setSelectedLead(lead); setObservation(lead.observation || ""); }} />
+                  <DraggableLeadCard key={lead.id} lead={lead} studentInfo={studentInfoMap.get(lead.id)} calComMatch={calComMatchMap.get(lead.id)} onClick={() => { setSelectedLead(lead); setObservation(lead.observation || ""); }} />
                 ))}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-between pt-2 px-1">
@@ -557,6 +572,41 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
                               <Badge variant="outline" className="text-[10px] h-4 capitalize">{p.platform}</Badge>
                             </div>
                           ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Cal.com Agendamentos */}
+                  {(() => {
+                    const match = calComMatchMap.get(selectedLead.id);
+                    if (!match) return null;
+                    return (
+                      <div>
+                        <p className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                          <CalendarCheck className="h-4 w-4" />Agendamentos Cal.com
+                        </p>
+                        <div className="rounded-md border p-3 space-y-1.5">
+                          {match.upcomingDates.length > 0 && (
+                            <div className="text-xs">
+                              <span className="text-muted-foreground">Agendados:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {match.upcomingDates.map(d => (
+                                  <Badge key={d} className="text-[10px] bg-orange-500 hover:bg-orange-600 text-white">{d.split("-").reverse().join("/")}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {match.pastDates.length > 0 && (
+                            <div className="text-xs">
+                              <span className="text-muted-foreground">Realizados:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {match.pastDates.map(d => (
+                                  <Badge key={d} className="text-[10px] bg-emerald-500 hover:bg-emerald-600 text-white">{d.split("-").reverse().join("/")}</Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
