@@ -742,12 +742,26 @@ export function usePublicLeads(sessionId: string | undefined) {
   return useQuery({
     queryKey: ["public-strategic-leads", sessionId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("strategic_leads")
-        .select("stage, is_qualified, utm_source")
-        .eq("session_id", sessionId!);
-      if (error) throw error;
-      return data;
+      const allData: any[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      let hasMore = true;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from("strategic_leads")
+          .select("id, stage, is_qualified, qualification_score, utm_source, utm_medium, utm_campaign, utm_content, extra_data, created_at, name, email, phone")
+          .eq("session_id", sessionId!)
+          .range(offset, offset + batchSize - 1);
+        if (error) throw error;
+        if (data && data.length > 0) {
+          allData.push(...data);
+          offset += batchSize;
+          hasMore = data.length === batchSize;
+        } else {
+          hasMore = false;
+        }
+      }
+      return allData as StrategicLead[];
     },
     enabled: !!sessionId,
   });
