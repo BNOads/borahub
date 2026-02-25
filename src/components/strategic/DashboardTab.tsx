@@ -557,57 +557,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         </Card>
       </div>
 
-      {/* Leads over time */}
-      {utmData?.daily && utmData.daily.length > 1 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Leads ao longo do tempo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={utmData.daily}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip />
-                <Line type="monotone" dataKey="leads" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Funil de conversão */}
-      {utmData?.funnel && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Funil de Conversão</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={utmData.funnel} margin={{ left: 10 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip />
-                <Bar dataKey="value" name="Leads" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]}>
-                  {utmData.funnel.map((_, i) => (
-                    <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* UTM breakdown charts */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {utmData?.bySource && <UTMBarChart data={utmData.bySource} title="Por Origem (Source)" />}
-        {utmData?.byMedium && <UTMBarChart data={utmData.byMedium} title="Por Público (Medium)" />}
-        {utmData?.byCampaign && <UTMBarChart data={utmData.byCampaign} title="Por Campanha" />}
-        {utmData?.byContent && <UTMBarChart data={utmData.byContent} title="Por Criativo (Content)" />}
-        {utmData?.byTerm && <UTMBarChart data={utmData.byTerm} title="Por Tráfego (Term)" />}
-      </div>
 
       {/* UTM sortable tables */}
       <div className="grid md:grid-cols-2 gap-6">
