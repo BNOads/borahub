@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, ComposedChart } from "recharts";
 import { useUTMAnalytics, StrategicSession, StrategicLead } from "@/hooks/useStrategicSession";
 import { computeLeadScore } from "@/lib/leadScoring";
 import { useCalComEvents, useCalComPastEvents, matchLeadsWithCalCom } from "@/hooks/useCalComEvents";
@@ -245,6 +245,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
     return [...dateMap.values()].sort((a, b) => a.date.localeCompare(b.date)).map(d => ({
       ...d,
       date: d.date.split("-").slice(1).join("/"),
+      taxaQualificacao: d.total > 0 ? Math.round((d.qualificados / d.total) * 100) : 0,
     }));
   }, [leads, chartStartDate, chartEndDate]);
 
@@ -349,16 +350,31 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
           {dailyLeadsData.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4">Sem dados de leads no período</p>
           ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <BarChart data={dailyLeadsData}>
+            <ResponsiveContainer width="100%" height={280}>
+              <ComposedChart data={dailyLeadsData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                <YAxis tick={{ fontSize: 10 }} />
-                <Tooltip formatter={(val: number, name: string) => [val, name === "qualificados" ? "Qualificados" : name === "desqualificados" ? "Desqualificados" : "Total"]} />
-                <Legend formatter={(value) => value === "qualificados" ? "Qualificados" : value === "desqualificados" ? "Desqualificados" : "Total"} />
-                <Bar dataKey="qualificados" stackId="a" fill="hsl(145, 60%, 45%)" radius={[0, 0, 0, 0]} barSize={20} />
-                <Bar dataKey="desqualificados" stackId="a" fill="hsl(0, 65%, 55%)" radius={[4, 4, 0, 0]} barSize={20} />
-              </BarChart>
+                <YAxis yAxisId="left" tick={{ fontSize: 10 }} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10 }} unit="%" domain={[0, 100]} />
+                <Tooltip formatter={(val: number, name: string) => {
+                  if (name === "qualificados") return [val, "Qualificados"];
+                  if (name === "desqualificados") return [val, "Desqualificados"];
+                  if (name === "total") return [val, "Total"];
+                  if (name === "taxaQualificacao") return [`${val}%`, "Taxa Qualificação"];
+                  return [val, name];
+                }} />
+                <Legend formatter={(value) => {
+                  if (value === "qualificados") return "Qualificados";
+                  if (value === "desqualificados") return "Desqualificados";
+                  if (value === "total") return "Total";
+                  if (value === "taxaQualificacao") return "Taxa Qualificação";
+                  return value;
+                }} />
+                <Bar yAxisId="left" dataKey="qualificados" stackId="a" fill="hsl(145, 60%, 45%)" barSize={20} />
+                <Bar yAxisId="left" dataKey="desqualificados" stackId="a" fill="hsl(0, 65%, 55%)" radius={[4, 4, 0, 0]} barSize={20} />
+                <Bar yAxisId="left" dataKey="total" fill="hsl(210, 70%, 55%)" barSize={20} radius={[4, 4, 0, 0]} />
+                <Line yAxisId="right" type="monotone" dataKey="taxaQualificacao" stroke="hsl(280, 60%, 55%)" strokeWidth={2} dot={{ r: 3 }} />
+              </ComposedChart>
             </ResponsiveContainer>
           )}
         </CardContent>
