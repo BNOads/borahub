@@ -48,6 +48,8 @@ function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: ()
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: lead.id, data: { lead } });
   const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.5 : 1 } : undefined;
 
+  const createdDate = lead.created_at ? new Date(lead.created_at).toLocaleDateString("pt-BR") : null;
+
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
       <Card className="cursor-grab active:cursor-grabbing hover:shadow-sm transition-shadow" onClick={e => { e.stopPropagation(); onClick(); }}>
@@ -57,11 +59,17 @@ function DraggableLeadCard({ lead, onClick }: { lead: StrategicLead; onClick: ()
             {lead.is_qualified && <Star className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />}
           </div>
           {lead.phone && <p className="text-xs text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{lead.phone}</p>}
-          {lead.utm_source && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_source}</Badge>}
+          <div className="flex flex-wrap gap-1">
+            {createdDate && <Badge variant="secondary" className="text-[10px] h-5"><Calendar className="h-2.5 w-2.5 mr-0.5" />{createdDate}</Badge>}
+            {lead.utm_source && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_source}</Badge>}
+            {lead.utm_medium && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_medium}</Badge>}
+            {lead.utm_campaign && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_campaign}</Badge>}
+            {lead.utm_content && <Badge variant="outline" className="text-[10px] h-5">{lead.utm_content}</Badge>}
+          </div>
           {lead.meeting_date && (
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Calendar className="h-3 w-3" />
-              {new Date(lead.meeting_date).toLocaleDateString("pt-BR")}
+              Reunião: {new Date(lead.meeting_date).toLocaleDateString("pt-BR")}
             </p>
           )}
         </CardContent>
@@ -121,11 +129,24 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
                     <div><span className="text-muted-foreground">Estágio:</span> <Badge>{stageLabels[selectedLead.stage]}</Badge></div>
                     {selectedLead.email && <div><span className="text-muted-foreground">Email:</span> <p>{selectedLead.email}</p></div>}
                     {selectedLead.phone && <div><span className="text-muted-foreground">Telefone:</span> <p>{selectedLead.phone}</p></div>}
-                    {selectedLead.utm_source && <div><span className="text-muted-foreground">Fonte:</span> <p>{selectedLead.utm_source}</p></div>}
-                    {selectedLead.utm_campaign && <div><span className="text-muted-foreground">Campanha:</span> <p>{selectedLead.utm_campaign}</p></div>}
                     {selectedLead.sale_value && <div><span className="text-muted-foreground">Valor venda:</span> <p>R$ {selectedLead.sale_value.toLocaleString("pt-BR")}</p></div>}
                     {selectedLead.meeting_date && <div><span className="text-muted-foreground">Reunião:</span> <p>{new Date(selectedLead.meeting_date).toLocaleString("pt-BR")}</p></div>}
+                    {selectedLead.created_at && <div><span className="text-muted-foreground">Entrada:</span> <p>{new Date(selectedLead.created_at).toLocaleDateString("pt-BR")}</p></div>}
                   </div>
+
+                  {/* UTMs completas */}
+                  {(selectedLead.utm_source || selectedLead.utm_medium || selectedLead.utm_campaign || selectedLead.utm_content) && (
+                    <div>
+                      <p className="text-sm font-medium mb-1.5">UTMs</p>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {selectedLead.utm_source && <div><span className="text-muted-foreground">Source:</span> <span className="ml-1">{selectedLead.utm_source}</span></div>}
+                        {selectedLead.utm_medium && <div><span className="text-muted-foreground">Medium:</span> <span className="ml-1">{selectedLead.utm_medium}</span></div>}
+                        {selectedLead.utm_campaign && <div><span className="text-muted-foreground">Campaign:</span> <span className="ml-1">{selectedLead.utm_campaign}</span></div>}
+                        {selectedLead.utm_content && <div><span className="text-muted-foreground">Content:</span> <span className="ml-1">{selectedLead.utm_content}</span></div>}
+                      </div>
+                    </div>
+                  )}
+
                   {selectedLead.is_qualified && (
                     <Badge className="bg-amber-500 text-white"><Star className="h-3 w-3 mr-1" />Qualificado</Badge>
                   )}
@@ -135,6 +156,24 @@ export function StrategicCRMTab({ sessionId, leads }: Props) {
                       <p className="text-sm text-muted-foreground">{selectedLead.meeting_notes}</p>
                     </div>
                   )}
+
+                  {/* Respostas da planilha */}
+                  {selectedLead.extra_data && typeof selectedLead.extra_data === 'object' && Object.keys(selectedLead.extra_data as Record<string, string>).length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-2">Respostas da Planilha</p>
+                      <div className="space-y-1.5 rounded-md border p-3 bg-muted/30">
+                        {Object.entries(selectedLead.extra_data as Record<string, string>)
+                          .filter(([, value]) => value && String(value).trim() !== '')
+                          .map(([key, value]) => (
+                            <div key={key} className="flex flex-col text-xs">
+                              <span className="font-medium text-muted-foreground capitalize">{key}</span>
+                              <span className="break-words">{String(value)}</span>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <p className="text-sm font-medium mb-2">Histórico</p>
                     {history.length === 0 ? (
