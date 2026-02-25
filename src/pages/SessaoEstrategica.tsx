@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStrategicSessions, useCreateSession, useStrategicLeads } from "@/hooks/useStrategicSession";
 import { StrategicDashboardTab } from "@/components/strategic/DashboardTab";
@@ -61,18 +61,6 @@ export default function SessaoEstrategica() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {sessions.length > 0 && (
-            <Select value={selectedSessionId} onValueChange={setSelectedSessionId}>
-              <SelectTrigger className="w-[220px]">
-                <SelectValue placeholder="Selecione a sessão" />
-              </SelectTrigger>
-              <SelectContent>
-                {sessions.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" />Nova Sessão</Button>

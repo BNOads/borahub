@@ -1,8 +1,9 @@
 import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, Calendar, Video } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import { useUTMAnalytics, useGoogleCalendarEvents, StrategicSession, StrategicLead } from "@/hooks/useStrategicSession";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { useUTMAnalytics, StrategicSession, StrategicLead } from "@/hooks/useStrategicSession";
+import { useCalComEvents } from "@/hooks/useCalComEvents";
 
 interface Props {
   session: StrategicSession;
@@ -18,13 +19,15 @@ const kpiCards = [
   { key: "venda", label: "Vendas", icon: DollarSign, color: "text-green-600" },
 ];
 
-const barColors = ["#3b82f6", "#8b5cf6", "#f59e0b", "#10b981", "#16a34a"];
-
 export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const { data: utmData = [] } = useUTMAnalytics(session.id);
-  const { data: calendarEvents = [] } = useGoogleCalendarEvents(session.google_calendar_id);
+  const { data: calComEvents = [] } = useCalComEvents();
 
   const now = new Date();
+  const todayStr = now.toISOString().split("T")[0];
+
+  // Filter Cal.com events for today
+  const todayEvents = calComEvents.filter((e: any) => e.event_date === todayStr);
 
   return (
     <div className="space-y-6 mt-4">
@@ -44,31 +47,31 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Reuniões do dia */}
+        {/* Reuniões do dia (Cal.com) */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               Reuniões de Hoje
+              <Badge variant="outline" className="text-xs ml-auto">Cal.com</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!session.google_calendar_id ? (
-              <p className="text-sm text-muted-foreground">Configure o Google Calendar ID na aba de Configuração</p>
-            ) : calendarEvents.length === 0 ? (
+            {todayEvents.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nenhuma reunião hoje</p>
             ) : (
               <div className="space-y-2">
-                {calendarEvents.map((event: any, i: number) => {
-                  const start = new Date(event.start);
-                  const end = new Date(event.end);
+                {todayEvents.map((event: any, i: number) => {
+                  const [h, m] = (event.event_time || "00:00").split(":").map(Number);
+                  const start = new Date(event.event_date + "T" + (event.event_time || "00:00:00"));
+                  const end = new Date(start.getTime() + (event.duration_minutes || 30) * 60000);
                   const isNow = now >= start && now <= end;
                   return (
-                    <div key={i} className={`flex items-center justify-between p-2 rounded-md border ${isNow ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <div key={event.id || i} className={`flex items-center justify-between p-2 rounded-md border ${isNow ? "border-primary bg-primary/5" : "border-border"}`}>
                       <div className="flex items-center gap-2">
                         {isNow && <Video className="h-4 w-4 text-primary animate-pulse" />}
                         <div>
-                          <p className="text-sm font-medium">{event.summary}</p>
+                          <p className="text-sm font-medium">{event.title}</p>
                           <p className="text-xs text-muted-foreground">
                             {start.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} - {end.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                           </p>

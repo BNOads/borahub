@@ -3,14 +3,26 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { session_id } = await req.json();
+    // Parse body safely
+    const bodyText = await req.text();
+    console.log("Request body length:", bodyText.length);
+    
+    let body: any;
+    try {
+      body = JSON.parse(bodyText);
+    } catch (parseErr) {
+      console.error("Failed to parse request body:", bodyText.substring(0, 200));
+      throw new Error(`Invalid request body JSON: ${parseErr.message}`);
+    }
+
+    const { session_id } = body;
     if (!session_id) throw new Error("session_id required");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -31,8 +43,22 @@ serve(async (req) => {
     if (!sheetMatch) throw new Error("Invalid Google Sheet URL");
     const spreadsheetId = sheetMatch[1];
 
-    // Get Google access token
-    const serviceAccountKey = JSON.parse(Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || "{}");
+    // Get Google access token - parse service account key safely
+    const rawKey = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_KEY") || "{}";
+    console.log("GOOGLE_SERVICE_ACCOUNT_KEY length:", rawKey.length, "starts with:", rawKey.substring(0, 5));
+    
+    let serviceAccountKey: any;
+    try {
+      serviceAccountKey = JSON.parse(rawKey);
+    } catch (keyErr) {
+      console.error("Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY. First 50 chars:", rawKey.substring(0, 50));
+      throw new Error(`Invalid GOOGLE_SERVICE_ACCOUNT_KEY format: ${keyErr.message}. Please re-save the secret with valid JSON.`);
+    }
+
+    if (!serviceAccountKey.client_email || !serviceAccountKey.private_key) {
+      throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY missing client_email or private_key fields");
+    }
+
     const token = await getGoogleAccessToken(serviceAccountKey);
 
     // Fetch sheet data
@@ -40,7 +66,10 @@ serve(async (req) => {
       `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/A:Z`,
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    if (!sheetResponse.ok) throw new Error(`Google Sheets API error: ${sheetResponse.status}`);
+    if (!sheetResponse.ok) {
+      const errText = await sheetResponse.text();
+      throw new Error(`Google Sheets API error ${sheetResponse.status}: ${errText}`);
+    }
     const sheetData = await sheetResponse.json();
 
     const rows = sheetData.values || [];
@@ -120,11 +149,13 @@ serve(async (req) => {
       }
     }
 
+    console.log(`Sync complete: ${created} created, ${updated} updated, ${rows.length - 1} total rows`);
+
     return new Response(JSON.stringify({ created, updated, total: rows.length - 1 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
-    console.error("Error:", error);
+    console.error("Sync error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
