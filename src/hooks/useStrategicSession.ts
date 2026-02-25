@@ -695,13 +695,49 @@ export function useSyncGoogleSheet() {
         body: { session_id: sessionId },
       });
       if (error) throw error;
+      
+      // Log manual sync
+      const { data: session } = await supabase
+        .from("strategic_sessions")
+        .select("name")
+        .eq("id", sessionId)
+        .single();
+      
+      await supabase.from("strategic_sync_logs" as any).insert({
+        session_id: sessionId,
+        session_name: session?.name || "Desconhecida",
+        status: "ok",
+        total_rows: data?.total_rows || data?.totalRows || 0,
+        duplicates_removed: data?.duplicates_removed || data?.duplicatesRemoved || 0,
+        source: "manual",
+      });
+      
       return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["strategic-leads"] });
+      qc.invalidateQueries({ queryKey: ["strategic-sync-logs"] });
       toast.success("Sincronização concluída");
     },
     onError: () => toast.error("Erro ao sincronizar planilha"),
+  });
+}
+
+// Sync Logs
+export function useSyncLogs(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ["strategic-sync-logs", sessionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_sync_logs" as any)
+        .select("*")
+        .eq("session_id", sessionId!)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!sessionId,
   });
 }
 

@@ -14,7 +14,6 @@ serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Get all sessions with a Google Sheet URL
     const { data: sessions, error } = await supabase
       .from("strategic_sessions")
       .select("id, name, google_sheet_url")
@@ -31,7 +30,6 @@ serve(async (req) => {
 
     for (const session of sessions) {
       try {
-        // Call the existing sync function
         const res = await fetch(`${supabaseUrl}/functions/v1/sync-strategic-leads`, {
           method: "POST",
           headers: {
@@ -42,9 +40,29 @@ serve(async (req) => {
         });
 
         const data = await res.json();
+        
+        // Log the sync result
+        await supabase.from("strategic_sync_logs").insert({
+          session_id: session.id,
+          session_name: session.name,
+          status: "ok",
+          total_rows: data.total_rows || data.totalRows || 0,
+          duplicates_removed: data.duplicates_removed || data.duplicatesRemoved || 0,
+          source: "cron",
+        });
+
         results.push({ session: session.name, status: "ok", ...data });
         console.log(`Synced session "${session.name}": ${JSON.stringify(data)}`);
       } catch (err: any) {
+        // Log the error
+        await supabase.from("strategic_sync_logs").insert({
+          session_id: session.id,
+          session_name: session.name,
+          status: "error",
+          error_message: err.message,
+          source: "cron",
+        });
+
         results.push({ session: session.name, status: "error", error: err.message });
         console.error(`Error syncing "${session.name}":`, err.message);
       }

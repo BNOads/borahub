@@ -3737,6 +3737,50 @@ export type Database = {
           },
         ]
       }
+      strategic_sync_logs: {
+        Row: {
+          created_at: string
+          duplicates_removed: number | null
+          error_message: string | null
+          id: string
+          session_id: string | null
+          session_name: string | null
+          source: string | null
+          status: string
+          total_rows: number | null
+        }
+        Insert: {
+          created_at?: string
+          duplicates_removed?: number | null
+          error_message?: string | null
+          id?: string
+          session_id?: string | null
+          session_name?: string | null
+          source?: string | null
+          status?: string
+          total_rows?: number | null
+        }
+        Update: {
+          created_at?: string
+          duplicates_removed?: number | null
+          error_message?: string | null
+          id?: string
+          session_id?: string | null
+          session_name?: string | null
+          source?: string | null
+          status?: string
+          total_rows?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategic_sync_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "strategic_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subtasks: {
         Row: {
           completed: boolean
