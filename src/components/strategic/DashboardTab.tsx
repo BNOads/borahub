@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, FunnelChart, Funnel, LabelList } from "recharts";
 import { useUTMAnalytics, StrategicSession, StrategicLead } from "@/hooks/useStrategicSession";
+import { computeLeadScore } from "@/lib/leadScoring";
 import { useCalComEvents } from "@/hooks/useCalComEvents";
 
 interface Props {
@@ -103,9 +104,11 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
     });
   }, [calComEvents, meetingFilter, todayStr]);
 
+  const qualifiedByScoring = useMemo(() => leads.filter(l => computeLeadScore(l).isQualified).length, [leads]);
+
   // Conversion rates
   const totalLeads = utmData?.total || 0;
-  const qualifiedCount = utmData?.qualified || 0;
+  const qualifiedCount = qualifiedByScoring;
   const vendasCount = utmData?.vendas || 0;
   const qualRate = totalLeads > 0 ? ((qualifiedCount / totalLeads) * 100).toFixed(1) : "0";
   const convRate = totalLeads > 0 ? ((vendasCount / totalLeads) * 100).toFixed(1) : "0";
@@ -122,7 +125,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
             <CardContent className="pt-4 pb-3 px-4">
               <div className="flex items-center justify-between">
                 <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
-                <span className="text-2xl font-bold">{stageCounts[kpi.key] || 0}</span>
+                <span className="text-2xl font-bold">{kpi.key === "qualificado" ? qualifiedByScoring : (stageCounts[kpi.key] || 0)}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
             </CardContent>
