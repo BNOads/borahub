@@ -72,6 +72,74 @@ function UTMBarChart({ data, title }: { data: { name: string; total: number; qua
   );
 }
 
+type SortKey = "name" | "total" | "qualified" | "vendas" | "qualPercent";
+type SortDir = "asc" | "desc";
+
+function SortableUTMTable({ data, title, label }: { data: { name: string; total: number; qualified: number; vendas: number; convPercent: number }[]; title: string; label: string }) {
+  const [sortKey, setSortKey] = useState<SortKey>("total");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const filtered = data.filter(s => s.name !== "Sem dados");
+  if (filtered.length === 0) return null;
+
+  const withQualPercent = filtered.map(s => ({
+    ...s,
+    qualPercent: s.total > 0 ? Math.round((s.qualified / s.total) * 100 * 10) / 10 : 0,
+  }));
+
+  const sorted = [...withQualPercent].sort((a, b) => {
+    const aVal = a[sortKey];
+    const bVal = b[sortKey];
+    if (typeof aVal === "string" && typeof bVal === "string") return sortDir === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    return sortDir === "asc" ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number);
+  });
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("desc"); }
+  };
+
+  const arrow = (key: SortKey) => sortKey === key ? (sortDir === "asc" ? " ↑" : " ↓") : "";
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="pb-2 font-medium text-muted-foreground cursor-pointer select-none" onClick={() => toggleSort("name")}>{label}{arrow("name")}</th>
+                <th className="pb-2 font-medium text-muted-foreground text-right cursor-pointer select-none" onClick={() => toggleSort("total")}>Leads{arrow("total")}</th>
+                <th className="pb-2 font-medium text-muted-foreground text-right cursor-pointer select-none" onClick={() => toggleSort("qualified")}>Qualificados{arrow("qualified")}</th>
+                <th className="pb-2 font-medium text-muted-foreground text-right cursor-pointer select-none" onClick={() => toggleSort("vendas")}>Vendas{arrow("vendas")}</th>
+                <th className="pb-2 font-medium text-muted-foreground text-right cursor-pointer select-none" onClick={() => toggleSort("qualPercent")}>Qualif. %{arrow("qualPercent")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map(s => (
+                <tr key={s.name} className="border-b last:border-0">
+                  <td className="py-2 font-medium">{s.name}</td>
+                  <td className="py-2 text-right">{s.total}</td>
+                  <td className="py-2 text-right">{s.qualified}</td>
+                  <td className="py-2 text-right">{s.vendas}</td>
+                  <td className="py-2 text-right">
+                    <Badge variant={s.qualPercent > 0 ? "default" : "outline"} className="text-xs">
+                      {s.qualPercent}%
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const { data: analytics } = useUTMAnalytics(session.id);
   const { data: calComEvents = [] } = useCalComEvents();
@@ -473,44 +541,14 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         {utmData?.byTerm && <UTMBarChart data={utmData.byTerm} title="Por Tráfego (Term)" />}
       </div>
 
-      {/* Top conversion table */}
-      {utmData?.bySource && utmData.bySource.filter(s => s.name !== "Sem dados").length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Taxa de Conversão por Origem</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="pb-2 font-medium text-muted-foreground">Origem</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-right">Leads</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-right">Qualificados</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-right">Vendas</th>
-                    <th className="pb-2 font-medium text-muted-foreground text-right">Conv. %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {utmData.bySource.filter(s => s.name !== "Sem dados").map(s => (
-                    <tr key={s.name} className="border-b last:border-0">
-                      <td className="py-2 font-medium">{s.name}</td>
-                      <td className="py-2 text-right">{s.total}</td>
-                      <td className="py-2 text-right">{s.qualified}</td>
-                      <td className="py-2 text-right">{s.vendas}</td>
-                      <td className="py-2 text-right">
-                        <Badge variant={s.convPercent > 0 ? "default" : "outline"} className="text-xs">
-                          {s.convPercent}%
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* UTM sortable tables */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {utmData?.bySource && <SortableUTMTable data={utmData.bySource} title="Taxa de Qualificação por Origem" label="Origem" />}
+        {utmData?.byMedium && <SortableUTMTable data={utmData.byMedium} title="Taxa de Qualificação por Público" label="Público" />}
+        {utmData?.byCampaign && <SortableUTMTable data={utmData.byCampaign} title="Taxa de Qualificação por Campanha" label="Campanha" />}
+        {utmData?.byContent && <SortableUTMTable data={utmData.byContent} title="Taxa de Qualificação por Criativo" label="Criativo" />}
+        {utmData?.byTerm && <SortableUTMTable data={utmData.byTerm} title="Taxa de Qualificação por Tráfego" label="Tráfego" />}
+      </div>
     </div>
   );
 }
