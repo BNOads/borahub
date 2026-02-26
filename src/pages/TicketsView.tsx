@@ -70,6 +70,7 @@ export default function TicketsView() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [prioridadeFilter, setPrioridadeFilter] = useState("all");
   const [categoriaFilter, setCategoriaFilter] = useState("all");
+  const [kpiFilter, setKpiFilter] = useState<"all" | "abertos" | "atrasados" | "resolvidos">("all");
 
   // Selection state for bulk ops
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -98,9 +99,19 @@ export default function TicketsView() {
   const filtered = useMemo(() => {
     if (!tickets) return [];
     let result = [...tickets];
+    const now = new Date();
 
     if (onlyMine) {
       result = result.filter((t) => t.responsavel_id === user?.id);
+    }
+
+    // KPI filter
+    if (kpiFilter === "abertos") {
+      result = result.filter((t) => !["resolvido", "encerrado"].includes(t.status));
+    } else if (kpiFilter === "atrasados") {
+      result = result.filter((t) => t.sla_limite && new Date(t.sla_limite) < now && !["resolvido", "encerrado"].includes(t.status));
+    } else if (kpiFilter === "resolvidos") {
+      result = result.filter((t) => ["resolvido", "encerrado"].includes(t.status));
     }
 
     if (search) {
@@ -117,7 +128,7 @@ export default function TicketsView() {
     if (categoriaFilter !== "all") result = result.filter((t) => t.categoria === categoriaFilter);
 
     return result;
-  }, [tickets, onlyMine, search, statusFilter, prioridadeFilter, categoriaFilter, user?.id]);
+  }, [tickets, onlyMine, search, statusFilter, prioridadeFilter, categoriaFilter, kpiFilter, user?.id]);
 
   const stats = useMemo(() => {
     if (!tickets) return { total: 0, abertos: 0, atrasados: 0, resolvidos: 0 };
@@ -194,7 +205,10 @@ export default function TicketsView() {
         <TabsContent value="tickets" className="space-y-4 mt-4">
           {/* Summary cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Card className="border-l-4 border-l-primary">
+            <Card
+              className={cn("border-l-4 border-l-primary cursor-pointer transition-all hover:shadow-md", kpiFilter === "all" && "ring-2 ring-primary ring-offset-2")}
+              onClick={() => setKpiFilter(kpiFilter === "all" ? "all" : "all")}
+            >
               <CardContent className="p-4 flex items-center gap-3">
                 <TicketIcon className="h-5 w-5 text-primary shrink-0" />
                 <div>
@@ -203,7 +217,10 @@ export default function TicketsView() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-blue-500">
+            <Card
+              className={cn("border-l-4 border-l-blue-500 cursor-pointer transition-all hover:shadow-md", kpiFilter === "abertos" && "ring-2 ring-blue-500 ring-offset-2")}
+              onClick={() => setKpiFilter(kpiFilter === "abertos" ? "all" : "abertos")}
+            >
               <CardContent className="p-4 flex items-center gap-3">
                 <Clock className="h-5 w-5 text-blue-500 shrink-0" />
                 <div>
@@ -212,7 +229,10 @@ export default function TicketsView() {
                 </div>
               </CardContent>
             </Card>
-            <Card className={cn("border-l-4", stats.atrasados > 0 ? "border-l-destructive" : "border-l-amber-500")}>
+            <Card
+              className={cn("border-l-4 cursor-pointer transition-all hover:shadow-md", stats.atrasados > 0 ? "border-l-destructive" : "border-l-amber-500", kpiFilter === "atrasados" && "ring-2 ring-destructive ring-offset-2")}
+              onClick={() => setKpiFilter(kpiFilter === "atrasados" ? "all" : "atrasados")}
+            >
               <CardContent className="p-4 flex items-center gap-3">
                 <AlertTriangle className={cn("h-5 w-5 shrink-0", stats.atrasados > 0 ? "text-destructive" : "text-amber-500")} />
                 <div>
@@ -221,7 +241,10 @@ export default function TicketsView() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-green-500">
+            <Card
+              className={cn("border-l-4 border-l-green-500 cursor-pointer transition-all hover:shadow-md", kpiFilter === "resolvidos" && "ring-2 ring-green-500 ring-offset-2")}
+              onClick={() => setKpiFilter(kpiFilter === "resolvidos" ? "all" : "resolvidos")}
+            >
               <CardContent className="p-4 flex items-center gap-3">
                 <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
                 <div>
