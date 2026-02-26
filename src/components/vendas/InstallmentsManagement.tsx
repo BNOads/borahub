@@ -33,14 +33,32 @@ const ITEMS_PER_PAGE = 20;
 type SortColumn = 'external_id' | 'client_name' | 'seller' | 'product_name' | 'installment' | 'value' | 'due_date' | 'payment_date' | 'status';
 type SortDirection = 'asc' | 'desc';
 
+// Hook to fetch sellers for filter
+function useSellersForFilter() {
+  return useQuery({
+    queryKey: ['sellers-for-installments-filter'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('is_active', true)
+        .order('full_name');
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 export function InstallmentsManagement() {
   const { data: installments, isLoading } = useInstallmentsWithSeller();
   const updateInstallment = useUpdateInstallment();
   const syncInstallments = useSyncHotmartInstallments();
+  const { data: sellers } = useSellersForFilter();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<string>("all");
   const [platformFilter, setPlatformFilter] = useState<string>("all");
+  const [sellerFilter, setSellerFilter] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [customDateRange, setCustomDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({ from: undefined, to: undefined });
   const [currentPage, setCurrentPage] = useState(1);
@@ -104,6 +122,9 @@ export function InstallmentsManagement() {
     // Filter by platform
     const matchesPlatform = platformFilter === "all" || inst.sale?.platform === platformFilter;
     
+    // Filter by seller
+    const matchesSeller = sellerFilter === "all" || inst.sale?.seller_id === sellerFilter;
+    
     // Filter by date range (due_date)
     let matchesDate = true;
     const dateRange = getDateRange();
@@ -112,7 +133,7 @@ export function InstallmentsManagement() {
       matchesDate = isWithinInterval(dueDate, { start: dateRange.start, end: dateRange.end });
     }
     
-    return matchesSearch && matchesStatus && matchesPaymentType && matchesPlatform && matchesDate;
+    return matchesSearch && matchesStatus && matchesPaymentType && matchesPlatform && matchesSeller && matchesDate;
   });
   
   const statusIcons = {
@@ -309,6 +330,20 @@ export function InstallmentsManagement() {
               <SelectItem value="hotmart">Hotmart</SelectItem>
               <SelectItem value="asaas">Asaas</SelectItem>
               <SelectItem value="manual">Manual</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={sellerFilter} onValueChange={(v) => handleFilterChange(setSellerFilter, v)}>
+            <SelectTrigger className="w-[180px]">
+              <User className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Vendedor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Vendedores</SelectItem>
+              {sellers?.map((seller) => (
+                <SelectItem key={seller.id} value={seller.id}>
+                  {seller.full_name}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={dateFilter} onValueChange={(v) => handleFilterChange(setDateFilter, v)}>
