@@ -237,22 +237,37 @@ export function useSales(sellerId?: string) {
   return useQuery({
     queryKey: ['sales', sellerId],
     queryFn: async () => {
-      let query = supabase
-        .from('sales')
-        .select(`
-          *,
-          seller:profiles!sales_seller_id_fkey(id, full_name, email)
-        `)
-        .order('sale_date', { ascending: false });
-      
-      if (sellerId) {
-        query = query.eq('seller_id', sellerId);
+      const PAGE_SIZE = 1000;
+      let allData: Sale[] = [];
+      let page = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        let query = supabase
+          .from('sales')
+          .select(`
+            *,
+            seller:profiles!sales_seller_id_fkey(id, full_name, email)
+          `)
+          .order('sale_date', { ascending: false })
+          .range(from, to);
+        
+        if (sellerId) {
+          query = query.eq('seller_id', sellerId);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        allData = [...allData, ...(data as Sale[])];
+        hasMore = (data?.length || 0) === PAGE_SIZE;
+        page++;
       }
-      
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      return data as Sale[];
+
+      return allData;
     },
   });
 }

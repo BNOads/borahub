@@ -74,31 +74,46 @@ function useAllSales() {
   return useQuery({
     queryKey: ["all-sales-db"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("sales")
-        .select(`
-          id,
-          external_id,
-          client_name,
-          client_email,
-          product_name,
-          total_value,
-          installments_count,
-          sale_date,
-          status,
-          platform,
-          seller_id,
-          funnel_source,
-          tracking_source,
-          tracking_source_sck,
-          tracking_external_code,
-          seller:profiles!sales_seller_id_fkey(full_name, display_name)
-        `)
-        .in("platform", ["hotmart", "asaas"])
-        .order("sale_date", { ascending: false });
-      
-      if (error) throw error;
-      return data as DbSale[];
+      const PAGE_SIZE = 1000;
+      let allData: DbSale[] = [];
+      let page = 0;
+      let hasMore = true;
+
+      while (hasMore) {
+        const from = page * PAGE_SIZE;
+        const to = from + PAGE_SIZE - 1;
+
+        const { data, error } = await supabase
+          .from("sales")
+          .select(`
+            id,
+            external_id,
+            client_name,
+            client_email,
+            product_name,
+            total_value,
+            installments_count,
+            sale_date,
+            status,
+            platform,
+            seller_id,
+            funnel_source,
+            tracking_source,
+            tracking_source_sck,
+            tracking_external_code,
+            seller:profiles!sales_seller_id_fkey(full_name, display_name)
+          `)
+          .in("platform", ["hotmart", "asaas"])
+          .order("sale_date", { ascending: false })
+          .range(from, to);
+
+        if (error) throw error;
+        allData = [...allData, ...(data as DbSale[])];
+        hasMore = (data?.length || 0) === PAGE_SIZE;
+        page++;
+      }
+
+      return allData;
     },
   });
 }
