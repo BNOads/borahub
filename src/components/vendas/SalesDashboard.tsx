@@ -565,66 +565,27 @@ export function SalesDashboard() {
             {/* Filter Controls */}
             <div className="flex flex-col sm:flex-row gap-3 pt-3 border-t mt-3">
               {/* Platform Filter */}
-              <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-                <button
-                  onClick={() => { setProductPlatformFilter('all'); setProductPage(1); }}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-all ${
-                    productPlatformFilter === 'all'
-                      ? 'bg-background shadow-sm font-medium text-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  Todas
-                </button>
-                <button
-                  onClick={() => { setProductPlatformFilter('hotmart'); setProductPage(1); }}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-all flex items-center gap-1.5 ${
-                    productPlatformFilter === 'hotmart'
-                      ? 'bg-warning text-warning-foreground shadow-sm font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {productPlatformFilter !== 'hotmart' && <span className="w-2 h-2 rounded-full bg-warning" />}
-                  Hotmart
-                </button>
-                <button
-                  onClick={() => { setProductPlatformFilter('asaas'); setProductPage(1); }}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-all flex items-center gap-1.5 ${
-                    productPlatformFilter === 'asaas'
-                      ? 'bg-primary text-primary-foreground shadow-sm font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {productPlatformFilter !== 'asaas' && <span className="w-2 h-2 rounded-full bg-primary" />}
-                  Asaas
-                </button>
-              </div>
+              <Select value={productPlatformFilter} onValueChange={(v) => { setProductPlatformFilter(v as 'all' | 'hotmart' | 'asaas'); setProductPage(1); }}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Plataforma" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="hotmart">Hotmart</SelectItem>
+                  <SelectItem value="asaas">Asaas</SelectItem>
+                </SelectContent>
+              </Select>
               
               {/* Sort Toggle */}
-              <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-                <button
-                  onClick={() => { setProductSortBy('value'); setProductPage(1); }}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-all flex items-center gap-1.5 ${
-                    productSortBy === 'value'
-                      ? 'bg-accent text-accent-foreground shadow-sm font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <DollarSign className="h-3.5 w-3.5" />
-                  Faturamento
-                </button>
-                <button
-                  onClick={() => { setProductSortBy('count'); setProductPage(1); }}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-all flex items-center gap-1.5 ${
-                    productSortBy === 'count'
-                      ? 'bg-accent text-accent-foreground shadow-sm font-medium'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <ShoppingCart className="h-3.5 w-3.5" />
-                  Quantidade
-                </button>
-              </div>
+              <Select value={productSortBy} onValueChange={(v) => { setProductSortBy(v as 'value' | 'count'); setProductPage(1); }}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="value">Faturamento</SelectItem>
+                  <SelectItem value="count">Quantidade</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardHeader>
           <CardContent>
