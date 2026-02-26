@@ -10,7 +10,7 @@ function parseDescription(text: string) {
   const parts: Array<{ type: "text" | "image" | "link"; content: string; url?: string; alt?: string }> = [];
   
   // Regex for ![alt](url) and [text](url)
-  const regex = /!\[([^\]]*)\]\(([^)]+)\)|\[([^\]]*)\]\(([^)]+)\)/g;
+  const regex = /!\[([^\]]*)\]\(([\s\S]+?)\)|\[([^\]]*)\]\(([\s\S]+?)\)/g;
   let lastIndex = 0;
   let match;
 
@@ -22,10 +22,12 @@ function parseDescription(text: string) {
 
     if (match[1] !== undefined) {
       // Image: ![alt](url)
-      parts.push({ type: "image", content: match[1], url: match[2], alt: match[1] });
+      const cleanUrl = match[2].replace(/\s+/g, '');
+      parts.push({ type: "image", content: match[1], url: cleanUrl, alt: match[1] });
     } else {
       // Link: [text](url)
-      parts.push({ type: "link", content: match[3], url: match[4] });
+      const cleanUrl = match[4].replace(/\s+/g, '');
+      parts.push({ type: "link", content: match[3], url: cleanUrl });
     }
 
     lastIndex = match.index + match[0].length;
