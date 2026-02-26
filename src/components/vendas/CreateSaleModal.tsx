@@ -239,7 +239,10 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
   }, [selectedProduct, form]);
 
   const lookupSale = useCallback(async () => {
-    const externalId = form.getValues("external_id");
+    // Sanitize external_id - remove tabs, invisible chars, trim whitespace
+    const rawId = form.getValues("external_id");
+    const externalId = rawId.replace(/[\t\r\n\x00-\x1f\x7f]/g, '').trim();
+    form.setValue("external_id", externalId);
     const platform = form.getValues("platform");
 
     if (!externalId || externalId.length < 5) {
@@ -358,6 +361,9 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
   async function onSubmit(values: FormValues) {
     setLoading(true);
     try {
+      // Sanitize external_id - remove tabs, invisible chars, trim whitespace
+      values.external_id = values.external_id.replace(/[\t\r\n\x00-\x1f\x7f]/g, '').trim();
+      
       const isExternalPlatform = values.platform === "hotmart" || values.platform === "asaas";
       
       // If it's an external platform, check if sale exists and just associate seller
