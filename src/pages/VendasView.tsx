@@ -10,7 +10,8 @@ import { AsaasSync } from "@/components/vendas/AsaasSync";
 import { SyncLogs } from "@/components/vendas/SyncLogs";
 import { ProductsManagement } from "@/components/vendas/ProductsManagement";
 import { SalesReports } from "@/components/vendas/SalesReports";
-import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, RefreshCw, History, ShoppingCart, CreditCard } from "lucide-react";
+import { SalesAuditLog } from "@/components/vendas/SalesAuditLog";
+import { DollarSign, FileSpreadsheet, Package, BarChart3, Receipt, RefreshCw, History, ShoppingCart, CreditCard, Shield } from "lucide-react";
 
 export default function VendasView() {
   const { profile } = useAuth();
@@ -77,6 +78,10 @@ export default function VendasView() {
                 <History className="h-3 w-3" />
                 <span className="hidden sm:inline">Logs</span>
               </TabsTrigger>
+              <TabsTrigger value="auditoria" className="flex items-center gap-1.5 py-1.5 px-3 text-xs text-muted-foreground data-[state=active]:text-foreground data-[state=active]:bg-muted/50">
+                <Shield className="h-3 w-3" />
+                <span className="hidden sm:inline">Auditoria</span>
+              </TabsTrigger>
             </TabsList>
           </div>
         </div>
@@ -115,6 +120,10 @@ export default function VendasView() {
 
         <TabsContent value="relatorios" className="space-y-4">
           <SalesReports />
+        </TabsContent>
+
+        <TabsContent value="auditoria" className="space-y-4">
+          <SalesAuditLog />
         </TabsContent>
       </Tabs>
     </div>

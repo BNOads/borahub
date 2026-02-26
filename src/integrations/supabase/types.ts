@@ -2991,6 +2991,36 @@ export type Database = {
           },
         ]
       }
+      sales_audit_log: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          operation: string
+          sale_id: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          operation: string
+          sale_id: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          operation?: string
+          sale_id?: string
+        }
+        Relationships: []
+      }
       sdr_assignments: {
         Row: {
           approved_at: string | null
