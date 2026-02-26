@@ -785,17 +785,36 @@ export function AllSalesManagement() {
                         {format(new Date(sale.sale_date), "dd/MM/yyyy", { locale: ptBR })}
                       </TableCell>
                       <TableCell>
-                        {sale.seller ? (
-                          <Badge variant="secondary" className="gap-1">
-                            <Users className="h-3 w-3" />
-                            {sale.seller.display_name || sale.seller.full_name}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-warning border-warning/50">
-                            <AlertCircle className="h-3 w-3 mr-1" />
-                            Pendente
-                          </Badge>
-                        )}
+                        <Select
+                          value={sale.seller_id || "none"}
+                          onValueChange={async (value) => {
+                            const newSellerId = value === "none" ? null : value;
+                            const { error } = await supabase
+                              .from("sales")
+                              .update({ seller_id: newSellerId })
+                              .eq("id", sale.id);
+                            if (error) {
+                              toast.error("Erro ao atribuir vendedor");
+                              console.error(error);
+                            } else {
+                              toast.success("Vendedor atualizado!");
+                              queryClient.invalidateQueries({ queryKey: ["all-sales-db"] });
+                              queryClient.invalidateQueries({ queryKey: ["sales"] });
+                            }
+                          }}
+                        >
+                          <SelectTrigger className={cn("w-[160px] h-8 text-xs", !sale.seller_id && "text-warning border-warning/50")}>
+                            <SelectValue placeholder="Atribuir vendedor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sem vendedor</SelectItem>
+                            {sellers?.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {s.full_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         {sale.funnel_source ? (
