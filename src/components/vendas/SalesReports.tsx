@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { BarChart3, TrendingUp, Users, Download, FileSpreadsheet, FileText, ArrowUpDown, ArrowUp, ArrowDown, Info, Calendar, CalendarClock } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Download, FileSpreadsheet, FileText, ArrowUpDown, ArrowUp, ArrowDown, Info, Calendar, CalendarClock, Search } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -64,6 +64,7 @@ export function SalesReports() {
   const [platformFilter, setPlatformFilter] = useState<string>("all");
   const [sellerFilter, setSellerFilter] = useState<string>("all");
   const [productFilter, setProductFilter] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState("");
   const [commissionSort, setCommissionSort] = useState<{ column: string; direction: 'asc' | 'desc' }>({ column: 'sellerName', direction: 'asc' });
   
   // Get unique product names for filter
@@ -290,11 +291,22 @@ export function SalesReports() {
     commissionSuspended: commissionTotals.suspended,
   }), [salesTotals, commissionTotals]);
   
-  // Sorted commissions detail
+  // Sorted and searched commissions detail
   const sortedCommissionsDetail = useMemo(() => {
-    const sorted = [...commissionsDetail];
+    let filtered = [...commissionsDetail];
     
-    sorted.sort((a, b) => {
+    // Apply search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(c =>
+        c.sellerName.toLowerCase().includes(term) ||
+        c.clientName.toLowerCase().includes(term) ||
+        c.productName.toLowerCase().includes(term) ||
+        c.externalId.toLowerCase().includes(term)
+      );
+    }
+    
+    filtered.sort((a, b) => {
       let comparison = 0;
       
       switch (commissionSort.column) {
@@ -329,8 +341,8 @@ export function SalesReports() {
       return commissionSort.direction === 'asc' ? comparison : -comparison;
     });
     
-    return sorted;
-  }, [commissionsDetail, commissionSort]);
+    return filtered;
+  }, [commissionsDetail, commissionSort, searchTerm]);
   
   function handleCommissionSort(column: string) {
     setCommissionSort(prev => ({
@@ -554,7 +566,19 @@ export function SalesReports() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Buscar</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cliente, produto, vendedor..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+            </div>
             <div className="space-y-2">
               <Label className="text-sm font-medium">Data Início</Label>
               <Input

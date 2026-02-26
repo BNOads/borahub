@@ -70,6 +70,21 @@ interface DbSale {
   } | null;
 }
 
+function useSellersForFilter() {
+  return useQuery({
+    queryKey: ['sellers-for-allsales-filter'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('is_active', true)
+        .order('full_name');
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 function useAllSales() {
   return useQuery({
     queryKey: ["all-sales-db"],
@@ -141,11 +156,13 @@ export function AllSalesManagement() {
   const { profile } = useAuth();
   const { data: sales, isLoading, refetch } = useAllSales();
   const { data: lastSync, refetch: refetchLastSync } = useLastSync();
+  const { data: sellers } = useSellersForFilter();
   const queryClient = useQueryClient();
   
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [platformFilter, setPlatformFilter] = useState<string>("all");
+  const [sellerFilter, setSellerFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [datePreset, setDatePreset] = useState<string>("all");
@@ -292,6 +309,11 @@ export function AllSalesManagement() {
       result = result.filter(sale => sale.seller_id);
     }
 
+    // Apply seller filter
+    if (sellerFilter !== "all") {
+      result = result.filter(sale => sale.seller_id === sellerFilter);
+    }
+
     // Apply date filter
     const dateFilterRange = getDateFilterRange();
     if (dateFilterRange) {
@@ -357,7 +379,7 @@ export function AllSalesManagement() {
     });
     
     return result;
-  }, [sales, searchTerm, statusFilter, platformFilter, sortField, sortDirection, datePreset, dateRange]);
+  }, [sales, searchTerm, statusFilter, platformFilter, sellerFilter, sortField, sortDirection, datePreset, dateRange]);
 
   // Stats
   const stats = useMemo(() => {
@@ -639,6 +661,20 @@ export function AllSalesManagement() {
                 <SelectItem value="all">Todas</SelectItem>
                 <SelectItem value="pending">Sem vendedor</SelectItem>
                 <SelectItem value="assigned">Com vendedor</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sellerFilter} onValueChange={setSellerFilter}>
+              <SelectTrigger className="w-[180px]">
+                <Users className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Vendedor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Vendedores</SelectItem>
+                {sellers?.map((seller) => (
+                  <SelectItem key={seller.id} value={seller.id}>
+                    {seller.full_name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
