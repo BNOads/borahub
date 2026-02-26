@@ -68,6 +68,40 @@ export function TicketDashboard() {
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [filtered]);
 
+  // Ranking: quem mais resolve
+  const topResolvers = useMemo(() => {
+    if (!allTickets) return [];
+    const map: Record<string, { name: string; count: number }> = {};
+    allTickets
+      .filter((t) => t.status === "encerrado" || t.status === "resolvido")
+      .forEach((t) => {
+        const name = t.responsavel?.display_name || t.responsavel?.full_name || "Sem responsável";
+        const key = t.responsavel_id || "none";
+        if (!map[key]) map[key] = { name, count: 0 };
+        map[key].count++;
+      });
+    return Object.values(map).sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [allTickets]);
+
+  // Ranking: quem resolve mais rápido (menor tempo médio)
+  const fastestResolvers = useMemo(() => {
+    if (!allTickets) return [];
+    const map: Record<string, { name: string; total: number; count: number }> = {};
+    allTickets
+      .filter((t) => (t.status === "encerrado" || t.status === "resolvido") && t.tempo_resolucao)
+      .forEach((t) => {
+        const name = t.responsavel?.display_name || t.responsavel?.full_name || "Sem responsável";
+        const key = t.responsavel_id || "none";
+        if (!map[key]) map[key] = { name, total: 0, count: 0 };
+        map[key].total += t.tempo_resolucao!;
+        map[key].count++;
+      });
+    return Object.values(map)
+      .map((r) => ({ name: r.name, avg: Math.round(r.total / r.count), count: r.count }))
+      .sort((a, b) => a.avg - b.avg)
+      .slice(0, 5);
+  }, [allTickets]);
+
   const fmtMin = (m: number) => m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${m}m`;
 
   return (
@@ -118,6 +152,53 @@ export function TicketDashboard() {
                 </BarChart>
               </ResponsiveContainer>
             ) : <p className="text-sm text-muted-foreground text-center pt-16">Sem dados</p>}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Rankings */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader><CardTitle className="text-sm">🏆 Quem mais resolve</CardTitle></CardHeader>
+          <CardContent>
+            {topResolvers.length > 0 ? (
+              <div className="space-y-3">
+                {topResolvers.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold w-5 ${i === 0 ? "text-yellow-500" : i === 1 ? "text-gray-400" : i === 2 ? "text-amber-600" : "text-muted-foreground"}`}>
+                        {i + 1}º
+                      </span>
+                      <span className="text-sm">{r.name}</span>
+                    </div>
+                    <span className="text-sm font-semibold">{r.count} tickets</span>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-sm text-muted-foreground text-center py-4">Sem dados</p>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-sm">⚡ Quem resolve mais rápido</CardTitle></CardHeader>
+          <CardContent>
+            {fastestResolvers.length > 0 ? (
+              <div className="space-y-3">
+                {fastestResolvers.map((r, i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold w-5 ${i === 0 ? "text-yellow-500" : i === 1 ? "text-gray-400" : i === 2 ? "text-amber-600" : "text-muted-foreground"}`}>
+                        {i + 1}º
+                      </span>
+                      <span className="text-sm">{r.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-semibold">{fmtMin(r.avg)}</span>
+                      <span className="text-xs text-muted-foreground ml-1">({r.count})</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-sm text-muted-foreground text-center py-4">Sem dados</p>}
           </CardContent>
         </Card>
       </div>
