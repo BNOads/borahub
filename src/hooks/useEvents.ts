@@ -25,6 +25,18 @@ export const eventKeys = {
 
 import { useAuth } from "@/contexts/AuthContext";
 
+// Helper to call sync edge function (fire-and-forget, no blocking)
+async function syncToGoogleCalendar(action: string, payload: Record<string, any>) {
+  try {
+    const { error } = await supabase.functions.invoke("sync-google-calendar", {
+      body: { action, ...payload },
+    });
+    if (error) console.error("Google Calendar sync error:", error);
+  } catch (err) {
+    console.error("Google Calendar sync exception:", err);
+  }
+}
+
 export function useEvents(filters?: Partial<EventFilters>) {
   const { authReady, session } = useAuth();
   return useQuery({
@@ -65,7 +77,7 @@ export function useEvents(filters?: Partial<EventFilters>) {
       }
     },
     retry: 0,
-    staleTime: 15 * 60 * 1000, // 15 minutos
+    staleTime: 15 * 60 * 1000,
     enabled: authReady && !!session,
   });
 }
@@ -134,9 +146,11 @@ export function useCreateEvent() {
       if (error) throw error;
       return data as Event;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
       queryClient.invalidateQueries({ queryKey: eventKeys.upcoming() });
+      // Sync to Google Calendar (fire-and-forget)
+      syncToGoogleCalendar("push", { event: data });
     },
   });
 }
@@ -156,10 +170,12 @@ export function useUpdateEvent() {
       if (error) throw error;
       return data as Event;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
       queryClient.invalidateQueries({ queryKey: eventKeys.upcoming() });
       queryClient.invalidateQueries({ queryKey: eventKeys.detail(variables.id) });
+      // Sync update to Google Calendar
+      syncToGoogleCalendar("update", { event_id: variables.id, event: data });
     },
   });
 }
@@ -169,6 +185,9 @@ export function useDeleteEvent() {
 
   return useMutation({
     mutationFn: async (id: string) => {
+      // Sync delete to Google Calendar BEFORE deleting from DB
+      await syncToGoogleCalendar("delete", { event_id: id });
+
       const { error } = await supabase
         .from("events")
         .delete()
