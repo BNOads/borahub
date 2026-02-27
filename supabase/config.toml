@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.cron-sync-strategic-leads]
 verify_jwt = false
+
+[functions.sync-google-calendar]
+verify_jwt = false

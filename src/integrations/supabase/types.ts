@@ -612,6 +612,8 @@ export type Database = {
           event_date: string
           event_time: string
           event_type: string | null
+          google_calendar_id: string | null
+          google_calendar_source: string | null
           id: string
           is_recurring_instance: boolean | null
           location: string | null
@@ -632,6 +634,8 @@ export type Database = {
           event_date: string
           event_time: string
           event_type?: string | null
+          google_calendar_id?: string | null
+          google_calendar_source?: string | null
           id?: string
           is_recurring_instance?: boolean | null
           location?: string | null
@@ -652,6 +656,8 @@ export type Database = {
           event_date?: string
           event_time?: string
           event_type?: string | null
+          google_calendar_id?: string | null
+          google_calendar_source?: string | null
           id?: string
           is_recurring_instance?: boolean | null
           location?: string | null
