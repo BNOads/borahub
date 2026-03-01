@@ -1315,11 +1315,14 @@ export default function Tarefas() {
 
                   {/* Completed Tasks */}
                   {completedTasks.length > 0 && (
-                    <div className="space-y-3">
-                      <h2 className="text-lg font-semibold text-muted-foreground">
-                        Concluidas
-                      </h2>
-                      <div className="space-y-2">
+                    <Collapsible>
+                      <CollapsibleTrigger asChild>
+                        <button className="flex items-center gap-2 text-lg font-semibold text-muted-foreground hover:text-foreground transition-colors w-full text-left py-1">
+                          <ChevronRight className="h-4 w-4 transition-transform duration-200 ui-open:rotate-90 [&[data-state=open]]:rotate-90" />
+                          Concluídas ({completedTasks.length})
+                        </button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="space-y-2 mt-2">
                         {completedTasks.map((task) => (
                           <TaskItem
                             key={task.id}
@@ -1335,8 +1338,8 @@ export default function Tarefas() {
                             isOverdue={isOverdue}
                           />
                         ))}
-                      </div>
-                    </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   )}
 
                   {tasks.length === 0 && (
