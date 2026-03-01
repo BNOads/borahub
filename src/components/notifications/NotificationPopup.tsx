@@ -17,6 +17,8 @@ import {
   Bell,
   ChevronRight,
   ExternalLink,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -36,26 +38,55 @@ const typeConfig = {
   alert: { icon: AlertCircle, color: "text-red-500", bg: "bg-red-500/10" },
 };
 
+// Resolve notification to a navigable route
+async function resolveNotificationRoute(notification: Notification): Promise<string | null> {
+  const { title, message } = notification;
+
+  // Task notifications
+  if (title === "Nova tarefa atribuída" || title === "Tarefa transferida") {
+    const match = message.match(/à tarefa: "(.+)"/);
+    if (match) {
+      const { data: tasks } = await supabase
+        .from("tasks")
+        .select("id")
+        .eq("title", match[1])
+        .limit(1);
+      if (tasks && tasks.length > 0) return `/tarefas/${tasks[0].id}`;
+    }
+  }
+
+  // Ticket notifications
+  if (title.toLowerCase().includes("ticket")) {
+    const numMatch = message.match(/#(\d+)/);
+    if (numMatch) {
+      return `/tickets`;
+    }
+  }
+
+  // PDI notifications
+  if (title.toLowerCase().includes("pdi")) {
+    return `/pdis`;
+  }
+
+  return null;
+}
+
 export function NotificationPopup() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState<string[]>([]);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const { data: notifications = [] } = useUnreadNotifications();
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
 
-  // Filtrar notificacoes nao dispensadas nesta sessao
   const pendingNotifications = notifications.filter(
     (n) => !dismissed.includes(n.id)
   );
 
-  // Abrir popup automaticamente quando houver notificacoes novas
   useEffect(() => {
     if (pendingNotifications.length > 0 && !open) {
-      // Pequeno delay para nao abrir imediatamente ao carregar
-      const timer = setTimeout(() => {
-        setOpen(true);
-      }, 1000);
+      const timer = setTimeout(() => setOpen(true), 1000);
       return () => clearTimeout(timer);
     }
   }, [pendingNotifications.length]);
@@ -71,44 +102,31 @@ export function NotificationPopup() {
     setOpen(false);
   };
 
-  const handleClose = () => {
-    setOpen(false);
+  const handleClose = () => setOpen(false);
+
+  const toggleExpand = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
-  // Extrai o título da tarefa da mensagem de notificação
-  const extractTaskTitle = (message: string): string | null => {
-    const match = message.match(/à tarefa: "(.+)"/);
-    return match ? match[1] : null;
-  };
-
-  // Navega para a tarefa quando clica na notificação
   const handleNotificationClick = async (notification: Notification) => {
-    // Verifica se é uma notificação de tarefa
-    if (notification.title === "Nova tarefa atribuída") {
-      const taskTitle = extractTaskTitle(notification.message);
-      if (taskTitle) {
-        // Busca a tarefa pelo título
-        const { data: tasks } = await supabase
-          .from("tasks")
-          .select("id")
-          .eq("title", taskTitle)
-          .limit(1);
-
-        if (tasks && tasks.length > 0) {
-          handleDismiss(notification.id);
-          setOpen(false);
-          navigate(`/tarefas/${tasks[0].id}`);
-          return;
-        }
-      }
+    const route = await resolveNotificationRoute(notification);
+    if (route) {
+      handleDismiss(notification.id);
+      setOpen(false);
+      navigate(route);
     }
-    // Para outras notificações, apenas dispensa
-    handleDismiss(notification.id);
   };
 
-  // Verifica se a notificação é clicável
   const isClickable = (notification: Notification): boolean => {
-    return notification.title === "Nova tarefa atribuída";
+    const t = notification.title.toLowerCase();
+    return (
+      t.includes("tarefa") ||
+      t.includes("ticket") ||
+      t.includes("pdi")
+    );
   };
 
   const formatTime = (dateStr: string) => {
@@ -122,9 +140,7 @@ export function NotificationPopup() {
     }
   };
 
-  if (pendingNotifications.length === 0) {
-    return null;
-  }
+  if (pendingNotifications.length === 0) return null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -141,17 +157,20 @@ export function NotificationPopup() {
             {pendingNotifications.map((notification) => {
               const config = typeConfig[notification.type as keyof typeof typeConfig] || typeConfig.info;
               const Icon = config.icon;
+              const clickable = isClickable(notification);
+              const isExpanded = expandedIds.includes(notification.id);
+              const isLongMessage = notification.message.length > 80;
 
               return (
                 <div
                   key={notification.id}
                   className={cn(
                     "relative p-3 rounded-lg border bg-card transition-colors",
-                    isClickable(notification) 
-                      ? "cursor-pointer hover:bg-accent/10 hover:border-accent/30" 
+                    clickable
+                      ? "cursor-pointer hover:bg-accent/10 hover:border-accent/30"
                       : "hover:bg-accent/5"
                   )}
-                  onClick={() => isClickable(notification) && handleNotificationClick(notification)}
+                  onClick={() => clickable && handleNotificationClick(notification)}
                 >
                   <button
                     onClick={(e) => {
@@ -171,13 +190,34 @@ export function NotificationPopup() {
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm flex items-center gap-1">
                         {notification.title}
-                        {isClickable(notification) && (
+                        {clickable && (
                           <ExternalLink className="h-3 w-3 text-accent" />
                         )}
                       </p>
-                      <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
+                      <p
+                        className={cn(
+                          "text-sm text-muted-foreground mt-0.5",
+                          !isExpanded && isLongMessage && "line-clamp-2"
+                        )}
+                      >
                         {notification.message}
                       </p>
+                      {isLongMessage && (
+                        <button
+                          onClick={(e) => toggleExpand(notification.id, e)}
+                          className="text-xs text-primary hover:underline mt-1 flex items-center gap-0.5"
+                        >
+                          {isExpanded ? (
+                            <>
+                              Ver menos <ChevronUp className="h-3 w-3" />
+                            </>
+                          ) : (
+                            <>
+                              Ver mais <ChevronDown className="h-3 w-3" />
+                            </>
+                          )}
+                        </button>
+                      )}
                       <p className="text-xs text-muted-foreground/70 mt-1">
                         {formatTime(notification.created_at)}
                         {notification.sender && (
@@ -187,6 +227,11 @@ export function NotificationPopup() {
                           </span>
                         )}
                       </p>
+                      {clickable && (
+                        <p className="text-xs text-primary mt-1 flex items-center gap-1">
+                          Clique para abrir <ChevronRight className="h-3 w-3" />
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
