@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -53,6 +53,8 @@ import {
   Loader2,
   Copy,
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1263,8 +1265,21 @@ export default function Tarefas() {
                 </div>
               ) : (
                 <>
-                  {/* Pending Tasks */}
-                  {pendingTasks.length > 0 && (
+                  {/* Pending Tasks - split into sections for "Minhas" tab */}
+                  {pendingTasks.length > 0 && tabView === "tasks" ? (
+                    <MyTasksSections
+                      pendingTasks={pendingTasks}
+                      onToggle={handleToggleComplete}
+                      onEdit={handleEditTask}
+                      onDelete={handleDeleteTask}
+                      onViewDetail={handleOpenDetail}
+                      onToggleDoing={handleToggleDoing}
+                      onDuplicate={(t) => { setDupTask(t); setDupAssignee(t.assignee || ""); setDupDate(t.due_date || ""); setShowDuplicate(true); }}
+                      getPriorityColor={getPriorityColor}
+                      formatDate={formatDate}
+                      isOverdue={isOverdue}
+                    />
+                  ) : pendingTasks.length > 0 ? (
                     <div className="space-y-3">
                       <h2 className="text-lg font-semibold">Pendentes</h2>
                       <div className="space-y-2">
@@ -1285,7 +1300,7 @@ export default function Tarefas() {
                         ))}
                       </div>
                     </div>
-                  )}
+                  ) : null}
 
                   {/* Completed Tasks */}
                   {completedTasks.length > 0 && (
@@ -1387,6 +1402,115 @@ export default function Tarefas() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// Component to split "Minhas" pending tasks into Atrasadas, Hoje, Futuras
+interface MyTasksSectionsProps {
+  pendingTasks: TaskWithSubtasks[];
+  onToggle: (id: string, completed: boolean) => void;
+  onEdit: (task: TaskWithSubtasks) => void;
+  onDelete: (id: string) => void;
+  onViewDetail: (id: string) => void;
+  onToggleDoing: (id: string, isDoing: boolean) => void;
+  onDuplicate: (task: TaskWithSubtasks) => void;
+  getPriorityColor: (priority: string) => string;
+  formatDate: (date: string | null) => string;
+  isOverdue: (date: string | null, completed: boolean) => boolean;
+}
+
+function MyTasksSections({
+  pendingTasks,
+  onToggle,
+  onEdit,
+  onDelete,
+  onViewDetail,
+  onToggleDoing,
+  onDuplicate,
+  getPriorityColor,
+  formatDate,
+  isOverdue,
+}: MyTasksSectionsProps) {
+  const [futureOpen, setFutureOpen] = useState(false);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split("T")[0];
+
+  const overdueTasks = pendingTasks.filter((t) => {
+    if (!t.due_date) return false;
+    return t.due_date < todayStr;
+  });
+
+  const todayTasks = pendingTasks.filter((t) => {
+    return t.due_date === todayStr;
+  });
+
+  const futureTasks = pendingTasks.filter((t) => {
+    if (!t.due_date) return true; // sem data vai pra futuras
+    return t.due_date > todayStr;
+  });
+
+  const taskItemProps = { onToggle, onEdit, onDelete, onViewDetail, onToggleDoing, onDuplicate, getPriorityColor, formatDate, isOverdue };
+
+  return (
+    <div className="space-y-6">
+      {/* Atrasadas */}
+      {overdueTasks.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold text-destructive flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Atrasadas
+            <span className="text-sm font-normal text-muted-foreground">({overdueTasks.length})</span>
+          </h2>
+          <div className="space-y-2">
+            {overdueTasks.map((task) => (
+              <TaskItem key={task.id} task={task} {...taskItemProps} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Hoje */}
+      {todayTasks.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Hoje
+            <span className="text-sm font-normal text-muted-foreground">({todayTasks.length})</span>
+          </h2>
+          <div className="space-y-2">
+            {todayTasks.map((task) => (
+              <TaskItem key={task.id} task={task} {...taskItemProps} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Futuras - collapsed by default */}
+      {futureTasks.length > 0 && (
+        <Collapsible open={futureOpen} onOpenChange={setFutureOpen}>
+          <CollapsibleTrigger asChild>
+            <button className="flex items-center gap-2 text-lg font-semibold hover:opacity-80 transition-opacity w-full text-left">
+              {futureOpen ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+              Futuras
+              <span className="text-sm font-normal text-muted-foreground">({futureTasks.length})</span>
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-2 mt-3">
+            {futureTasks.map((task) => (
+              <TaskItem key={task.id} task={task} {...taskItemProps} />
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {overdueTasks.length === 0 && todayTasks.length === 0 && futureTasks.length === 0 && (
+        <div className="text-center py-12 text-muted-foreground">
+          <p>Nenhuma tarefa pendente</p>
+        </div>
+      )}
     </div>
   );
 }
