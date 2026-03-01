@@ -425,6 +425,15 @@ export default function Tarefas() {
     setIsDetailOpen(true);
   };
 
+  const handleInlineUpdate = async (id: string, updates: Record<string, any>) => {
+    try {
+      await updateTask.mutateAsync({ id, updates });
+      toast({ title: "Tarefa atualizada" });
+    } catch {
+      toast({ title: "Erro ao atualizar tarefa", variant: "destructive" });
+    }
+  };
+
   const handleAddTaskForPerson = (personName: string) => {
     setFormData({
       ...emptyFormData,
@@ -1275,6 +1284,8 @@ export default function Tarefas() {
                       onViewDetail={handleOpenDetail}
                       onToggleDoing={handleToggleDoing}
                       onDuplicate={(t) => { setDupTask(t); setDupAssignee(t.assignee || ""); setDupDate(t.due_date || ""); setShowDuplicate(true); }}
+                      onInlineUpdate={handleInlineUpdate}
+                      users={users}
                       getPriorityColor={getPriorityColor}
                       formatDate={formatDate}
                       isOverdue={isOverdue}
@@ -1415,6 +1426,8 @@ interface MyTasksSectionsProps {
   onViewDetail: (id: string) => void;
   onToggleDoing: (id: string, isDoing: boolean) => void;
   onDuplicate: (task: TaskWithSubtasks) => void;
+  onInlineUpdate: (id: string, updates: Record<string, any>) => void;
+  users: Array<{ id: string; full_name: string; display_name: string | null; avatar_url: string | null }>;
   getPriorityColor: (priority: string) => string;
   formatDate: (date: string | null) => string;
   isOverdue: (date: string | null, completed: boolean) => boolean;
@@ -1428,6 +1441,8 @@ function MyTasksSections({
   onViewDetail,
   onToggleDoing,
   onDuplicate,
+  onInlineUpdate,
+  users,
   getPriorityColor,
   formatDate,
   isOverdue,
@@ -1452,7 +1467,7 @@ function MyTasksSections({
     return t.due_date > todayStr;
   });
 
-  const taskItemProps = { onToggle, onEdit, onDelete, onViewDetail, onToggleDoing, onDuplicate, getPriorityColor, formatDate, isOverdue };
+  const taskItemProps = { onToggle, onEdit, onDelete, onViewDetail, onToggleDoing, onDuplicate, onInlineUpdate, users, getPriorityColor, formatDate, isOverdue };
 
   return (
     <div className="space-y-6">
@@ -1523,6 +1538,8 @@ interface TaskItemProps {
   onViewDetail: (id: string) => void;
   onToggleDoing?: (id: string, isDoing: boolean) => void;
   onDuplicate?: (task: TaskWithSubtasks) => void;
+  onInlineUpdate?: (id: string, updates: Record<string, any>) => void;
+  users?: Array<{ id: string; full_name: string; display_name: string | null; avatar_url: string | null }>;
   getPriorityColor: (priority: string) => string;
   formatDate: (date: string | null) => string;
   isOverdue: (date: string | null, completed: boolean) => boolean;
@@ -1536,6 +1553,8 @@ function TaskItem({
   onViewDetail,
   onToggleDoing,
   onDuplicate,
+  onInlineUpdate,
+  users,
   getPriorityColor,
   formatDate,
   isOverdue,
@@ -1690,36 +1709,111 @@ function TaskItem({
             </Badge>
           )}
           
-          <Badge variant="outline" className={getPriorityColor(task.priority)}>
-            {task.priority === "alta"
-              ? "Alta"
-              : task.priority === "media"
-                ? "Media"
-                : "Baixa"}
-          </Badge>
+          {onInlineUpdate ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="inline-flex">
+                  <Badge variant="outline" className={cn(getPriorityColor(task.priority), "cursor-pointer hover:opacity-80 transition-opacity")}>
+                    {task.priority === "alta" ? "Alta" : task.priority === "media" ? "Media" : "Baixa"}
+                  </Badge>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-1" align="start">
+                {(["alta", "media", "baixa"] as const).map((p) => (
+                  <Button
+                    key={p}
+                    variant={task.priority === p ? "secondary" : "ghost"}
+                    size="sm"
+                    className="w-full justify-start text-sm"
+                    onClick={() => onInlineUpdate(task.id, { priority: p })}
+                  >
+                    {p === "alta" ? "Alta" : p === "media" ? "Media" : "Baixa"}
+                  </Button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <Badge variant="outline" className={getPriorityColor(task.priority)}>
+              {task.priority === "alta" ? "Alta" : task.priority === "media" ? "Media" : "Baixa"}
+            </Badge>
+          )}
 
           {task.category && <Badge variant="secondary">{task.category}</Badge>}
 
-          {task.assignee && (
+          {task.assignee && onInlineUpdate && users ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-1 text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                  <User className="h-3 w-3" />
+                  {task.assignee}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-1 max-h-[250px] overflow-y-auto" align="start">
+                {users.map((u) => (
+                  <Button
+                    key={u.id}
+                    variant={task.assignee === u.full_name ? "secondary" : "ghost"}
+                    size="sm"
+                    className="w-full justify-start text-sm gap-2"
+                    onClick={() => onInlineUpdate(task.id, { assignee: u.full_name })}
+                  >
+                    <img
+                      src={u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.full_name)}&size=20&background=random`}
+                      alt=""
+                      className="h-4 w-4 rounded-full object-cover shrink-0"
+                    />
+                    {u.display_name || u.full_name}
+                  </Button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          ) : task.assignee ? (
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <User className="h-3 w-3" />
               {task.assignee}
             </div>
-          )}
+          ) : null}
 
-          {task.due_date && (
+          {task.due_date && onInlineUpdate ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className={cn(
+                    "flex items-center gap-1 text-sm cursor-pointer hover:opacity-80 transition-opacity",
+                    isOverdue(task.due_date, task.completed) ? "text-destructive" : "text-muted-foreground"
+                  )}
+                >
+                  <Calendar className="h-3 w-3" />
+                  {formatDate(task.due_date)}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={task.due_date ? new Date(task.due_date + "T00:00:00") : undefined}
+                  onSelect={(date) => {
+                    if (date) {
+                      const yyyy = date.getFullYear();
+                      const mm = String(date.getMonth() + 1).padStart(2, "0");
+                      const dd = String(date.getDate()).padStart(2, "0");
+                      onInlineUpdate(task.id, { due_date: `${yyyy}-${mm}-${dd}` });
+                    }
+                  }}
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          ) : task.due_date ? (
             <div
               className={cn(
                 "flex items-center gap-1 text-sm",
-                isOverdue(task.due_date, task.completed)
-                  ? "text-destructive"
-                  : "text-muted-foreground"
+                isOverdue(task.due_date, task.completed) ? "text-destructive" : "text-muted-foreground"
               )}
             >
               <Calendar className="h-3 w-3" />
               {formatDate(task.due_date)}
             </div>
-          )}
+          ) : null}
 
           {task.recurrence && task.recurrence !== "none" && (
             <div className="flex items-center gap-1 text-sm text-accent">
