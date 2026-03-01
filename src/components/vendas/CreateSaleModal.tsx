@@ -48,7 +48,7 @@ const DEFAULT_FUNNEL_SOURCES = [
 ];
 
 const formSchema = z.object({
-  external_id: z.string().min(1, "ID obrigatório"),
+  external_id: z.string().optional().default(""),
   client_name: z.string().min(1, "Nome do cliente obrigatório"),
   client_email: z.string().email("Email inválido").optional().or(z.literal("")),
   client_phone: z.string().optional(),
@@ -362,7 +362,11 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
     setLoading(true);
     try {
       // Sanitize external_id - remove tabs, invisible chars, trim whitespace
-      values.external_id = values.external_id.replace(/[\t\r\n\x00-\x1f\x7f]/g, '').trim();
+      values.external_id = (values.external_id || '').replace(/[\t\r\n\x00-\x1f\x7f]/g, '').trim();
+      // Auto-generate external_id for manual sales if not provided
+      if (!values.external_id) {
+        values.external_id = `MANUAL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      }
       
       const isExternalPlatform = values.platform === "hotmart" || values.platform === "asaas";
       
@@ -653,7 +657,7 @@ export function CreateSaleModal({ open, onOpenChange }: CreateSaleModalProps) {
                   name="external_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>ID da Transação *</FormLabel>
+                      <FormLabel>ID da Transação</FormLabel>
                       <div className="flex gap-2">
                         <FormControl>
                           <Input 
