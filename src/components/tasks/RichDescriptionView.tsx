@@ -7,7 +7,8 @@ interface RichDescriptionViewProps {
 
 // Parse markdown-style images and links from description
 function parseDescription(text: string) {
-  const parts: Array<{ type: "text" | "image" | "link"; content: string; url?: string; alt?: string }> = [];
+const parts: Array<{ type: "text" | "image" | "link"; content: string; url?: string; alt?: string }> = [];
+  const imageExtRegex = /\.(png|jpe?g|gif|webp|bmp|svg)(\?.*)?$/i;
   
   // Regex for ![alt](url) and [text](url)
   const regex = /!\[([^\]]*)\]\(([\s\S]+?)\)|\[([^\]]*)\]\(([\s\S]+?)\)/g;
@@ -25,9 +26,13 @@ function parseDescription(text: string) {
       const cleanUrl = match[2].replace(/\s+/g, '');
       parts.push({ type: "image", content: match[1], url: cleanUrl, alt: match[1] });
     } else {
-      // Link: [text](url)
+      // Link: [text](url) — but render as image if URL points to an image file
       const cleanUrl = match[4].replace(/\s+/g, '');
-      parts.push({ type: "link", content: match[3], url: cleanUrl });
+      if (imageExtRegex.test(cleanUrl)) {
+        parts.push({ type: "image", content: match[3], url: cleanUrl, alt: match[3] });
+      } else {
+        parts.push({ type: "link", content: match[3], url: cleanUrl });
+      }
     }
 
     lastIndex = match.index + match[0].length;
