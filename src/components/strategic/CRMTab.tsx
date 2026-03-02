@@ -220,6 +220,7 @@ export function StrategicCRMTab({ sessionId, session, leads }: Props) {
   const deduplicateLeads = useDeduplicateLeads();
   const { data: history = [] } = useLeadHistory(selectedLead?.id);
   const dedupRanRef = useRef(false);
+  const autoMoveRanRef = useRef(false);
 
   // Auto-deduplicate on first load
   useEffect(() => {
@@ -228,6 +229,36 @@ export function StrategicCRMTab({ sessionId, session, leads }: Props) {
       deduplicateLeads.mutate(sessionId);
     }
   }, [leads.length, sessionId]);
+
+  // Auto-move leads based on qualification and Cal.com scheduling
+  useEffect(() => {
+    if (leads.length === 0 || autoMoveRanRef.current) return;
+    if (calComEvents === undefined || calComPastEvents === undefined) return;
+
+    autoMoveRanRef.current = true;
+
+    const matchMap = matchLeadsWithCalCom(leads, calComEvents, calComPastEvents);
+    const leadsToMove: { leadId: string; newStage: string; previousStage: string }[] = [];
+
+    leads.forEach(lead => {
+      // Only auto-move leads that are currently in "lead" stage
+      if (lead.stage !== 'lead') return;
+
+      const calMatch = matchMap.get(lead.id);
+      const scoring = computeLeadScore(lead);
+
+      // Priority: Agendado > Qualificado
+      if (calMatch?.hasUpcoming || calMatch?.hasPast) {
+        leadsToMove.push({ leadId: lead.id, newStage: 'agendado', previousStage: lead.stage });
+      } else if (scoring.isQualified) {
+        leadsToMove.push({ leadId: lead.id, newStage: 'qualificado', previousStage: lead.stage });
+      }
+    });
+
+    if (leadsToMove.length > 0) {
+      leadsToMove.forEach(move => updateStage.mutate(move));
+    }
+  }, [leads.length, calComEvents, calComPastEvents]);
 
   const studentInfoMap = useMemo(() => {
     if (!salesData) return new Map<string, StudentInfo>();
