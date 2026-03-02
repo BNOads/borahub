@@ -252,7 +252,8 @@ export function StrategicCRMTab({ sessionId, session, leads }: Props) {
 
     leads.forEach(lead => {
       const currentStage = lead.stage as string;
-      if (currentStage !== 'lead' && currentStage !== 'qualificado' && currentStage !== 'agendado') return;
+      // Skip leads already in 'venda'
+      if (currentStage === 'venda') return;
 
       const calMatch = matchMap.get(lead.id);
       const scoring = computeLeadScore(lead);
@@ -265,6 +266,9 @@ export function StrategicCRMTab({ sessionId, session, leads }: Props) {
           return;
         }
       }
+
+      // Only apply remaining rules to early-stage leads
+      if (currentStage !== 'lead' && currentStage !== 'qualificado' && currentStage !== 'agendado') return;
 
       // Cal.com past events → realizado
       if (calMatch?.hasPast) {
