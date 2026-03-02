@@ -168,7 +168,7 @@ export function BookConfigTab() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            O sistema detecta automaticamente vendas de livros a cada 30 minutos (a partir de 01/03/2025) e cria pedidos no Bling.
+            O sistema detecta automaticamente vendas de livros 3x ao dia (08h, 14h e 20h) a partir de 01/03/2025 e cria pedidos no Bling.
             Use o botão abaixo para forçar o processamento agora.
           </p>
           <Button
