@@ -91,36 +91,31 @@ export function BookConfigTab() {
             )}
           </div>
 
+          {connection?.connected && (
+            <Button onClick={handleConnectBling} disabled={getAuthUrl.isPending} variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              {getAuthUrl.isPending ? "Carregando..." : "Reconectar Bling"}
+            </Button>
+          )}
+
           {!connection?.connected && (
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground">
                 Para conectar com o Bling, clique no botão abaixo para abrir a janela de autorização.
-                Após autorizar, copie o código de retorno e cole abaixo.
               </p>
               <Button onClick={handleConnectBling} disabled={getAuthUrl.isPending} variant="outline">
                 <ExternalLink className="h-4 w-4 mr-2" />
                 {getAuthUrl.isPending ? "Carregando..." : "Abrir Autorização Bling"}
               </Button>
+            </div>
+          )}
 
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Cole o código de autorização aqui"
-                  value={authCode}
-                  onChange={e => setAuthCode(e.target.value)}
-                />
-                <Button onClick={handleSaveAuthCode} disabled={!authCode.trim() || oauthCallback.isPending}>
-                  {oauthCallback.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Conectar"}
-                </Button>
-              </div>
-
-              {blingAuthUrl && (
-                <div className="p-3 rounded-md bg-muted border">
-                  <p className="text-sm mb-2">Se a janela não abriu, clique no link abaixo:</p>
-                  <a href={blingAuthUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline break-all">
-                    {blingAuthUrl}
-                  </a>
-                </div>
-              )}
+          {blingAuthUrl && (
+            <div className="p-3 rounded-md bg-muted border">
+              <p className="text-sm mb-2">Se a janela não abriu, clique no link abaixo:</p>
+              <a href={blingAuthUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline break-all">
+                {blingAuthUrl}
+              </a>
             </div>
           )}
         </CardContent>
