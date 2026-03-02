@@ -234,6 +234,7 @@ export function StrategicCRMTab({ sessionId, session, leads }: Props) {
   useEffect(() => {
     if (leads.length === 0 || autoMoveRanRef.current) return;
     if (calComEvents === undefined || calComPastEvents === undefined) return;
+    if (salesData === undefined) return;
 
     autoMoveRanRef.current = true;
 
