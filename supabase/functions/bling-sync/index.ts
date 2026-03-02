@@ -133,12 +133,20 @@ function getAuthorizeUrl(redirectUri?: string) {
 // Check Bling connection status
 async function checkConnectionStatus(supabase: any) {
   try {
-    const token = await getBlingAccessToken(supabase);
-    // Test with a simple API call
-    const response = await fetch(`${BLING_API_BASE}/situacoes/modulos`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return { connected: response.ok, status: response.status };
+    const { data: tokens, error } = await supabase
+      .from("bling_oauth_tokens")
+      .select("expires_at")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error || !tokens) {
+      return { connected: false, error: "Nenhum token encontrado" };
+    }
+
+    const expiresAt = new Date(tokens.expires_at);
+    const now = new Date();
+    return { connected: expiresAt > now, expires_at: tokens.expires_at };
   } catch (e: any) {
     return { connected: false, error: e.message };
   }
