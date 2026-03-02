@@ -32,10 +32,17 @@ export function BookConfigTab() {
     setNewAlias("");
   };
 
+  const [blingAuthUrl, setBlingAuthUrl] = useState("");
+
   const handleConnectBling = async () => {
     try {
       const result = await getAuthUrl.mutateAsync();
-      window.open(result.url, "_blank", "width=600,height=700");
+      setBlingAuthUrl(result.url);
+      // Also try opening - but provide URL as fallback
+      const w = window.open(result.url, "_blank", "width=600,height=700");
+      if (!w || w.closed) {
+        toast.info("Se a janela não abriu, use o link abaixo.");
+      }
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -91,6 +98,15 @@ export function BookConfigTab() {
                   {oauthCallback.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Conectar"}
                 </Button>
               </div>
+
+              {blingAuthUrl && (
+                <div className="p-3 rounded-md bg-muted border">
+                  <p className="text-sm mb-2">Se a janela não abriu, clique no link abaixo:</p>
+                  <a href={blingAuthUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline break-all">
+                    {blingAuthUrl}
+                  </a>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
