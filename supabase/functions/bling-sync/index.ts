@@ -152,28 +152,97 @@ async function checkConnectionStatus(supabase: any) {
   }
 }
 
-// Create order in Bling
-async function createBlingOrder(shipment: any, token: string) {
+// Search for existing contact in Bling by name or document
+async function findBlingContact(name: string, document: string, token: string): Promise<number | null> {
+  try {
+    const searchTerm = document || name;
+    const response = await fetch(`${BLING_API_BASE}/contatos?pesquisa=${encodeURIComponent(searchTerm)}&limite=1`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data?.data?.length > 0) return data.data[0].id;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// Create contact in Bling
+async function createBlingContact(shipment: any, token: string): Promise<number> {
   const address = shipment.buyer_address || {};
-  
-  const orderPayload = {
-    numero: 0, // Bling auto-generates
-    data: new Date(shipment.sale_date || Date.now()).toISOString().split("T")[0],
-    contato: {
-      nome: shipment.buyer_name,
-      tipoPessoa: "F",
-      numeroDocumento: shipment.buyer_document || "",
-      telefone: shipment.buyer_phone || "",
-      email: shipment.buyer_email || "",
-      endereco: {
+  const doc = (shipment.buyer_document || "").replace(/\D/g, "");
+  const tipoPessoa = doc.length > 11 ? "J" : "F";
+
+  const contactPayload: any = {
+    nome: shipment.buyer_name,
+    tipo: "F", // Fornecedor/Cliente
+    situacao: "A",
+    numeroDocumento: doc,
+    telefone: shipment.buyer_phone || "",
+    celular: shipment.buyer_phone || "",
+    email: shipment.buyer_email || "",
+    contribuinte: 9, // Não contribuinte
+    tipoPessoa,
+  };
+
+  if (address.street || address.address || address.zipcode || address.zip) {
+    contactPayload.endereco = {
+      geral: {
         endereco: address.street || address.address || "",
         numero: address.number || "",
         complemento: address.complement || "",
         bairro: address.neighborhood || "",
-        cep: address.zipcode || address.zip || "",
+        cep: (address.zipcode || address.zip || "").replace(/\D/g, ""),
         municipio: address.city || "",
         uf: address.state || "",
       },
+    };
+  }
+
+  const response = await fetch(`${BLING_API_BASE}/contatos`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(contactPayload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    console.error("Bling create contact error:", JSON.stringify(data));
+    throw new Error(`Erro ao criar contato Bling: ${data?.error?.message || JSON.stringify(data)}`);
+  }
+
+  return data?.data?.id;
+}
+
+// Get or create contact in Bling, returns contact ID
+async function getOrCreateBlingContact(shipment: any, token: string): Promise<number> {
+  // Try to find existing contact
+  const existingId = await findBlingContact(shipment.buyer_name, shipment.buyer_document || "", token);
+  if (existingId) {
+    console.log(`Found existing Bling contact: ${existingId}`);
+    return existingId;
+  }
+
+  // Create new contact
+  const newId = await createBlingContact(shipment, token);
+  console.log(`Created new Bling contact: ${newId}`);
+  return newId;
+}
+
+// Create order in Bling
+async function createBlingOrder(shipment: any, token: string) {
+  // First, ensure contact exists in Bling
+  const contactId = await getOrCreateBlingContact(shipment, token);
+
+  const orderPayload = {
+    numero: 0,
+    data: new Date(shipment.sale_date || Date.now()).toISOString().split("T")[0],
+    contato: {
+      id: contactId,
     },
     itens: [
       {
@@ -183,7 +252,7 @@ async function createBlingOrder(shipment: any, token: string) {
       },
     ],
     transporte: {
-      fretePorConta: 0, // remetente
+      fretePorConta: 0,
     },
   };
 
@@ -198,7 +267,8 @@ async function createBlingOrder(shipment: any, token: string) {
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(`Erro ao criar pedido Bling: ${JSON.stringify(data)}`);
+    console.error("Bling create order error:", JSON.stringify(data));
+    throw new Error(`Erro ao criar pedido Bling: ${data?.error?.message || JSON.stringify(data)}`);
   }
 
   return data;
