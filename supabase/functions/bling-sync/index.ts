@@ -119,9 +119,15 @@ async function handleOAuthCallback(code: string, supabase: any) {
 }
 
 // Get OAuth authorize URL
-function getAuthorizeUrl() {
+function getAuthorizeUrl(redirectUri?: string) {
   const clientId = Deno.env.get("BLING_CLIENT_ID")!;
-  return `${BLING_API_BASE}/oauth/authorize?response_type=code&client_id=${clientId}&state=bling_auth`;
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: clientId,
+    state: "bling_auth",
+  });
+  if (redirectUri) params.set("redirect_uri", redirectUri);
+  return `${BLING_API_BASE}/oauth/authorize?${params.toString()}`;
 }
 
 // Check Bling connection status
@@ -203,7 +209,7 @@ serve(async (req) => {
 
     switch (action) {
       case "get_authorize_url":
-        result = { url: getAuthorizeUrl() };
+        result = { url: getAuthorizeUrl(params.redirect_uri) };
         break;
 
       case "oauth_callback":
