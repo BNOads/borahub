@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ExternalLink, CheckCircle2, XCircle, Loader2, Copy, Check } from "lucide-react";
+import { Plus, Trash2, ExternalLink, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
 import {
   useBlingConnection,
   useBlingAuthorizeUrl,
@@ -25,6 +25,21 @@ export function BookConfigTab() {
 
   const [newAlias, setNewAlias] = useState("");
   const [authCode, setAuthCode] = useState("");
+  const [blingAuthUrl, setBlingAuthUrl] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Auto-capture OAuth code from URL redirect
+  useEffect(() => {
+    const code = searchParams.get("code");
+    const state = searchParams.get("state");
+    if (code && state === "bling_auth") {
+      toast.info("Código OAuth capturado, conectando ao Bling...");
+      oauthCallback.mutate(code);
+      searchParams.delete("code");
+      searchParams.delete("state");
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, []);
 
   const handleAddAlias = () => {
     if (!newAlias.trim()) return;
@@ -32,13 +47,10 @@ export function BookConfigTab() {
     setNewAlias("");
   };
 
-  const [blingAuthUrl, setBlingAuthUrl] = useState("");
-
   const handleConnectBling = async () => {
     try {
       const result = await getAuthUrl.mutateAsync();
       setBlingAuthUrl(result.url);
-      // Also try opening - but provide URL as fallback
       const w = window.open(result.url, "_blank", "width=600,height=700");
       if (!w || w.closed) {
         toast.info("Se a janela não abriu, use o link abaixo.");

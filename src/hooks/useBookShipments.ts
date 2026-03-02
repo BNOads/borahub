@@ -136,8 +136,9 @@ export function useBlingConnection() {
 export function useBlingAuthorizeUrl() {
   return useMutation({
     mutationFn: async () => {
+      const redirectUri = `${window.location.origin}/livros`;
       const { data, error } = await supabase.functions.invoke("bling-sync", {
-        body: { action: "get_authorize_url" },
+        body: { action: "get_authorize_url", redirect_uri: redirectUri },
       });
       if (error) throw error;
       return data as { url: string };
