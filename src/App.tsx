@@ -53,6 +53,7 @@ import TicketsView from "./pages/TicketsView";
 import SessaoEstrategica from "./pages/SessaoEstrategica";
 import SessaoEstrategicaDetalhe from "./pages/SessaoEstrategicaDetalhe";
 import PublicSessaoEstrategica from "./pages/PublicSessaoEstrategica";
+import LivrosView from "./pages/LivrosView";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -132,6 +133,7 @@ const App = () => (
               <Route path="/suporte" element={<TicketsView />} />
               <Route path="/sessao-estrategica" element={<SessaoEstrategica />} />
               <Route path="/sessao-estrategica/:id" element={<SessaoEstrategicaDetalhe />} />
+              <Route path="/livros" element={<LivrosView />} />
               <Route path="/perfil" element={<Perfil />} />
               
               {/* Rotas admin */}

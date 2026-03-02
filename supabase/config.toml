@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.sync-google-calendar]
 verify_jwt = false
+
+[functions.bling-sync]
+verify_jwt = false
