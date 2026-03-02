@@ -435,6 +435,77 @@ serve(async (req) => {
         break;
       }
 
+      case "check_delayed_shipments": {
+        // Find shipments without tracking code for 3+ days
+        const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
+        const { data: delayed, error: delayedErr } = await supabase
+          .from("book_shipments")
+          .select("id, buyer_name, product_name, sale_date, stage, created_at")
+          .is("tracking_code", null)
+          .in("stage", ["venda", "pedido_bling", "etiqueta"])
+          .lt("created_at", threeDaysAgo);
+
+        if (delayedErr) throw delayedErr;
+
+        if (!delayed || delayed.length === 0) {
+          result = { success: true, delayed_count: 0, notifications_sent: 0 };
+          break;
+        }
+
+        console.log(`Found ${delayed.length} delayed shipments (3+ days without tracking)`);
+
+        // Get admin users to notify
+        const { data: adminRoles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "admin");
+
+        const adminIds = (adminRoles || []).map((r: any) => r.user_id);
+
+        if (adminIds.length === 0) {
+          result = { success: true, delayed_count: delayed.length, notifications_sent: 0, message: "Nenhum admin encontrado" };
+          break;
+        }
+
+        // Build notification message
+        const shipmentList = delayed.slice(0, 5).map((s: any) => 
+          `• ${s.buyer_name} - ${s.product_name} (${s.stage})`
+        ).join("\n");
+
+        const message = `${delayed.length} envio(s) de livro estão há mais de 3 dias sem código de rastreio:\n${shipmentList}${delayed.length > 5 ? `\n...e mais ${delayed.length - 5}` : ""}`;
+
+        // Check if we already sent a notification today to avoid spam
+        const today = new Date().toISOString().split("T")[0];
+        const { data: existingNotif } = await supabase
+          .from("notifications")
+          .select("id")
+          .eq("title", "📦 Envios de livros atrasados")
+          .gte("created_at", `${today}T00:00:00`)
+          .limit(1)
+          .maybeSingle();
+
+        if (existingNotif) {
+          result = { success: true, delayed_count: delayed.length, notifications_sent: 0, message: "Notificação já enviada hoje" };
+          break;
+        }
+
+        // Send notification to each admin
+        let notifsSent = 0;
+        for (const adminId of adminIds) {
+          const { error: notifErr } = await supabase.from("notifications").insert({
+            title: "📦 Envios de livros atrasados",
+            message,
+            recipient_id: adminId,
+            type: "alert",
+          });
+          if (!notifErr) notifsSent++;
+        }
+
+        result = { success: true, delayed_count: delayed.length, notifications_sent: notifsSent };
+        break;
+      }
+
       default:
         throw new Error(`Ação desconhecida: ${action}`);
     }
