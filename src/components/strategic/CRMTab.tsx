@@ -230,7 +230,7 @@ export function StrategicCRMTab({ sessionId, session, leads }: Props) {
     }
   }, [leads.length, sessionId]);
 
-  // Auto-move leads based on qualification and Cal.com scheduling
+  // Auto-move leads based on qualification, Cal.com scheduling, and student status
   useEffect(() => {
     if (leads.length === 0 || autoMoveRanRef.current) return;
     if (calComEvents === undefined || calComPastEvents === undefined) return;
@@ -240,25 +240,56 @@ export function StrategicCRMTab({ sessionId, session, leads }: Props) {
     const matchMap = matchLeadsWithCalCom(leads, calComEvents, calComPastEvents);
     const leadsToMove: { leadId: string; newStage: string; previousStage: string }[] = [];
 
+    const BORA_ACELERAR_ALIASES = [
+      'bora acelerar', 'mentoria bora acelerar', 'bora acelerar mentoria',
+      'mentoria boracelerar', 'boracelerar', 'bora_acelerar',
+    ];
+
+    const isMentoriaBoraAcelerar = (productName: string) => {
+      const normalized = productName.toLowerCase().trim();
+      return BORA_ACELERAR_ALIASES.some(alias => normalized.includes(alias));
+    };
+
     leads.forEach(lead => {
-      // Only auto-move leads that are currently in "lead" stage
-      if (lead.stage !== 'lead') return;
+      const currentStage = lead.stage as string;
+      if (currentStage !== 'lead' && currentStage !== 'qualificado' && currentStage !== 'agendado') return;
 
       const calMatch = matchMap.get(lead.id);
       const scoring = computeLeadScore(lead);
 
-      // Priority: Agendado > Qualificado
-      if (calMatch?.hasUpcoming || calMatch?.hasPast) {
-        leadsToMove.push({ leadId: lead.id, newStage: 'agendado', previousStage: lead.stage });
-      } else if (scoring.isQualified) {
-        leadsToMove.push({ leadId: lead.id, newStage: 'qualificado', previousStage: lead.stage });
+      // Check if student with Bora Acelerar product → venda (highest priority)
+      if (salesData) {
+        const info = getStudentInfo(lead, salesData);
+        if (info.isStudent && info.products.some(p => isMentoriaBoraAcelerar(p.name))) {
+          leadsToMove.push({ leadId: lead.id, newStage: 'venda', previousStage: currentStage });
+          return;
+        }
+      }
+
+      // Cal.com past events → realizado
+      if (calMatch?.hasPast) {
+        leadsToMove.push({ leadId: lead.id, newStage: 'realizado', previousStage: currentStage });
+        return;
+      }
+
+      // Cal.com upcoming → agendado
+      if (calMatch?.hasUpcoming) {
+        if (currentStage !== 'agendado') {
+          leadsToMove.push({ leadId: lead.id, newStage: 'agendado', previousStage: currentStage });
+        }
+        return;
+      }
+
+      // Qualified → qualificado (only from lead stage)
+      if (currentStage === 'lead' && scoring.isQualified) {
+        leadsToMove.push({ leadId: lead.id, newStage: 'qualificado', previousStage: currentStage });
       }
     });
 
     if (leadsToMove.length > 0) {
       leadsToMove.forEach(move => updateStage.mutate(move));
     }
-  }, [leads.length, calComEvents, calComPastEvents]);
+  }, [leads.length, calComEvents, calComPastEvents, salesData]);
 
   const studentInfoMap = useMemo(() => {
     if (!salesData) return new Map<string, StudentInfo>();
