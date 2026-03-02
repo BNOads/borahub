@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode } from "react"; // force rebuild
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
