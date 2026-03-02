@@ -298,6 +298,143 @@ serve(async (req) => {
         break;
       }
 
+      case "auto_process_book_sales": {
+        // Fetch active aliases
+        const { data: aliases } = await supabase
+          .from("book_product_aliases")
+          .select("alias")
+          .eq("is_active", true);
+
+        const aliasList = (aliases || []).map((a: any) => a.alias.toLowerCase());
+        if (aliasList.length === 0) {
+          result = { success: true, message: "Nenhum alias ativo configurado", processed: 0 };
+          break;
+        }
+
+        console.log("Active book aliases:", aliasList);
+
+        // Fetch paid sales from March 1, 2025 onwards
+        const cutoffDate = "2025-03-01";
+        const { data: sales, error: salesErr } = await supabase
+          .from("sales")
+          .select("id, external_id, client_name, client_email, client_phone, product_name, total_value, sale_date")
+          .eq("status", "active")
+          .gte("sale_date", cutoffDate)
+          .order("sale_date", { ascending: false });
+
+        if (salesErr) throw salesErr;
+
+        // Filter sales that match book aliases
+        const bookSales = (sales || []).filter((s: any) => {
+          const name = (s.product_name || "").toLowerCase();
+          return aliasList.some((alias: string) => name.includes(alias));
+        });
+
+        console.log(`Found ${bookSales.length} book sales from ${cutoffDate}`);
+
+        let shipmentsCreated = 0;
+        let blingOrdersCreated = 0;
+        let skipped = 0;
+        const errors: string[] = [];
+
+        for (const sale of bookSales) {
+          try {
+            // Check if shipment already exists for this sale
+            const { data: existing } = await supabase
+              .from("book_shipments")
+              .select("id, stage")
+              .or(`sale_id.eq.${sale.id},external_id.eq.${sale.external_id}`)
+              .limit(1)
+              .maybeSingle();
+
+            if (existing) {
+              skipped++;
+              continue;
+            }
+
+            // Create book_shipment
+            const { data: newShipment, error: insertErr } = await supabase
+              .from("book_shipments")
+              .insert({
+                sale_id: sale.id,
+                external_id: sale.external_id,
+                product_name: sale.product_name,
+                buyer_name: sale.client_name,
+                buyer_email: sale.client_email,
+                buyer_phone: sale.client_phone,
+                sale_date: sale.sale_date,
+                sale_value: sale.total_value,
+                stage: "venda",
+              })
+              .select("id")
+              .single();
+
+            if (insertErr) {
+              errors.push(`Shipment ${sale.external_id}: ${insertErr.message}`);
+              continue;
+            }
+
+            shipmentsCreated++;
+            console.log(`Created shipment for sale ${sale.external_id}`);
+
+            // Auto-create Bling order
+            try {
+              const token = await getBlingAccessToken(supabase);
+              const shipmentForBling = {
+                buyer_name: sale.client_name,
+                buyer_email: sale.client_email,
+                buyer_phone: sale.client_phone,
+                product_name: sale.product_name,
+                sale_date: sale.sale_date,
+                sale_value: sale.total_value,
+                buyer_address: {},
+              };
+
+              const orderData = await createBlingOrder(shipmentForBling, token);
+              const blingOrderId = orderData?.data?.id?.toString() || orderData?.data?.numero?.toString();
+
+              await supabase
+                .from("book_shipments")
+                .update({
+                  stage: "pedido_bling",
+                  bling_order_id: blingOrderId,
+                  bling_created_at: new Date().toISOString(),
+                })
+                .eq("id", newShipment.id);
+
+              await supabase.from("book_shipment_history").insert({
+                shipment_id: newShipment.id,
+                from_stage: "venda",
+                to_stage: "pedido_bling",
+                notes: `Pedido Bling criado automaticamente: ${blingOrderId}`,
+              });
+
+              blingOrdersCreated++;
+              console.log(`Created Bling order ${blingOrderId} for ${sale.external_id}`);
+            } catch (blingErr: any) {
+              console.error(`Bling order failed for ${sale.external_id}:`, blingErr.message);
+              errors.push(`Bling ${sale.external_id}: ${blingErr.message}`);
+              // Shipment stays at "venda" stage - can be retried
+            }
+
+            // Rate limiting
+            await new Promise(r => setTimeout(r, 200));
+          } catch (err: any) {
+            errors.push(`${sale.external_id}: ${err.message}`);
+          }
+        }
+
+        result = {
+          success: true,
+          total_book_sales: bookSales.length,
+          shipments_created: shipmentsCreated,
+          bling_orders_created: blingOrdersCreated,
+          skipped,
+          errors: errors.slice(0, 10),
+        };
+        break;
+      }
+
       default:
         throw new Error(`Ação desconhecida: ${action}`);
     }

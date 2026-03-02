@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
-import { Plus, Trash2, ExternalLink, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Plus, Trash2, ExternalLink, CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useBlingConnection,
   useBlingAuthorizeUrl,
@@ -27,6 +28,7 @@ export function BookConfigTab() {
   const [authCode, setAuthCode] = useState("");
   const [blingAuthUrl, setBlingAuthUrl] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Auto-capture OAuth code from URL redirect
   useEffect(() => {
@@ -156,6 +158,45 @@ export function BookConfigTab() {
               <Plus className="h-4 w-4 mr-1" />Adicionar
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Auto-process */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Processamento Automático</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            O sistema detecta automaticamente vendas de livros a cada 30 minutos (a partir de 01/03/2025) e cria pedidos no Bling.
+            Use o botão abaixo para forçar o processamento agora.
+          </p>
+          <Button
+            onClick={async () => {
+              setIsProcessing(true);
+              try {
+                const { data, error } = await supabase.functions.invoke("bling-sync", {
+                  body: { action: "auto_process_book_sales" },
+                });
+                if (error) throw error;
+                toast.success(
+                  `Processado! ${data.shipments_created} novos envios, ${data.bling_orders_created} pedidos Bling criados, ${data.skipped} já existentes.`
+                );
+                if (data.errors?.length > 0) {
+                  toast.error(`Erros: ${data.errors.join(", ")}`);
+                }
+              } catch (err: any) {
+                toast.error(err.message);
+              } finally {
+                setIsProcessing(false);
+              }
+            }}
+            disabled={isProcessing}
+            variant="outline"
+          >
+            {isProcessing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            {isProcessing ? "Processando..." : "Processar Vendas de Livros Agora"}
+          </Button>
         </CardContent>
       </Card>
     </div>
