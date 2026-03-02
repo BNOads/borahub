@@ -97,6 +97,175 @@ export type Database = {
           },
         ]
       }
+      bling_oauth_tokens: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          refresh_token: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          refresh_token: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          refresh_token?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      book_product_aliases: {
+        Row: {
+          alias: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+        }
+        Insert: {
+          alias: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+        }
+        Update: {
+          alias?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+        }
+        Relationships: []
+      }
+      book_shipment_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string | null
+          from_stage: string | null
+          id: string
+          notes: string | null
+          shipment_id: string
+          to_stage: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string | null
+          from_stage?: string | null
+          id?: string
+          notes?: string | null
+          shipment_id: string
+          to_stage: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string | null
+          from_stage?: string | null
+          id?: string
+          notes?: string | null
+          shipment_id?: string
+          to_stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_shipment_history_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "book_shipments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      book_shipments: {
+        Row: {
+          bling_created_at: string | null
+          bling_order_id: string | null
+          buyer_address: Json | null
+          buyer_document: string | null
+          buyer_email: string | null
+          buyer_name: string
+          buyer_phone: string | null
+          created_at: string | null
+          delivered_at: string | null
+          external_id: string | null
+          id: string
+          label_generated_at: string | null
+          label_url: string | null
+          notes: string | null
+          product_name: string
+          sale_date: string | null
+          sale_id: string | null
+          sale_value: number | null
+          shipped_at: string | null
+          stage: string
+          tracking_code: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bling_created_at?: string | null
+          bling_order_id?: string | null
+          buyer_address?: Json | null
+          buyer_document?: string | null
+          buyer_email?: string | null
+          buyer_name: string
+          buyer_phone?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          external_id?: string | null
+          id?: string
+          label_generated_at?: string | null
+          label_url?: string | null
+          notes?: string | null
+          product_name: string
+          sale_date?: string | null
+          sale_id?: string | null
+          sale_value?: number | null
+          shipped_at?: string | null
+          stage?: string
+          tracking_code?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bling_created_at?: string | null
+          bling_order_id?: string | null
+          buyer_address?: Json | null
+          buyer_document?: string | null
+          buyer_email?: string | null
+          buyer_name?: string
+          buyer_phone?: string | null
+          created_at?: string | null
+          delivered_at?: string | null
+          external_id?: string | null
+          id?: string
+          label_generated_at?: string | null
+          label_url?: string | null
+          notes?: string | null
+          product_name?: string
+          sale_date?: string | null
+          sale_id?: string | null
+          sale_value?: number | null
+          shipped_at?: string | null
+          stage?: string
+          tracking_code?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_shipments_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bora_news: {
         Row: {
           autor_id: string | null

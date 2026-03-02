@@ -28,7 +28,8 @@ import {
   PenTool,
   GraduationCap,
   Headphones,
-  Crosshair
+  Crosshair,
+  PackageOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NoteWidget } from "@/components/notes/NoteWidget";
@@ -173,6 +174,13 @@ const tools = [
     href: "/sessao-estrategica",
     icon: Crosshair,
     color: "bg-red-500/10 text-red-500",
+  },
+  {
+    name: "Gestão de Livros",
+    description: "Acompanhe vendas, envios e entregas de livros físicos via Bling",
+    href: "/livros",
+    icon: PackageOpen,
+    color: "bg-amber-500/10 text-amber-500",
   },
 ];
 
