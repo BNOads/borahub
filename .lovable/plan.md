@@ -1,94 +1,77 @@
 
 
-## Plano: Ferramenta de Gestão de Envio de Livros
+## Plano: Corrigir Comissões de Cartão de Crédito Parcelado
 
-### Contexto
-Criar um módulo completo para rastrear vendas de livros (Hotmart) → criação de pedidos (Bling) → envio pelos Correios, com layout semelhante à Sessão Estratégica (Tabs: Dashboard, CRM Kanban, Configuração).
+### Problema Identificado
 
-### Pré-requisito: API Key da Bling V3
-Antes de implementar, preciso solicitar a API key da Bling V3 como secret do projeto. A Bling V3 usa OAuth2 ou API key dependendo da configuração.
+Quando o comprador paga com **cartão de crédito parcelado** (ex: 12x), a Hotmart repassa o valor **integral** ao produtor. O parcelamento é entre o comprador e a operadora do cartão. Porém, o sistema está tratando essas vendas como se o produtor recebesse parcelado (como boleto parcelado ou recorrência), dividindo a comissão em N parcelas.
 
----
+**Regra correta:**
+- **Cartão de crédito** (normal, mesmo parcelado): recebimento integral → 1 parcela, comissão integral
+- **Boleto parcelado / Recorrência**: recebimento parcelado → N parcelas, comissão parcelada
 
-### 1. Banco de Dados — Nova tabela `book_shipments`
+### Como diferenciar na API Hotmart
 
-```sql
-CREATE TABLE book_shipments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  sale_id UUID REFERENCES sales(id),
-  external_id TEXT, -- transaction ID Hotmart
-  product_name TEXT NOT NULL,
-  buyer_name TEXT NOT NULL,
-  buyer_email TEXT,
-  buyer_phone TEXT,
-  buyer_address JSONB, -- endereço completo
-  sale_date TIMESTAMPTZ,
-  sale_value NUMERIC(12,2),
-  stage TEXT NOT NULL DEFAULT 'venda', -- venda, pedido_bling, etiqueta, enviado, entregue
-  bling_order_id TEXT, -- ID do pedido no Bling
-  tracking_code TEXT, -- código de rastreio Correios
-  label_url TEXT, -- URL da etiqueta
-  shipped_at TIMESTAMPTZ,
-  delivered_at TIMESTAMPTZ,
-  bling_created_at TIMESTAMPTZ,
-  label_generated_at TIMESTAMPTZ,
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+O campo `purchase.payment.type` retorna valores como `"CREDIT_CARD"`, `"BILLET"`, etc. Combinado com `is_subscription` e `recurrency_number`, podemos determinar:
 
--- RLS + trigger updated_at
--- Índices em stage, external_id
+- Se `payment.type === "CREDIT_CARD"` **e** `is_subscription !== true` **e** `recurrency_number <= 1` → **pagamento integral** (ignorar `installments_number`, tratar como 1 parcela)
+- Caso contrário (boleto, recorrência, assinatura) → manter lógica atual de parcelas
+
+### Mudanças
+
+#### 1. Edge Function `hotmart-sync/index.ts`
+
+Criar uma função helper `isFullPayment(sale)` que retorna `true` quando o produtor recebe integral:
+
+```text
+function isFullPayment(sale):
+  paymentType = sale.purchase.payment.type
+  isSubscription = sale.purchase.is_subscription
+  recurrencyNumber = sale.purchase.recurrency_number
+
+  if paymentType == "CREDIT_CARD" AND !isSubscription AND recurrencyNumber <= 1:
+    return true  // cartão normal, recebemos integral
+  return false
 ```
 
-Tabela `book_shipment_history` para histórico de movimentações (similar a `strategic_lead_history`).
+Aplicar em **todos os 4 fluxos** que criam/atualizam parcelas:
+- `sync_sales` (sync manual)
+- `scheduled_sync` (sync automático)
+- `sync_installments`
+- Sync de installments dentro do scheduled_sync
 
-### 2. Edge Function `bling-sync`
+Quando `isFullPayment = true`:
+- `installments_count = 1` (independente do que a Hotmart reportar)
+- Criar apenas 1 parcela com o valor total
+- Comissão sobre valor integral
 
-- **Ações**: `create_order` (cria pedido no Bling), `get_label` (gera etiqueta), `check_tracking` (verifica rastreio)
-- Integração com Bling V3 API: `/pedidos/vendas`, `/nfe`, `/logistica`
-- Atualiza `book_shipments` automaticamente
+#### 2. Corrigir vendas existentes afetadas
 
-### 3. Edge Function `hotmart-book-sales` (ou extensão do `hotmart-sync`)
+Após o deploy da edge function, executar uma migração SQL para:
+- Identificar vendas com `payment_type = 'CREDIT_CARD'` e `installments_count > 1` que NÃO são recorrentes
+- Consolidar suas parcelas em 1 parcela única com valor total
+- Atualizar comissões associadas para refletir o valor integral
+- Atualizar `installments_count = 1` na tabela `sales`
 
-- Filtra vendas de produtos cujo nome contenha "livro", "GDAE" e aliases
-- Cria registros em `book_shipments` automaticamente para novas vendas
-
-### 4. Página `LivrosView.tsx` — Layout Sessão Estratégica
-
-**Tabs:**
-- **Dashboard**: KPIs (vendas hoje, semana, mês), ranking de livros mais vendidos, tempo médio de geração de código e envio, gráfico de vendas por dia
-- **CRM Kanban**: 5 colunas (Venda → Pedido Bling → Etiqueta → Enviado → Entregue) com drag-and-drop, auto-move baseado nos dados do Bling/Correios
-- **Configuração**: Aliases de produtos, API key Bling
-
-**Métricas de tempo:**
-- Tempo médio: venda → código de rastreio gerado
-- Tempo médio: código gerado → enviado
-- Alertas visuais para envios atrasados
-
-### 5. Hook `useBookShipments.ts`
-
-- CRUD de shipments
-- Queries filtradas por stage, período
-- Mutation para mover entre estágios
-
-### 6. Rota `/livros`
-
-Adicionada ao `App.tsx` e ao menu de navegação.
-
----
-
-### Ordem de implementação
-1. Configurar secret `BLING_API_KEY`
-2. Criar tabela `book_shipments` + `book_shipment_history`
-3. Criar edge function `bling-sync`
-4. Estender `hotmart-sync` para identificar vendas de livros
-5. Criar página, hooks e componentes do frontend
-6. Adicionar rota e navegação
+Os 5 casos citados (HP3594527991, HP2530510103, HP0978817789, HP2703034665, HP2233482308) serão corrigidos automaticamente por essa migração.
 
 ### Detalhes técnicos
-- O Kanban usa `@dnd-kit` (já instalado) replicando o padrão de `CRMTab.tsx`
-- Aliases de livros: `['livro', 'book', 'gdae', 'guia de ação empreendedora']` — configuráveis
-- Auto-sync: cron job para verificar status no Bling periodicamente
-- Dashboard usa `recharts` (já instalado) para gráficos de vendas diárias e ranking
+
+**Locais de modificação no `hotmart-sync/index.ts`:**
+- Linhas ~764: `sync_sales` - onde define `installments_count`
+- Linhas ~799-827: `sync_sales` - criação de parcelas para venda existente
+- Linhas ~840-868: `sync_sales` - criação de parcelas para venda nova
+- Linhas ~973: `scheduled_sync` - onde define `installments_count`
+- Linhas ~1006-1045: `scheduled_sync` - atualização de parcelas existentes
+- Linhas ~1057-1078: `scheduled_sync` - criação de parcelas novas
+- Linhas ~1097-1158: `scheduled_sync` - sync de installments de vendas existentes
+- Linhas ~603-711: `sync_installments` - precisa considerar `payment_type` do sale
+
+**Migração SQL para correção:**
+```sql
+-- Consolidar parcelas de vendas cartão crédito normal (não recorrente)
+-- 1. Deletar parcelas extras (installment_number > 1) e comissões associadas
+-- 2. Atualizar parcela 1 com valor total
+-- 3. Atualizar sales.installments_count = 1
+```
 
