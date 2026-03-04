@@ -1,77 +1,52 @@
 
 
-## Plano: Corrigir Comissões de Cartão de Crédito Parcelado
+## Plano: Criar Tickets Automáticos para Reembolsos Hotmart
 
-### Problema Identificado
+### Resumo
 
-Quando o comprador paga com **cartão de crédito parcelado** (ex: 12x), a Hotmart repassa o valor **integral** ao produtor. O parcelamento é entre o comprador e a operadora do cartão. Porém, o sistema está tratando essas vendas como se o produtor recebesse parcelado (como boleto parcelado ou recorrência), dividindo a comissão em N parcelas.
-
-**Regra correta:**
-- **Cartão de crédito** (normal, mesmo parcelado): recebimento integral → 1 parcela, comissão integral
-- **Boleto parcelado / Recorrência**: recebimento parcelado → N parcelas, comissão parcelada
-
-### Como diferenciar na API Hotmart
-
-O campo `purchase.payment.type` retorna valores como `"CREDIT_CARD"`, `"BILLET"`, etc. Combinado com `is_subscription` e `recurrency_number`, podemos determinar:
-
-- Se `payment.type === "CREDIT_CARD"` **e** `is_subscription !== true` **e** `recurrency_number <= 1` → **pagamento integral** (ignorar `installments_number`, tratar como 1 parcela)
-- Caso contrário (boleto, recorrência, assinatura) → manter lógica atual de parcelas
+Detectar vendas com status `REFUNDED` ou `CHARGEBACK` durante a sincronização automática (scheduled_sync) e criar automaticamente um ticket de suporte com SLA urgente (2h), direcionado para **Maria Rosa** (`de5f094a-fd3e-4d01-9f37-78425ea3317f`).
 
 ### Mudanças
 
-#### 1. Edge Function `hotmart-sync/index.ts`
+#### 1. Edge Function `hotmart-sync/index.ts` — Scheduled Sync
 
-Criar uma função helper `isFullPayment(sale)` que retorna `true` quando o produtor recebe integral:
+No fluxo `scheduled_sync`, após detectar que uma venda mudou para status `REFUNDED` ou `CHARGEBACK`, adicionar lógica para:
 
+1. Verificar se já existe um ticket para essa venda (evitar duplicatas) — buscar na tabela `tickets` por `descricao ILIKE '%{transaction_id}%'`
+2. Se não existir, criar um ticket:
+   - `cliente_nome`: nome do comprador
+   - `cliente_email`: email do comprador  
+   - `cliente_whatsapp`: telefone do comprador (se disponível, senão string vazia)
+   - `origem`: "hotmart"
+   - `categoria`: "reembolso" (para REFUNDED) ou "chargeback" (para CHARGEBACK)
+   - `descricao`: Texto descritivo com transação, produto, valor e status
+   - `prioridade`: "critica" (SLA de 2h)
+   - `responsavel_id`: `de5f094a-fd3e-4d01-9f37-78425ea3317f` (Maria Rosa)
+   - `criado_por`: mesmo ID (Maria Rosa, já que é automático)
+   - `sla_limite`: now + 2 horas
+3. Criar a tarefa vinculada ao ticket (mesma lógica do `useCreateTicket`)
+4. Criar notificação para Maria Rosa
+5. Registrar log no ticket
+
+#### 2. Helper Function
+
+Criar uma função `createRefundTicket(supabase, sale, status)` que encapsula toda a lógica acima para manter o código organizado.
+
+#### 3. Onde inserir no fluxo
+
+No `scheduled_sync`, após o update da venda existente (linha ~1012-1018), verificar:
 ```text
-function isFullPayment(sale):
-  paymentType = sale.purchase.payment.type
-  isSubscription = sale.purchase.is_subscription
-  recurrencyNumber = sale.purchase.recurrency_number
-
-  if paymentType == "CREDIT_CARD" AND !isSubscription AND recurrencyNumber <= 1:
-    return true  // cartão normal, recebemos integral
-  return false
+if sale was previously "active" and now maps to "cancelled"
+  AND original hotmart status is "REFUNDED" or "CHARGEBACK"
+  → call createRefundTicket()
 ```
 
-Aplicar em **todos os 4 fluxos** que criam/atualizam parcelas:
-- `sync_sales` (sync manual)
-- `scheduled_sync` (sync automático)
-- `sync_installments`
-- Sync de installments dentro do scheduled_sync
+Para isso, buscar o status anterior da venda antes do update.
 
-Quando `isFullPayment = true`:
-- `installments_count = 1` (independente do que a Hotmart reportar)
-- Criar apenas 1 parcela com o valor total
-- Comissão sobre valor integral
+### Detalhes
 
-#### 2. Corrigir vendas existentes afetadas
-
-Após o deploy da edge function, executar uma migração SQL para:
-- Identificar vendas com `payment_type = 'CREDIT_CARD'` e `installments_count > 1` que NÃO são recorrentes
-- Consolidar suas parcelas em 1 parcela única com valor total
-- Atualizar comissões associadas para refletir o valor integral
-- Atualizar `installments_count = 1` na tabela `sales`
-
-Os 5 casos citados (HP3594527991, HP2530510103, HP0978817789, HP2703034665, HP2233482308) serão corrigidos automaticamente por essa migração.
-
-### Detalhes técnicos
-
-**Locais de modificação no `hotmart-sync/index.ts`:**
-- Linhas ~764: `sync_sales` - onde define `installments_count`
-- Linhas ~799-827: `sync_sales` - criação de parcelas para venda existente
-- Linhas ~840-868: `sync_sales` - criação de parcelas para venda nova
-- Linhas ~973: `scheduled_sync` - onde define `installments_count`
-- Linhas ~1006-1045: `scheduled_sync` - atualização de parcelas existentes
-- Linhas ~1057-1078: `scheduled_sync` - criação de parcelas novas
-- Linhas ~1097-1158: `scheduled_sync` - sync de installments de vendas existentes
-- Linhas ~603-711: `sync_installments` - precisa considerar `payment_type` do sale
-
-**Migração SQL para correção:**
-```sql
--- Consolidar parcelas de vendas cartão crédito normal (não recorrente)
--- 1. Deletar parcelas extras (installment_number > 1) e comissões associadas
--- 2. Atualizar parcela 1 com valor total
--- 3. Atualizar sales.installments_count = 1
-```
+- **Deduplicação**: Antes de criar, buscar tickets existentes com o `external_id` na descrição para evitar duplicatas em syncs consecutivos
+- **SLA**: Prioridade "critica" = 2 horas (já configurado no sistema)
+- **Categorias novas**: "reembolso" e "chargeback" serão adicionadas automaticamente ao criar tickets com esses valores
+- **Sem mudanças no banco**: Usa tabelas existentes (tickets, tasks, ticket_logs, notifications)
 
