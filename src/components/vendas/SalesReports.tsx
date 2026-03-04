@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/components/funnel-panel/types";
-import { BarChart3, TrendingUp, Users, Download, FileSpreadsheet, FileText, ArrowUpDown, ArrowUp, ArrowDown, Info, Calendar, CalendarClock, Search } from "lucide-react";
+import { BarChart3, TrendingUp, Users, Download, FileSpreadsheet, FileText, ArrowUpDown, ArrowUp, ArrowDown, Info, Calendar, CalendarClock, Search, FileDown } from "lucide-react";
+import { exportSalesReportPDF } from "./SalesReportPDF";
 import {
   Tooltip,
   TooltipContent,
@@ -650,6 +651,19 @@ export function SalesReports() {
                 <Button variant="default" size="sm" onClick={exportToExcel} className="flex-1">
                   <Download className="h-4 w-4 mr-1" />
                   Excel
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => exportSalesReportPDF({
+                  sellerPerformance,
+                  commissionsDetail: sortedCommissionsDetail,
+                  totals,
+                  revenueByStatus,
+                  dateRange,
+                  platformFilter,
+                  sellerFilter,
+                  productFilter,
+                })} className="flex-1">
+                  <FileDown className="h-4 w-4 mr-1" />
+                  PDF
                 </Button>
               </div>
             </div>
