@@ -462,6 +462,35 @@ function isFullPayment(sale: HotmartSale): boolean {
   return false;
 }
 
+/**
+ * Fetches the base product price from the products table (synced via Hotmart Offers API).
+ * Used to remove credit card interest from the purchase price.
+ * Falls back to purchasePrice if product not found or has no price.
+ */
+async function getBaseProductPrice(
+  supabase: ReturnType<typeof createClient>,
+  productName: string,
+  purchasePrice: number
+): Promise<number> {
+  try {
+    const { data: product } = await supabase
+      .from("products")
+      .select("price")
+      .eq("name", productName)
+      .single();
+
+    if (product && product.price && product.price > 0) {
+      if (product.price !== purchasePrice) {
+        console.log(`Base price lookup: product "${productName}" base price=${product.price}, purchase price=${purchasePrice} (interest removed)`);
+      }
+      return product.price;
+    }
+  } catch (err) {
+    console.log(`Could not find base price for product "${productName}", using purchase price ${purchasePrice}`);
+  }
+  return purchasePrice;
+}
+
 const MARIA_ROSA_ID = "de5f094a-fd3e-4d01-9f37-78425ea3317f";
 
 /**
@@ -842,19 +871,25 @@ serve(async (req) => {
         
         for (const sale of sales) {
           try {
-            const originalValue = sale.purchase.price.value;
+            let originalValue = sale.purchase.price.value;
             const originalCurrency = sale.purchase.price.currency_code || "BRL";
-            const valueInBRL = await convertToBRL(originalValue, originalCurrency);
-            
-            console.log(`Sale ${sale.purchase.transaction}: ${originalValue} ${originalCurrency} -> ${valueInBRL.toFixed(2)} BRL`);
             
             // Determine installments count: credit card (non-subscription) = always 1
             const fullPayment = isFullPayment(sale);
             const effectiveInstallments = fullPayment ? 1 : (sale.purchase.payment.installments_number || 1);
             
+            // For full payments (credit card), use base product price instead of price with interest
             if (fullPayment) {
+              const basePrice = await getBaseProductPrice(supabase, sale.product.name, originalValue);
+              if (basePrice !== originalValue) {
+                console.log(`Sale ${sale.purchase.transaction}: Using base price ${basePrice} instead of purchase price ${originalValue} (interest removed)`);
+                originalValue = basePrice;
+              }
               console.log(`Sale ${sale.purchase.transaction}: CREDIT_CARD full payment detected, forcing installments_count=1 (original: ${sale.purchase.payment.installments_number})`);
             }
+            
+            const valueInBRL = await convertToBRL(originalValue, originalCurrency);
+            console.log(`Sale ${sale.purchase.transaction}: ${originalValue} ${originalCurrency} -> ${valueInBRL.toFixed(2)} BRL`);
             
             const saleData = {
               external_id: sale.purchase.transaction,
@@ -1095,7 +1130,14 @@ serve(async (req) => {
               const fullPayment = isFullPayment(sale);
               const effectiveInstallments = fullPayment ? 1 : (sale.purchase.payment.installments_number || 1);
               
+              // For full payments (credit card), use base product price instead of price with interest
+              let totalValue = sale.purchase.price.value;
               if (fullPayment) {
+                const basePrice = await getBaseProductPrice(supabase, sale.product.name, totalValue);
+                if (basePrice !== totalValue) {
+                  console.log(`Sale ${sale.purchase.transaction}: Using base price ${basePrice} instead of purchase price ${totalValue} (interest removed)`);
+                  totalValue = basePrice;
+                }
                 console.log(`Sale ${sale.purchase.transaction}: CREDIT_CARD full payment, forcing installments_count=1 (original: ${sale.purchase.payment.installments_number})`);
               }
               
@@ -1105,7 +1147,7 @@ serve(async (req) => {
                 client_email: sale.buyer.email,
                 client_phone: sale.buyer.phone || null,
                 product_name: sale.product.name,
-                total_value: sale.purchase.price.value,
+                total_value: totalValue,
                 installments_count: effectiveInstallments,
                 platform: "hotmart",
                 commission_percent: 0,
