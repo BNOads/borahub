@@ -619,7 +619,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action, startDate, endDate, status, transactionId, sellerId, includePrices, priceDays, salesMaxPages } = await req.json();
+    const { action, startDate, endDate, status, transactionId, sellerId, includePrices, priceDays, salesMaxPages, external_id } = await req.json();
     
     console.log(`Hotmart sync action: ${action}`);
     
@@ -1574,6 +1574,42 @@ serve(async (req) => {
         });
       }
       
+      case "test_refund_ticket": {
+        const extId = external_id as string | undefined;
+        
+        if (!extId) throw new Error("external_id is required (pass it in the request body)");
+
+        const { data: testSale, error: saleErr } = await supabase
+          .from("sales")
+          .select("*")
+          .eq("external_id", extId)
+          .single();
+
+        if (saleErr || !testSale) throw new Error(`Sale not found for external_id: ${extId}`);
+
+        const mockSale: HotmartSale = {
+          product: { id: 0, name: testSale.product_name },
+          buyer: {
+            name: testSale.client_name,
+            email: testSale.client_email || "",
+            phone: testSale.client_phone || "",
+          },
+          purchase: {
+            transaction: testSale.external_id,
+            status: "REFUNDED",
+            price: { value: testSale.total_value, currency_code: "BRL" },
+            payment: { type: "CREDIT_CARD", installments_number: 1 },
+          },
+        };
+
+        console.log(`Test refund ticket for transaction ${extId}, client: ${testSale.client_name}`);
+        await createRefundTicket(supabase, mockSale, "REFUNDED");
+
+        return new Response(JSON.stringify({ success: true, message: `Refund ticket created for ${testSale.client_name} (${extId})` }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
