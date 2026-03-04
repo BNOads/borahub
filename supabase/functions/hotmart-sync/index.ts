@@ -113,19 +113,14 @@ async function getExchangeRateToBRL(currency: string): Promise<number> {
   }
   
   try {
-    // Use exchangerate-api (free tier, no key needed for basic usage)
-    // or Banco Central do Brasil API
     const response = await fetch("https://api.exchangerate-api.com/v4/latest/BRL");
     
     if (!response.ok) {
       console.error("Exchange rate API error:", response.status);
-      // Fallback rates if API fails (approximate values)
       return getFallbackRate(currency);
     }
     
     const data = await response.json();
-    // The API returns rates FROM BRL, so we need the inverse
-    // e.g., if 1 BRL = 0.18 EUR, then 1 EUR = 5.56 BRL
     const rates: Record<string, number> = {};
     
     if (data.rates) {
@@ -134,7 +129,6 @@ async function getExchangeRateToBRL(currency: string): Promise<number> {
       }
     }
     
-    // Cache the rates
     exchangeRateCache = {
       rates,
       fetchedAt: now,
@@ -153,15 +147,14 @@ async function getExchangeRateToBRL(currency: string): Promise<number> {
   }
 }
 
-// Fallback rates for common currencies (approximations)
 function getFallbackRate(currency: string): number {
   const fallbackRates: Record<string, number> = {
-    USD: 5.50,  // 1 USD ≈ 5.50 BRL
-    EUR: 6.00,  // 1 EUR ≈ 6.00 BRL
-    GBP: 7.00,  // 1 GBP ≈ 7.00 BRL
-    CAD: 4.00,  // 1 CAD ≈ 4.00 BRL
-    AUD: 3.60,  // 1 AUD ≈ 3.60 BRL
-    MXN: 0.32,  // 1 MXN ≈ 0.32 BRL
+    USD: 5.50,
+    EUR: 6.00,
+    GBP: 7.00,
+    CAD: 4.00,
+    AUD: 3.60,
+    MXN: 0.32,
   };
   
   const rate = fallbackRates[currency];
@@ -174,7 +167,6 @@ function getFallbackRate(currency: string): number {
   return 1;
 }
 
-// Convert value to BRL if needed
 async function convertToBRL(value: number, currency: string): Promise<number> {
   if (currency === "BRL") return value;
   
@@ -186,7 +178,6 @@ async function convertToBRL(value: number, currency: string): Promise<number> {
 }
 
 async function getAccessToken(): Promise<string> {
-  // Check if we have a valid cached token (with 5 minutes buffer)
   const now = Date.now();
   if (cachedToken && cachedToken.expiresAt > now + 5 * 60 * 1000) {
     console.log("Using cached token");
@@ -202,7 +193,6 @@ async function getAccessToken(): Promise<string> {
     throw new Error("HOTMART_CLIENT_ID or HOTMART_CLIENT_SECRET not configured");
   }
 
-  // Create Basic auth header from client credentials
   const credentials = btoa(`${clientId}:${clientSecret}`);
 
   const response = await fetch("https://api-sec-vlc.hotmart.com/security/oauth/token?grant_type=client_credentials", {
@@ -221,7 +211,6 @@ async function getAccessToken(): Promise<string> {
 
   const data: HotmartToken = await response.json();
   
-  // Cache the token
   cachedToken = {
     token: data.access_token,
     expiresAt: now + data.expires_in * 1000,
@@ -311,22 +300,18 @@ async function fetchProducts(accessToken: string, includePrices: boolean = false
 
     nextPageToken = data.page_info?.next_page_token ?? null;
 
-    // Rate limiting: wait 100ms between requests
     if (!nextPageToken) break;
     await new Promise((r) => setTimeout(r, 100));
   }
 
-  // Fetch prices for each product if requested
   if (includePrices) {
     console.log("Fetching prices for products...");
     for (const product of allProducts) {
       const plans = await fetchProductPlans(accessToken, product.id);
       if (plans.length > 0) {
-        // Get the highest price among all plans (main product price)
         const maxPrice = Math.max(...plans.map(p => p.price?.value || 0));
         product.price = maxPrice;
       }
-      // Rate limiting
       await new Promise((r) => setTimeout(r, 100));
     }
   }
@@ -351,7 +336,6 @@ async function fetchSalesHistory(
   const startTimestamp = startDate.getTime();
   const endTimestamp = endDate.getTime();
 
-  // Hotmart expects specific status values
   const normalizeStatus = (s: string) => {
     const map: Record<string, string> = {
       COMPLETED: "COMPLETE",
@@ -394,7 +378,6 @@ async function fetchSalesHistory(
 
     const reachedPageLimit = !!options?.maxPages && pageCount >= options.maxPages;
 
-    // Rate limiting: wait 100ms between requests
     if (!nextPageToken || reachedPageLimit) break;
     await new Promise((r) => setTimeout(r, 100));
   }
@@ -403,7 +386,6 @@ async function fetchSalesHistory(
   return allSales;
 }
 
-// Fetch sale details using history endpoint (returns purchase status)
 async function fetchSaleDetails(accessToken: string, transactionId: string): Promise<any> {
   console.log(`Fetching sale details for transaction: ${transactionId}`);
   
@@ -428,7 +410,6 @@ async function fetchSaleDetails(accessToken: string, transactionId: string): Pro
   return data;
 }
 
-// Status considerados como "pago" pela Hotmart (inclui COMPLETE e COMPLETED)
 const PAID_STATUSES = new Set(["APPROVED", "COMPLETE", "COMPLETED"]);
 const CANCELLED_STATUSES = new Set(["CANCELED", "REFUNDED", "CHARGEBACK"]);
 
@@ -459,8 +440,29 @@ function mapHotmartStatus(status: string): string {
   return statusMap[status] || "pending";
 }
 
+/**
+ * Determines if this sale results in a FULL (integral) payment to the producer.
+ * 
+ * Credit card payments (even when buyer pays in installments) are received
+ * in full by the producer. The installment is between the buyer and the card operator.
+ * 
+ * Billet (boleto) parcelado and recurring subscriptions are actually received
+ * in installments by the producer.
+ */
+function isFullPayment(sale: HotmartSale): boolean {
+  const paymentType = sale.purchase.payment.type;
+  const isSubscription = sale.purchase.is_subscription === true;
+  const recurrencyNumber = sale.purchase.recurrency_number || 0;
+  
+  // Credit card (not subscription, not recurring) = full payment
+  if (paymentType === "CREDIT_CARD" && !isSubscription && recurrencyNumber <= 1) {
+    return true;
+  }
+  
+  return false;
+}
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -488,14 +490,12 @@ serve(async (req) => {
           });
         }
 
-        // Fetch prices from Offers API for each product
         console.log("Fetching product prices from Offers API for get_products...");
         const productsWithPrices = [];
         
         for (const product of products) {
           const offers = await fetchProductOffers(accessToken, product.ucode);
           
-          // Get price from main offer, or fallback to highest price
           let productPrice = 0;
           const mainOffer = offers.find(o => o.is_main_offer);
           if (mainOffer?.price?.value) {
@@ -512,7 +512,6 @@ serve(async (req) => {
             price: productPrice,
           });
           
-          // Rate limiting
           await new Promise(r => setTimeout(r, 50));
         }
         
@@ -524,7 +523,6 @@ serve(async (req) => {
       }
 
       case "sync_products": {
-        // Fetch products and get prices from offers API
         const hotmartProducts = await fetchProducts(accessToken, false);
         
         console.log("Fetching product prices from Offers API...");
@@ -534,17 +532,14 @@ serve(async (req) => {
         let pricesFound = 0;
         
         for (const product of hotmartProducts) {
-          // Fetch the product offers to get the correct price
           const offers = await fetchProductOffers(accessToken, product.ucode);
           
-          // Get price from main offer, or fallback to first offer with price
           let productPrice = 0;
           const mainOffer = offers.find(o => o.is_main_offer);
           if (mainOffer?.price?.value) {
             productPrice = mainOffer.price.value;
             pricesFound++;
           } else if (offers.length > 0) {
-            // Get highest price from all offers
             const maxPrice = Math.max(...offers.map(o => o.price?.value || 0));
             if (maxPrice > 0) {
               productPrice = maxPrice;
@@ -554,7 +549,6 @@ serve(async (req) => {
           
           console.log(`Product ${product.name}: price from offers = ${productPrice}`);
           
-          // Check if product already exists by name or ucode
           const { data: existingProduct } = await supabase
             .from("products")
             .select("id")
@@ -580,12 +574,11 @@ serve(async (req) => {
               .from("products")
               .insert({
                 ...productData,
-                default_commission_percent: 5, // Default commission
+                default_commission_percent: 5,
               });
             created++;
           }
           
-          // Rate limiting between products
           await new Promise(r => setTimeout(r, 100));
         }
         
@@ -601,14 +594,11 @@ serve(async (req) => {
       }
 
       case "sync_installments": {
-        // Fetch subscriptions and payments to update installment statuses
-        // Now also handles single-installment sales (parcela única)
         console.log("Syncing installments from Hotmart (including single-payment sales)");
         
-        // Get all sales from Hotmart platform with installment info
         const { data: hotmartSales, error: salesError } = await supabase
           .from("sales")
-          .select("id, external_id, installments_count")
+          .select("id, external_id, installments_count, payment_type")
           .eq("platform", "hotmart");
         
         if (salesError) throw salesError;
@@ -619,7 +609,6 @@ serve(async (req) => {
         
         for (const sale of hotmartSales || []) {
           try {
-            // Get sale details from Hotmart using history endpoint (returns actual status)
             const details = await fetchSaleDetails(accessToken, sale.external_id);
             
             if (!details?.items?.[0]) {
@@ -630,10 +619,12 @@ serve(async (req) => {
             const saleInfo = details.items[0];
             const purchaseStatus = saleInfo.purchase?.status || "PENDING";
             console.log(`Transaction ${sale.external_id}: status=${purchaseStatus}`);
-            const isSingleInstallment = (sale.installments_count || 1) === 1;
+            
+            // Check if this is a full payment (credit card, non-subscription)
+            const fullPayment = isFullPayment(saleInfo);
+            const isSingleInstallment = fullPayment || (sale.installments_count || 1) === 1;
             const recurrencyNumber = saleInfo.purchase?.recurrency_number || 0;
             
-            // Get installments for this sale
             const { data: installments } = await supabase
               .from("installments")
               .select("id, installment_number, status, total_installments")
@@ -643,16 +634,11 @@ serve(async (req) => {
             if (!installments) continue;
             
             for (const installment of installments) {
-              // Determine if this installment is paid:
-              // - For single-installment sales: check if purchase status is APPROVED/COMPLETE/COMPLETED
-              // - For multi-installment sales: check recurrency_number
               let installmentIsPaid = false;
               
               if (isSingleInstallment || installment.total_installments === 1) {
-                // Single payment sale - mark as paid if status is APPROVED, COMPLETE or COMPLETED
                 installmentIsPaid = isPaidStatus(purchaseStatus);
               } else {
-                // Multi-installment sale - use recurrency_number
                 installmentIsPaid = installment.installment_number <= recurrencyNumber && isPaidStatus(purchaseStatus);
               }
               
@@ -660,12 +646,10 @@ serve(async (req) => {
                                isCancelledStatus(purchaseStatus) ? "cancelled" :
                                "pending";
               
-              // Log para debug
               console.log(`Installment ${installment.installment_number}: current=${installment.status}, calculated=${newStatus}, hotmartStatus=${purchaseStatus}`);
               
               if (installment.status !== newStatus) {
                 console.log(`Updating installment ${installment.id}: ${installment.status} -> ${newStatus}`);
-                // Update installment
                 await supabase
                   .from("installments")
                   .update({ 
@@ -674,7 +658,6 @@ serve(async (req) => {
                   })
                   .eq("id", installment.id);
                 
-                // Update commission
                 const commissionStatus = newStatus === "paid" ? "released" :
                                         newStatus === "cancelled" ? "cancelled" : "pending";
                 
@@ -690,7 +673,6 @@ serve(async (req) => {
               }
             }
             
-            // Rate limiting
             await new Promise(r => setTimeout(r, 100));
           } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
@@ -724,7 +706,6 @@ serve(async (req) => {
         if (!transactionId) {
           throw new Error("transactionId is required");
         }
-        // Use history endpoint to get full sale details including purchase status
         const details = await fetchSaleDetails(accessToken, transactionId);
         return new Response(JSON.stringify({ success: true, summary: details }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -743,42 +724,44 @@ serve(async (req) => {
         
         for (const sale of sales) {
           try {
-            // Convert value to BRL if sale was made in foreign currency
             const originalValue = sale.purchase.price.value;
             const originalCurrency = sale.purchase.price.currency_code || "BRL";
             const valueInBRL = await convertToBRL(originalValue, originalCurrency);
             
             console.log(`Sale ${sale.purchase.transaction}: ${originalValue} ${originalCurrency} -> ${valueInBRL.toFixed(2)} BRL`);
             
-            // IMPORTANT: seller_id must ALWAYS be null for automatic syncs
-            // Seller assignment must be done MANUALLY by admin/financeiro
+            // Determine installments count: credit card (non-subscription) = always 1
+            const fullPayment = isFullPayment(sale);
+            const effectiveInstallments = fullPayment ? 1 : (sale.purchase.payment.installments_number || 1);
+            
+            if (fullPayment) {
+              console.log(`Sale ${sale.purchase.transaction}: CREDIT_CARD full payment detected, forcing installments_count=1 (original: ${sale.purchase.payment.installments_number})`);
+            }
+            
             const saleData = {
               external_id: sale.purchase.transaction,
               client_name: sale.buyer.name,
               client_email: sale.buyer.email,
               client_phone: sale.buyer.phone || null,
               product_name: sale.product.name,
-              total_value: Math.round(valueInBRL * 100) / 100, // Round to 2 decimal places
-              original_value: originalCurrency !== "BRL" ? originalValue : null, // Store original value if foreign currency
-              original_currency: originalCurrency !== "BRL" ? originalCurrency : null, // Store original currency if not BRL
-              installments_count: sale.purchase.payment.installments_number || 1,
+              total_value: Math.round(valueInBRL * 100) / 100,
+              original_value: originalCurrency !== "BRL" ? originalValue : null,
+              original_currency: originalCurrency !== "BRL" ? originalCurrency : null,
+              installments_count: effectiveInstallments,
               platform: "hotmart",
-              commission_percent: 0, // Will be set based on product config
+              commission_percent: 0,
               sale_date: sale.purchase.approved_date 
                 ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
                 : new Date().toISOString().split('T')[0],
               status: mapHotmartStatus(sale.purchase.status) === "paid" ? "active" : "cancelled",
-              seller_id: null, // NEVER auto-assign - must be manual
+              seller_id: null,
               payment_type: sale.purchase.payment.type || null,
-              // Tracking fields for UTM and source info
               tracking_source: sale.purchase.tracking?.source || null,
               tracking_source_sck: sale.purchase.tracking?.source_sck || null,
               tracking_external_code: sale.purchase.tracking?.external_code || null,
-              // Derive funnel_source from tracking data
               funnel_source: sale.purchase.tracking?.source_sck || sale.purchase.tracking?.source || sale.purchase.tracking?.external_code || null,
             };
             
-            // Check if sale already exists
             const { data: existingSale } = await supabase
               .from("sales")
               .select("id")
@@ -786,7 +769,6 @@ serve(async (req) => {
               .single();
             
             if (existingSale) {
-              // Update existing sale
               const { error } = await supabase
                 .from("sales")
                 .update(saleData)
@@ -795,18 +777,95 @@ serve(async (req) => {
               if (error) throw error;
               updated++;
               
-              // Update installments
-              const installmentValue = saleData.total_value / saleData.installments_count;
-              for (let i = 1; i <= saleData.installments_count; i++) {
-                const recurrencyNumber = sale.purchase.recurrency_number || 0;
-                const installmentStatus = i <= recurrencyNumber 
-                  ? mapHotmartStatus(sale.purchase.status)
-                  : "pending";
+              // Update installments - for full payment, single installment with total value
+              if (fullPayment) {
+                // Delete extra installments if they exist
+                await supabase
+                  .from("installments")
+                  .delete()
+                  .eq("sale_id", existingSale.id)
+                  .gt("installment_number", 1);
                 
-                const { error: installmentError } = await supabase
+                const installmentStatus = isPaidStatus(sale.purchase.status) ? "paid" : "pending";
+                
+                await supabase
                   .from("installments")
                   .upsert({
                     sale_id: existingSale.id,
+                    installment_number: 1,
+                    total_installments: 1,
+                    value: saleData.total_value,
+                    due_date: saleData.sale_date,
+                    status: installmentStatus,
+                    payment_date: installmentStatus === "paid" && sale.purchase.approved_date
+                      ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
+                      : null,
+                  }, {
+                    onConflict: "sale_id,installment_number",
+                  });
+              } else {
+                const installmentValue = saleData.total_value / saleData.installments_count;
+                for (let i = 1; i <= saleData.installments_count; i++) {
+                  const recurrencyNumber = sale.purchase.recurrency_number || 0;
+                  const installmentStatus = i <= recurrencyNumber 
+                    ? mapHotmartStatus(sale.purchase.status)
+                    : "pending";
+                  
+                  await supabase
+                    .from("installments")
+                    .upsert({
+                      sale_id: existingSale.id,
+                      installment_number: i,
+                      total_installments: saleData.installments_count,
+                      value: installmentValue,
+                      due_date: new Date(
+                        new Date(saleData.sale_date).getTime() + (i - 1) * 30 * 24 * 60 * 60 * 1000
+                      ).toISOString().split('T')[0],
+                      status: installmentStatus,
+                      payment_date: installmentStatus === "paid" && sale.purchase.approved_date
+                        ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
+                        : null,
+                    }, {
+                      onConflict: "sale_id,installment_number",
+                    });
+                }
+              }
+            } else {
+              const { data: newSale, error } = await supabase
+                .from("sales")
+                .insert(saleData)
+                .select("id")
+                .single();
+              
+              if (error) throw error;
+              created++;
+              
+              // Create installments - for full payment, single installment with total value
+              if (fullPayment) {
+                const installmentStatus = isPaidStatus(sale.purchase.status) ? "paid" : "pending";
+                
+                await supabase.from("installments").insert({
+                  sale_id: newSale.id,
+                  installment_number: 1,
+                  total_installments: 1,
+                  value: saleData.total_value,
+                  due_date: saleData.sale_date,
+                  status: installmentStatus,
+                  payment_date: installmentStatus === "paid" && sale.purchase.approved_date
+                    ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
+                    : null,
+                });
+              } else {
+                const installmentValue = saleData.total_value / saleData.installments_count;
+                const installments = [];
+                for (let i = 1; i <= saleData.installments_count; i++) {
+                  const recurrencyNumber = sale.purchase.recurrency_number || 0;
+                  const installmentStatus = i <= recurrencyNumber 
+                    ? mapHotmartStatus(sale.purchase.status)
+                    : "pending";
+                  
+                  installments.push({
+                    sale_id: newSale.id,
                     installment_number: i,
                     total_installments: saleData.installments_count,
                     value: installmentValue,
@@ -817,55 +876,16 @@ serve(async (req) => {
                     payment_date: installmentStatus === "paid" && sale.purchase.approved_date
                       ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
                       : null,
-                  }, {
-                    onConflict: "sale_id,installment_number",
                   });
+                }
+                
+                const { error: installmentError } = await supabase
+                  .from("installments")
+                  .insert(installments);
                 
                 if (installmentError) {
-                  console.error("Installment update error:", installmentError);
+                  console.error("Installment creation error:", installmentError);
                 }
-              }
-            } else {
-              // Create new sale
-              const { data: newSale, error } = await supabase
-                .from("sales")
-                .insert(saleData)
-                .select("id")
-                .single();
-              
-              if (error) throw error;
-              created++;
-              
-              // Create installments
-              const installmentValue = saleData.total_value / saleData.installments_count;
-              const installments = [];
-              for (let i = 1; i <= saleData.installments_count; i++) {
-                const recurrencyNumber = sale.purchase.recurrency_number || 0;
-                const installmentStatus = i <= recurrencyNumber 
-                  ? mapHotmartStatus(sale.purchase.status)
-                  : "pending";
-                
-                installments.push({
-                  sale_id: newSale.id,
-                  installment_number: i,
-                  total_installments: saleData.installments_count,
-                  value: installmentValue,
-                  due_date: new Date(
-                    new Date(saleData.sale_date).getTime() + (i - 1) * 30 * 24 * 60 * 60 * 1000
-                  ).toISOString().split('T')[0],
-                  status: installmentStatus,
-                  payment_date: installmentStatus === "paid" && sale.purchase.approved_date
-                    ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
-                    : null,
-                });
-              }
-              
-              const { error: installmentError } = await supabase
-                .from("installments")
-                .insert(installments);
-              
-              if (installmentError) {
-                console.error("Installment creation error:", installmentError);
               }
             }
           } catch (error: unknown) {
@@ -876,7 +896,6 @@ serve(async (req) => {
           }
         }
         
-        // Log import
         const authHeader = req.headers.get("Authorization");
         let userId = null;
         if (authHeader) {
@@ -902,17 +921,15 @@ serve(async (req) => {
           created,
           updated,
           failed,
-          errors: errors.slice(0, 10), // Limit errors in response
+          errors: errors.slice(0, 10),
         }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       
       case "scheduled_sync": {
-        // Automated sync triggered by cron job
         console.log("Starting scheduled Hotmart sync");
         
-        // Create sync log entry
         const { data: syncLog, error: logError } = await supabase
           .from("hotmart_sync_logs")
           .insert({
@@ -929,7 +946,6 @@ serve(async (req) => {
         const logId = syncLog?.id;
         
         try {
-          // Sync last 24 hours of sales
           const start = new Date(Date.now() - 24 * 60 * 60 * 1000);
           const end = new Date();
           
@@ -942,18 +958,12 @@ serve(async (req) => {
           let installmentsUpdated = 0;
           const errors: string[] = [];
           
-          // IMPORTANT: seller_id must ALWAYS be null for automatic syncs
-          // Seller assignment must be done MANUALLY by admin/financeiro
-          
           for (const sale of sales) {
             try {
-              // Extract tracking info for origin
               const trackingSource = sale.purchase.tracking?.source || null;
               const trackingSourceSck = sale.purchase.tracking?.source_sck || null;
               const trackingExternalCode = sale.purchase.tracking?.external_code || null;
               
-              // Derive funnel_source from tracking data when available
-              // Priority: source_sck (usually contains campaign/funnel name) > source > external_code
               let funnelSource: string | null = null;
               if (trackingSourceSck) {
                 funnelSource = trackingSourceSck;
@@ -963,6 +973,14 @@ serve(async (req) => {
                 funnelSource = trackingExternalCode;
               }
               
+              // Determine installments count: credit card (non-subscription) = always 1
+              const fullPayment = isFullPayment(sale);
+              const effectiveInstallments = fullPayment ? 1 : (sale.purchase.payment.installments_number || 1);
+              
+              if (fullPayment) {
+                console.log(`Sale ${sale.purchase.transaction}: CREDIT_CARD full payment, forcing installments_count=1 (original: ${sale.purchase.payment.installments_number})`);
+              }
+              
               const saleData = {
                 external_id: sale.purchase.transaction,
                 client_name: sale.buyer.name,
@@ -970,24 +988,21 @@ serve(async (req) => {
                 client_phone: sale.buyer.phone || null,
                 product_name: sale.product.name,
                 total_value: sale.purchase.price.value,
-                installments_count: sale.purchase.payment.installments_number || 1,
+                installments_count: effectiveInstallments,
                 platform: "hotmart",
                 commission_percent: 0,
                 sale_date: sale.purchase.approved_date 
                   ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
                   : new Date().toISOString().split('T')[0],
                 status: mapHotmartStatus(sale.purchase.status) === "paid" ? "active" : "cancelled",
-                seller_id: null, // NEVER auto-assign - must be manual
+                seller_id: null,
                 payment_type: sale.purchase.payment.type || null,
-                // Tracking fields for UTM and source info
                 tracking_source: trackingSource,
                 tracking_source_sck: trackingSourceSck,
                 tracking_external_code: trackingExternalCode,
-                // Set funnel_source from tracking data
                 funnel_source: funnelSource,
               };
               
-              // Check if sale already exists
               const { data: existingSale } = await supabase
                 .from("sales")
                 .select("id")
@@ -1003,44 +1018,92 @@ serve(async (req) => {
                 if (error) throw error;
                 updated++;
                 
-                // Update installments status based on recurrency_number
-                const recurrencyNumber = sale.purchase.recurrency_number || 0;
-                const { data: installments } = await supabase
-                  .from("installments")
-                  .select("id, installment_number, status")
-                  .eq("sale_id", existingSale.id);
-                
-                for (const inst of installments || []) {
-                  const instIsPaid = inst.installment_number <= recurrencyNumber && isPaidStatus(sale.purchase.status);
+                if (fullPayment) {
+                  // For full payment: ensure only 1 installment with total value
+                  // Delete extra installments first
+                  await supabase
+                    .from("installments")
+                    .delete()
+                    .eq("sale_id", existingSale.id)
+                    .gt("installment_number", 1);
                   
-                  const newStatus = instIsPaid ? "paid" : 
-                                   isCancelledStatus(sale.purchase.status) ? "cancelled" :
-                                   "pending";
+                  const installmentStatus = isPaidStatus(sale.purchase.status) ? "paid" : 
+                                           isCancelledStatus(sale.purchase.status) ? "cancelled" : "pending";
                   
-                  if (inst.status !== newStatus) {
-                    await supabase
-                      .from("installments")
-                      .update({ 
-                        status: newStatus,
-                        payment_date: instIsPaid && sale.purchase.approved_date
-                          ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
-                          : null,
-                      })
-                      .eq("id", inst.id);
+                  const { data: existingInst } = await supabase
+                    .from("installments")
+                    .select("id, status")
+                    .eq("sale_id", existingSale.id)
+                    .eq("installment_number", 1)
+                    .maybeSingle();
+                  
+                  if (existingInst) {
+                    if (existingInst.status !== installmentStatus) {
+                      await supabase
+                        .from("installments")
+                        .update({ 
+                          status: installmentStatus,
+                          value: saleData.total_value,
+                          total_installments: 1,
+                          payment_date: installmentStatus === "paid" && sale.purchase.approved_date
+                            ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
+                            : null,
+                        })
+                        .eq("id", existingInst.id);
+                      
+                      const commissionStatus = installmentStatus === "paid" ? "released" :
+                                              installmentStatus === "cancelled" ? "cancelled" : "pending";
+                      
+                      await supabase
+                        .from("commissions")
+                        .update({ 
+                          status: commissionStatus,
+                          released_at: installmentStatus === "paid" ? new Date().toISOString() : null,
+                        })
+                        .eq("installment_id", existingInst.id);
+                      
+                      installmentsUpdated++;
+                    }
+                  }
+                } else {
+                  // Multi-installment: update status based on recurrency_number
+                  const recurrencyNumber = sale.purchase.recurrency_number || 0;
+                  const { data: installments } = await supabase
+                    .from("installments")
+                    .select("id, installment_number, status")
+                    .eq("sale_id", existingSale.id);
+                  
+                  for (const inst of installments || []) {
+                    const instIsPaid = inst.installment_number <= recurrencyNumber && isPaidStatus(sale.purchase.status);
                     
-                    // Update commission
-                    const commissionStatus = newStatus === "paid" ? "released" :
-                                            newStatus === "cancelled" ? "cancelled" : "pending";
+                    const newStatus = instIsPaid ? "paid" : 
+                                     isCancelledStatus(sale.purchase.status) ? "cancelled" :
+                                     "pending";
                     
-                    await supabase
-                      .from("commissions")
-                      .update({ 
-                        status: commissionStatus,
-                        released_at: newStatus === "paid" ? new Date().toISOString() : null,
-                      })
-                      .eq("installment_id", inst.id);
-                    
-                    installmentsUpdated++;
+                    if (inst.status !== newStatus) {
+                      await supabase
+                        .from("installments")
+                        .update({ 
+                          status: newStatus,
+                          payment_date: instIsPaid && sale.purchase.approved_date
+                            ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
+                            : null,
+                        })
+                        .eq("id", inst.id);
+                      
+                      const commissionStatus = newStatus === "paid" ? "released" :
+                                              newStatus === "cancelled" ? "cancelled" : "pending";
+                      
+                      await supabase
+                        .from("commissions")
+                        .update({ 
+                          status: commissionStatus,
+                          released_at: newStatus === "paid" ? new Date().toISOString() : null,
+                        })
+                        .eq("installment_id", inst.id);
+                      
+                      installmentsUpdated++;
+                    }
                   }
                 }
               } else {
@@ -1053,31 +1116,47 @@ serve(async (req) => {
                 if (error) throw error;
                 created++;
                 
-                // Create installments
-                const installmentValue = saleData.total_value / saleData.installments_count;
-                const installments = [];
-                for (let i = 1; i <= saleData.installments_count; i++) {
-                  const recurrencyNumber = sale.purchase.recurrency_number || 0;
-                  const installmentStatus = i <= recurrencyNumber 
-                    ? mapHotmartStatus(sale.purchase.status)
-                    : "pending";
+                if (fullPayment) {
+                  // Single installment with total value
+                  const installmentStatus = isPaidStatus(sale.purchase.status) ? "paid" : "pending";
                   
-                  installments.push({
+                  await supabase.from("installments").insert({
                     sale_id: newSale.id,
-                    installment_number: i,
-                    total_installments: saleData.installments_count,
-                    value: installmentValue,
-                    due_date: new Date(
-                      new Date(saleData.sale_date).getTime() + (i - 1) * 30 * 24 * 60 * 60 * 1000
-                    ).toISOString().split('T')[0],
+                    installment_number: 1,
+                    total_installments: 1,
+                    value: saleData.total_value,
+                    due_date: saleData.sale_date,
                     status: installmentStatus,
                     payment_date: installmentStatus === "paid" && sale.purchase.approved_date
                       ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
                       : null,
                   });
+                } else {
+                  const installmentValue = saleData.total_value / saleData.installments_count;
+                  const installments = [];
+                  for (let i = 1; i <= saleData.installments_count; i++) {
+                    const recurrencyNumber = sale.purchase.recurrency_number || 0;
+                    const installmentStatus = i <= recurrencyNumber 
+                      ? mapHotmartStatus(sale.purchase.status)
+                      : "pending";
+                    
+                    installments.push({
+                      sale_id: newSale.id,
+                      installment_number: i,
+                      total_installments: saleData.installments_count,
+                      value: installmentValue,
+                      due_date: new Date(
+                        new Date(saleData.sale_date).getTime() + (i - 1) * 30 * 24 * 60 * 60 * 1000
+                      ).toISOString().split('T')[0],
+                      status: installmentStatus,
+                      payment_date: installmentStatus === "paid" && sale.purchase.approved_date
+                        ? new Date(sale.purchase.approved_date).toISOString().split('T')[0]
+                        : null,
+                    });
+                  }
+                  
+                  await supabase.from("installments").insert(installments);
                 }
-                
-                await supabase.from("installments").insert(installments);
               }
             } catch (error: unknown) {
               const errorMessage = error instanceof Error ? error.message : String(error);
@@ -1091,12 +1170,11 @@ serve(async (req) => {
           console.log("Syncing installments for existing Hotmart sales...");
           const { data: existingHotmartSales } = await supabase
             .from("sales")
-            .select("id, external_id")
+            .select("id, external_id, payment_type, installments_count")
             .eq("platform", "hotmart");
           
           for (const existingSale of existingHotmartSales || []) {
             try {
-              // Get sale details from Hotmart using history endpoint
               const details = await fetchSaleDetails(accessToken, existingSale.external_id);
               
               if (!details?.items?.[0]) continue;
@@ -1105,7 +1183,9 @@ serve(async (req) => {
               const recurrencyNumber = saleInfo.purchase?.recurrency_number || 1;
               const purchaseStatus = saleInfo.purchase?.status || "PENDING";
               
-              // Get installments for this sale
+              // Check if this is a full payment sale
+              const fullPayment = isFullPayment(saleInfo);
+              
               const { data: installments } = await supabase
                 .from("installments")
                 .select("id, installment_number, status")
@@ -1114,41 +1194,73 @@ serve(async (req) => {
               
               if (!installments) continue;
               
-              for (const installment of installments) {
-                // Determine if this installment is paid based on recurrency
-                const instIsPaid = installment.installment_number <= recurrencyNumber && isPaidStatus(purchaseStatus);
-                
-                const newStatus = instIsPaid ? "paid" : 
-                                 isCancelledStatus(purchaseStatus) ? "cancelled" :
-                                 "pending";
-                
-                if (installment.status !== newStatus) {
-                  // Update installment
-                  await supabase
-                    .from("installments")
-                    .update({ 
-                      status: newStatus,
-                      payment_date: instIsPaid ? new Date().toISOString().split('T')[0] : null,
-                    })
-                    .eq("id", installment.id);
+              if (fullPayment) {
+                // For full payment: mark installment 1 as paid if status is paid
+                for (const installment of installments) {
+                  if (installment.installment_number === 1) {
+                    const instIsPaid = isPaidStatus(purchaseStatus);
+                    const newStatus = instIsPaid ? "paid" : 
+                                     isCancelledStatus(purchaseStatus) ? "cancelled" : "pending";
+                    
+                    if (installment.status !== newStatus) {
+                      await supabase
+                        .from("installments")
+                        .update({ 
+                          status: newStatus,
+                          payment_date: instIsPaid ? new Date().toISOString().split('T')[0] : null,
+                        })
+                        .eq("id", installment.id);
+                      
+                      const commissionStatus = newStatus === "paid" ? "released" :
+                                              newStatus === "cancelled" ? "cancelled" : "pending";
+                      
+                      await supabase
+                        .from("commissions")
+                        .update({ 
+                          status: commissionStatus,
+                          released_at: newStatus === "paid" ? new Date().toISOString() : null,
+                        })
+                        .eq("installment_id", installment.id);
+                      
+                      installmentsUpdated++;
+                    }
+                  }
+                  // Extra installments (>1) for full payment should not exist,
+                  // but they'll be cleaned up by the migration
+                }
+              } else {
+                for (const installment of installments) {
+                  const instIsPaid = installment.installment_number <= recurrencyNumber && isPaidStatus(purchaseStatus);
                   
-                  // Update commission
-                  const commissionStatus = newStatus === "paid" ? "released" :
-                                          newStatus === "cancelled" ? "cancelled" : "pending";
+                  const newStatus = instIsPaid ? "paid" : 
+                                   isCancelledStatus(purchaseStatus) ? "cancelled" :
+                                   "pending";
                   
-                  await supabase
-                    .from("commissions")
-                    .update({ 
-                      status: commissionStatus,
-                      released_at: newStatus === "paid" ? new Date().toISOString() : null,
-                    })
-                    .eq("installment_id", installment.id);
-                  
-                  installmentsUpdated++;
+                  if (installment.status !== newStatus) {
+                    await supabase
+                      .from("installments")
+                      .update({ 
+                        status: newStatus,
+                        payment_date: instIsPaid ? new Date().toISOString().split('T')[0] : null,
+                      })
+                      .eq("id", installment.id);
+                    
+                    const commissionStatus = newStatus === "paid" ? "released" :
+                                            newStatus === "cancelled" ? "cancelled" : "pending";
+                    
+                    await supabase
+                      .from("commissions")
+                      .update({ 
+                        status: commissionStatus,
+                        released_at: newStatus === "paid" ? new Date().toISOString() : null,
+                      })
+                      .eq("installment_id", installment.id);
+                    
+                    installmentsUpdated++;
+                  }
                 }
               }
               
-              // Rate limiting
               await new Promise(r => setTimeout(r, 100));
             } catch (err: unknown) {
               const errorMessage = err instanceof Error ? err.message : String(err);
@@ -1157,7 +1269,6 @@ serve(async (req) => {
             }
           }
           
-          // Update sync log with results
           if (logId) {
             await supabase
               .from("hotmart_sync_logs")
@@ -1191,7 +1302,6 @@ serve(async (req) => {
           const errorMessage = error instanceof Error ? error.message : String(error);
           console.error("Scheduled sync error:", error);
           
-          // Update sync log with error
           if (logId) {
             await supabase
               .from("hotmart_sync_logs")
@@ -1208,21 +1318,18 @@ serve(async (req) => {
       }
       
       case "update_tracking": {
-        // Update tracking info for existing sales that are missing it
         console.log("Updating tracking info for existing Hotmart sales");
         
-        // Get Hotmart sales that are missing tracking info (only where sck is null)
         const { data: hotmartSales, error: salesError } = await supabase
           .from("sales")
           .select("id, external_id, tracking_source, tracking_source_sck, tracking_external_code")
           .eq("platform", "hotmart")
           .is("tracking_source_sck", null)
           .order("sale_date", { ascending: false })
-          .limit(100); // Process in batches of 100
+          .limit(100);
         
         if (salesError) throw salesError;
         
-        // Get total count for progress
         const { count: totalMissing } = await supabase
           .from("sales")
           .select("id", { count: "exact", head: true })
@@ -1237,12 +1344,10 @@ serve(async (req) => {
         
         for (const sale of hotmartSales || []) {
           try {
-            // Get sale details from Hotmart API
             const details = await fetchSaleDetails(accessToken, sale.external_id);
             
             if (!details?.items?.[0]) {
               console.log(`No details found for transaction: ${sale.external_id}`);
-              // Mark as checked even if no details (set empty string to avoid re-querying)
               await supabase
                 .from("sales")
                 .update({ tracking_source_sck: "" })
@@ -1253,7 +1358,6 @@ serve(async (req) => {
             const saleInfo = details.items[0];
             const tracking = saleInfo.purchase?.tracking;
             
-            // Update tracking data (even if empty, to mark as checked)
             const trackingData = {
               tracking_source: tracking?.source || null,
               tracking_source_sck: tracking?.source_sck || "",
@@ -1270,7 +1374,6 @@ serve(async (req) => {
             if (updateError) throw updateError;
             updated++;
             
-            // Rate limiting
             await new Promise(r => setTimeout(r, 50));
           } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
