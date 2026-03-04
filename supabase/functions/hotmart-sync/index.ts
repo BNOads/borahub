@@ -462,6 +462,124 @@ function isFullPayment(sale: HotmartSale): boolean {
   return false;
 }
 
+const MARIA_ROSA_ID = "de5f094a-fd3e-4d01-9f37-78425ea3317f";
+
+/**
+ * Creates a support ticket automatically when a sale is refunded or chargebacked.
+ * Includes linked task, notification, and log entry.
+ */
+async function createRefundTicket(
+  supabase: ReturnType<typeof createClient>,
+  sale: HotmartSale,
+  hotmartStatus: string
+): Promise<void> {
+  const transactionId = sale.purchase.transaction;
+  const isChargeback = hotmartStatus === "CHARGEBACK";
+  const categoria = isChargeback ? "chargeback" : "reembolso";
+  const statusLabel = isChargeback ? "Chargeback" : "Reembolso";
+  
+  // Deduplication: check if ticket already exists for this transaction
+  const { data: existingTickets } = await supabase
+    .from("tickets")
+    .select("id")
+    .ilike("descricao", `%${transactionId}%`)
+    .limit(1);
+  
+  if (existingTickets && existingTickets.length > 0) {
+    console.log(`Ticket already exists for transaction ${transactionId}, skipping`);
+    return;
+  }
+  
+  const valor = sale.purchase.price.value;
+  const produto = sale.product.name;
+  const slaLimite = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+  
+  const descricao = `⚠️ ${statusLabel} automático detectado pela sincronização Hotmart.\n\n` +
+    `📋 Transação: ${transactionId}\n` +
+    `📦 Produto: ${produto}\n` +
+    `💰 Valor: R$ ${valor.toFixed(2)}\n` +
+    `👤 Cliente: ${sale.buyer.name}\n` +
+    `📧 E-mail: ${sale.buyer.email}\n` +
+    `📱 Telefone: ${sale.buyer.phone || "Não informado"}\n` +
+    `🔴 Status Hotmart: ${hotmartStatus}`;
+  
+  // 1. Create ticket
+  const { data: ticket, error: ticketError } = await supabase
+    .from("tickets")
+    .insert({
+      cliente_nome: sale.buyer.name,
+      cliente_email: sale.buyer.email,
+      cliente_whatsapp: sale.buyer.phone || "",
+      origem: "hotmart",
+      categoria,
+      descricao,
+      prioridade: "critica",
+      responsavel_id: MARIA_ROSA_ID,
+      criado_por: MARIA_ROSA_ID,
+      sla_limite: slaLimite,
+    })
+    .select("id, numero")
+    .single();
+  
+  if (ticketError) {
+    console.error(`Failed to create refund ticket for ${transactionId}:`, ticketError);
+    return;
+  }
+  
+  console.log(`Created refund ticket #${ticket.numero} for transaction ${transactionId} (${statusLabel})`);
+  
+  // 2. Get Maria Rosa's name for task
+  const { data: respProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", MARIA_ROSA_ID)
+    .single();
+  
+  // 3. Create linked task
+  const taskTitle = `Resolver Ticket #${ticket.numero} - ${sale.buyer.name} (${statusLabel})`;
+  const dueDateFromSla = new Date(slaLimite).toISOString().split("T")[0];
+  
+  const { data: task, error: taskError } = await supabase
+    .from("tasks")
+    .insert({
+      title: taskTitle,
+      description: descricao,
+      priority: "alta",
+      assignee: respProfile?.full_name ?? null,
+      assigned_to_id: MARIA_ROSA_ID,
+      due_date: dueDateFromSla,
+      created_by_id: MARIA_ROSA_ID,
+      ticket_id: ticket.id,
+    })
+    .select("id")
+    .single();
+  
+  if (!taskError && task) {
+    await supabase
+      .from("tickets")
+      .update({ linked_task_id: task.id })
+      .eq("id", ticket.id);
+  }
+  
+  // 4. Log creation
+  await supabase.from("ticket_logs").insert({
+    ticket_id: ticket.id,
+    usuario_id: null,
+    usuario_nome: "Sistema Automático",
+    acao: "criado",
+    descricao: `Ticket criado automaticamente pela sincronização Hotmart (${statusLabel})`,
+  });
+  
+  // 5. Notify Maria Rosa
+  await supabase.from("notifications").insert({
+    title: `🔴 ${statusLabel} Hotmart - ${sale.buyer.name}`,
+    message: `${statusLabel} detectado para ${sale.buyer.name} (${transactionId}). Ticket #${ticket.numero} criado com SLA de 2h.`,
+    type: "warning",
+    recipient_id: MARIA_ROSA_ID,
+    sender_id: null,
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -1005,11 +1123,13 @@ serve(async (req) => {
               
               const { data: existingSale } = await supabase
                 .from("sales")
-                .select("id")
+                .select("id, status")
                 .eq("external_id", sale.purchase.transaction)
                 .single();
               
               if (existingSale) {
+                const previousStatus = existingSale.status;
+                
                 const { error } = await supabase
                   .from("sales")
                   .update(saleData)
@@ -1017,6 +1137,20 @@ serve(async (req) => {
                 
                 if (error) throw error;
                 updated++;
+                
+                // Auto-create ticket for refunds/chargebacks
+                const hotmartStatus = sale.purchase.status;
+                if (
+                  previousStatus === "active" &&
+                  saleData.status === "cancelled" &&
+                  (hotmartStatus === "REFUNDED" || hotmartStatus === "CHARGEBACK")
+                ) {
+                  try {
+                    await createRefundTicket(supabase, sale, hotmartStatus);
+                  } catch (ticketErr) {
+                    console.error(`Failed to create refund ticket for ${sale.purchase.transaction}:`, ticketErr);
+                  }
+                }
                 
                 if (fullPayment) {
                   // For full payment: ensure only 1 installment with total value
