@@ -104,12 +104,15 @@ export function exportSalesReportPDF(params: PDFExportParams) {
   pdf.text("Resumo Geral", m, y);
   y += 8;
 
+  const totalCommissions = totals.commissionReleased + totals.commissionPending + totals.commissionSuspended;
+
   const kpis = [
     ["Faturamento Bruto", formatCurrency(totals.totalRevenue)],
     ["Total de Vendas", String(totals.totalSales)],
     ["Recebido", formatCurrency(revenueByStatus.received)],
     ["Pendente", formatCurrency(revenueByStatus.pending)],
     ["Inadimplente", formatCurrency(revenueByStatus.overdue)],
+    ["Total de Comissões", formatCurrency(totalCommissions)],
     ["Comissão Liberada", formatCurrency(totals.commissionReleased)],
     ["Comissão Pendente", formatCurrency(totals.commissionPending)],
     ["Comissão Suspensa", formatCurrency(totals.commissionSuspended)],
