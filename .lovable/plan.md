@@ -1,52 +1,52 @@
 
 
-## Plano: Criar Tickets Automáticos para Reembolsos Hotmart
+## Plano: Usar Preço Base do Produto (Sem Juros) para Vendas com Cartão de Crédito
 
-### Resumo
+### Problema
 
-Detectar vendas com status `REFUNDED` ou `CHARGEBACK` durante a sincronização automática (scheduled_sync) e criar automaticamente um ticket de suporte com SLA urgente (2h), direcionado para **Maria Rosa** (`de5f094a-fd3e-4d01-9f37-78425ea3317f`).
+A API da Hotmart retorna em `purchase.price.value` o valor **com juros do cartão** quando o comprador parcela no crédito. Como o produtor recebe o valor base (sem juros), o sistema deve gravar o preço da oferta/produto, não o preço com juros.
 
-### Mudanças
+### Solução
 
-#### 1. Edge Function `hotmart-sync/index.ts` — Scheduled Sync
+No `hotmart-sync/index.ts`, quando `isFullPayment(sale) === true` (cartão de crédito, não recorrente), buscar o preço base do produto na tabela `products` (já sincronizada via offers API da Hotmart) e usar esse valor ao invés de `purchase.price.value`.
 
-No fluxo `scheduled_sync`, após detectar que uma venda mudou para status `REFUNDED` ou `CHARGEBACK`, adicionar lógica para:
+### Mudanças — `supabase/functions/hotmart-sync/index.ts`
 
-1. Verificar se já existe um ticket para essa venda (evitar duplicatas) — buscar na tabela `tickets` por `descricao ILIKE '%{transaction_id}%'`
-2. Se não existir, criar um ticket:
-   - `cliente_nome`: nome do comprador
-   - `cliente_email`: email do comprador  
-   - `cliente_whatsapp`: telefone do comprador (se disponível, senão string vazia)
-   - `origem`: "hotmart"
-   - `categoria`: "reembolso" (para REFUNDED) ou "chargeback" (para CHARGEBACK)
-   - `descricao`: Texto descritivo com transação, produto, valor e status
-   - `prioridade`: "critica" (SLA de 2h)
-   - `responsavel_id`: `de5f094a-fd3e-4d01-9f37-78425ea3317f` (Maria Rosa)
-   - `criado_por`: mesmo ID (Maria Rosa, já que é automático)
-   - `sla_limite`: now + 2 horas
-3. Criar a tarefa vinculada ao ticket (mesma lógica do `useCreateTicket`)
-4. Criar notificação para Maria Rosa
-5. Registrar log no ticket
+#### 1. Criar helper `getBaseProductPrice`
 
-#### 2. Helper Function
-
-Criar uma função `createRefundTicket(supabase, sale, status)` que encapsula toda a lógica acima para manter o código organizado.
-
-#### 3. Onde inserir no fluxo
-
-No `scheduled_sync`, após o update da venda existente (linha ~1012-1018), verificar:
 ```text
-if sale was previously "active" and now maps to "cancelled"
-  AND original hotmart status is "REFUNDED" or "CHARGEBACK"
-  → call createRefundTicket()
+async function getBaseProductPrice(supabase, productName, purchasePrice):
+  // Buscar produto na tabela products pelo nome
+  product = SELECT price FROM products WHERE name = productName
+  if product exists AND product.price > 0:
+    return product.price
+  // Fallback: retornar o preço da compra se não encontrar o produto
+  return purchasePrice
 ```
 
-Para isso, buscar o status anterior da venda antes do update.
+#### 2. Aplicar nos fluxos `sync_sales` e `scheduled_sync`
 
-### Detalhes
+Em ambos os fluxos, após detectar `isFullPayment`, substituir:
+- `total_value: sale.purchase.price.value` → `total_value: await getBaseProductPrice(supabase, sale.product.name, sale.purchase.price.value)`
 
-- **Deduplicação**: Antes de criar, buscar tickets existentes com o `external_id` na descrição para evitar duplicatas em syncs consecutivos
-- **SLA**: Prioridade "critica" = 2 horas (já configurado no sistema)
-- **Categorias novas**: "reembolso" e "chargeback" serão adicionadas automaticamente ao criar tickets com esses valores
-- **Sem mudanças no banco**: Usa tabelas existentes (tickets, tasks, ticket_logs, notifications)
+Isso afeta:
+- **sync_sales** (~linha 865): `total_value` no `saleData`
+- **scheduled_sync** (~linha 1108): `total_value` no `saleData`
+
+A lógica de parcelas (installments) e comissões já usa `saleData.total_value`, então automaticamente receberão o valor correto.
+
+#### 3. Log para auditoria
+
+Adicionar log quando o preço base for diferente do preço da compra:
+```text
+if basePrice !== purchasePrice:
+  console.log(`Sale ${transaction}: Using base price ${basePrice} instead of purchase price ${purchasePrice} (interest removed)`)
+```
+
+### Considerações
+
+- **Fallback seguro**: Se o produto não existir na tabela `products` ou não tiver preço, usa o `purchase.price.value` original (comportamento atual)
+- **Produtos precisam estar sincronizados**: A ação "Sync Produtos" deve ter sido executada pelo menos uma vez para popular a tabela `products` com os preços das ofertas
+- **Vendas não-cartão**: Boleto parcelado e recorrência continuam usando `purchase.price.value` normalmente (sem juros nesses casos)
+- **Conversão de moeda**: Para vendas em USD/EUR, a conversão para BRL continua funcionando sobre o valor base
 
