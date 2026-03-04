@@ -1,52 +1,47 @@
 
 
-## Plano: Usar Preço Base do Produto (Sem Juros) para Vendas com Cartão de Crédito
+## Plano: Testar Sistema de Ticket de Reembolso
 
-### Problema
+### Objetivo
 
-A API da Hotmart retorna em `purchase.price.value` o valor **com juros do cartão** quando o comprador parcela no crédito. Como o produtor recebe o valor base (sem juros), o sistema deve gravar o preço da oferta/produto, não o preço com juros.
+Adicionar uma ação temporária `test_refund_ticket` na edge function `hotmart-sync` para simular a criação de um ticket de reembolso usando dados de uma venda real.
 
-### Solução
+### Dados da venda para teste
 
-No `hotmart-sync/index.ts`, quando `isFullPayment(sale) === true` (cartão de crédito, não recorrente), buscar o preço base do produto na tabela `products` (já sincronizada via offers API da Hotmart) e usar esse valor ao invés de `purchase.price.value`.
+- **Transação**: HP2455598889
+- **Cliente**: Lucas de Figueiredo Lopes
+- **E-mail**: lucas_lopes48@hotmail.com
+- **Produto**: Escola BORAnaOBRA
+- **Valor**: R$ 339,20
 
-### Mudanças — `supabase/functions/hotmart-sync/index.ts`
+### Mudança — `supabase/functions/hotmart-sync/index.ts`
 
-#### 1. Criar helper `getBaseProductPrice`
+Adicionar um novo `case "test_refund_ticket"` antes do `default` no switch de ações:
 
-```text
-async function getBaseProductPrice(supabase, productName, purchasePrice):
-  // Buscar produto na tabela products pelo nome
-  product = SELECT price FROM products WHERE name = productName
-  if product exists AND product.price > 0:
-    return product.price
-  // Fallback: retornar o preço da compra se não encontrar o produto
-  return purchasePrice
+1. Recebe `external_id` no body da requisição
+2. Busca a venda na tabela `sales` pelo `external_id`
+3. Monta um objeto `HotmartSale` mock com os dados da venda
+4. Chama `createRefundTicket(supabase, mockSale, "REFUNDED")`
+5. Retorna sucesso
+
+### Execução do teste
+
+Após deploy, invocar:
+```
+POST hotmart-sync { action: "test_refund_ticket", external_id: "HP2455598889" }
 ```
 
-#### 2. Aplicar nos fluxos `sync_sales` e `scheduled_sync`
+Isso vai criar:
+- Um ticket com prioridade "critica" (SLA 2h) atribuído a Maria Rosa
+- Uma tarefa vinculada ao ticket
+- Notificação para Maria Rosa
+- Log de criação no ticket
 
-Em ambos os fluxos, após detectar `isFullPayment`, substituir:
-- `total_value: sale.purchase.price.value` → `total_value: await getBaseProductPrice(supabase, sale.product.name, sale.purchase.price.value)`
+### Validação
 
-Isso afeta:
-- **sync_sales** (~linha 865): `total_value` no `saleData`
-- **scheduled_sync** (~linha 1108): `total_value` no `saleData`
+Após a chamada, verificar na tela de Tickets se o ticket apareceu corretamente com todos os dados preenchidos.
 
-A lógica de parcelas (installments) e comissões já usa `saleData.total_value`, então automaticamente receberão o valor correto.
+### Limpeza
 
-#### 3. Log para auditoria
-
-Adicionar log quando o preço base for diferente do preço da compra:
-```text
-if basePrice !== purchasePrice:
-  console.log(`Sale ${transaction}: Using base price ${basePrice} instead of purchase price ${purchasePrice} (interest removed)`)
-```
-
-### Considerações
-
-- **Fallback seguro**: Se o produto não existir na tabela `products` ou não tiver preço, usa o `purchase.price.value` original (comportamento atual)
-- **Produtos precisam estar sincronizados**: A ação "Sync Produtos" deve ter sido executada pelo menos uma vez para popular a tabela `products` com os preços das ofertas
-- **Vendas não-cartão**: Boleto parcelado e recorrência continuam usando `purchase.price.value` normalmente (sem juros nesses casos)
-- **Conversão de moeda**: Para vendas em USD/EUR, a conversão para BRL continua funcionando sobre o valor base
+A ação `test_refund_ticket` pode ser removida depois da validação, ou mantida para testes futuros.
 
