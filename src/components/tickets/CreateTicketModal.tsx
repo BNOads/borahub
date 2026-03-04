@@ -110,8 +110,7 @@ export function CreateTicketModal({ open, onOpenChange }: Props) {
     e.preventDefault();
     const missing: string[] = [];
     if (!form.cliente_nome) missing.push("Nome");
-    if (!form.cliente_email) missing.push("Email");
-    if (!form.cliente_whatsapp) missing.push("WhatsApp");
+    if (!form.cliente_email && !form.cliente_whatsapp) missing.push("Email ou WhatsApp");
     if (!form.origem) missing.push("Origem");
     if (!form.categoria) missing.push("Categoria");
     if (!form.prioridade) missing.push("Prioridade");
@@ -162,15 +161,16 @@ export function CreateTicketModal({ open, onOpenChange }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-sm">
-                  <Mail className="h-3.5 w-3.5" /> Email *
+                  <Mail className="h-3.5 w-3.5" /> Email
                 </Label>
                 <Input type="email" placeholder="email@exemplo.com" value={form.cliente_email} onChange={(e) => update("cliente_email", e.target.value)} />
               </div>
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-sm">
-                  <Phone className="h-3.5 w-3.5" /> WhatsApp *
+                  <Phone className="h-3.5 w-3.5" /> WhatsApp
                 </Label>
                 <Input placeholder="(11) 99999-9999" value={form.cliente_whatsapp} onChange={(e) => update("cliente_whatsapp", e.target.value)} />
+                <p className="text-[11px] text-muted-foreground">* Preencha ao menos Email ou WhatsApp</p>
               </div>
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-sm">
