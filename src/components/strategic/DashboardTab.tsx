@@ -188,8 +188,11 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const { data: calComEvents = [] } = useCalComEvents();
   const { data: calComPastEvents = [] } = useCalComPastEvents();
   const { data: strategicMeetings = [] } = useStrategicMeetings(session.id);
+  const deleteMeeting = useDeleteStrategicMeeting();
+  const updateMeeting = useUpdateStrategicMeeting();
   const [meetingFilter, setMeetingFilter] = useState<MeetingFilter>("hoje");
   const [isCreateMeetingOpen, setIsCreateMeetingOpen] = useState(false);
+  const [editingMeeting, setEditingMeeting] = useState<StrategicMeeting | null>(null);
   const [kpiStartDate, setKpiStartDate] = useState("");
   const [kpiEndDate, setKpiEndDate] = useState("");
   const [chartStartDate, setChartStartDate] = useState(() => {
