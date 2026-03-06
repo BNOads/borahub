@@ -815,6 +815,21 @@ export function useCreateStrategicMeeting() {
   });
 }
 
+export function useUpdateStrategicMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...values }: Partial<StrategicMeeting> & { id: string }) => {
+      const { error } = await supabase.from("strategic_meetings" as any).update(values as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-meetings"] });
+      toast.success("Reunião atualizada");
+    },
+    onError: () => toast.error("Erro ao atualizar reunião"),
+  });
+}
+
 export function useDeleteStrategicMeeting() {
   const qc = useQueryClient();
   return useMutation({
