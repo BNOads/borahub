@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, Calendar, Video, TrendingUp, Percent, BarChart3, CalendarClock, CalendarCheck2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, Calendar, Video, TrendingUp, Percent, BarChart3, CalendarClock, CalendarCheck2, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pi
 import { useUTMAnalytics, StrategicSession, StrategicLead } from "@/hooks/useStrategicSession";
 import { computeLeadScore } from "@/lib/leadScoring";
 import { useCalComEvents, useCalComPastEvents, matchLeadsWithCalCom } from "@/hooks/useCalComEvents";
+import { useEvents, type Event as LocalEvent } from "@/hooks/useEvents";
+import { EventModal } from "@/components/events/EventModal";
 
 interface Props {
   session: StrategicSession;
@@ -186,7 +188,9 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const { data: analytics } = useUTMAnalytics(session.id);
   const { data: calComEvents = [] } = useCalComEvents();
   const { data: calComPastEvents = [] } = useCalComPastEvents();
+  const { data: localEvents = [] } = useEvents({ event_type: "reuniao" });
   const [meetingFilter, setMeetingFilter] = useState<MeetingFilter>("hoje");
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [kpiStartDate, setKpiStartDate] = useState("");
   const [kpiEndDate, setKpiEndDate] = useState("");
   const [chartStartDate, setChartStartDate] = useState(() => {
@@ -230,7 +234,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
     const in7days = new Date(today);
     in7days.setDate(in7days.getDate() + 7);
 
-    return calComEvents.filter((e: any) => {
+    const filterByDate = (e: { event_date: string }) => {
       const eventDate = new Date(e.event_date + "T00:00:00");
       switch (meetingFilter) {
         case "hoje": return e.event_date === todayStr;
@@ -238,8 +242,35 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         case "7dias": return eventDate >= today && eventDate < in7days;
         default: return false;
       }
-    });
-  }, [calComEvents, meetingFilter, todayStr]);
+    };
+
+    // Merge Cal.com events with local events (type=reuniao)
+    const calFiltered = calComEvents.filter(filterByDate).map((e: any) => ({
+      id: e.id,
+      title: e.title,
+      event_date: e.event_date,
+      event_time: e.event_time || "00:00:00",
+      duration_minutes: e.duration_minutes || 30,
+      meeting_link: e.meeting_link,
+      source: "calcom" as const,
+    }));
+
+    const localFiltered = localEvents
+      .filter(e => e.event_type === "reuniao")
+      .filter(filterByDate)
+      .map(e => ({
+        id: e.id,
+        title: e.title,
+        event_date: e.event_date,
+        event_time: e.event_time || "00:00:00",
+        duration_minutes: e.duration_minutes || 30,
+        meeting_link: e.meeting_link,
+        source: "manual" as const,
+      }));
+
+    // Combine and sort by time
+    return [...calFiltered, ...localFiltered].sort((a, b) => a.event_time.localeCompare(b.event_time));
+  }, [calComEvents, localEvents, meetingFilter, todayStr]);
 
   // Filtered stage counts for KPIs
   const filteredStageCounts = useMemo(() => {
@@ -526,13 +557,13 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       </Card>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Reuniões do dia (Cal.com) */}
+        {/* Reuniões do dia (Cal.com + manuais) */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               Reuniões
-              <div className="flex gap-1 ml-auto">
+              <div className="flex gap-1 ml-auto items-center">
                 {(Object.keys(filterLabels) as MeetingFilter[]).map(f => (
                   <Badge
                     key={f}
@@ -543,6 +574,9 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
                     {filterLabels[f]}
                   </Badge>
                 ))}
+                <Button variant="outline" size="icon" className="h-7 w-7 ml-1" onClick={() => setIsEventModalOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </CardTitle>
           </CardHeader>
@@ -563,6 +597,8 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
                           <p className="text-sm font-medium">{event.title}</p>
                           <p className="text-xs text-muted-foreground">
                             {start.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} - {end.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            {event.source === "calcom" && <span className="ml-1 text-orange-500">· Cal.com</span>}
+                            {event.source === "manual" && <span className="ml-1 text-blue-500">· Manual</span>}
                           </p>
                         </div>
                       </div>
@@ -574,6 +610,12 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
             )}
           </CardContent>
         </Card>
+
+        <EventModal
+          open={isEventModalOpen}
+          onOpenChange={setIsEventModalOpen}
+          onSuccess={() => setIsEventModalOpen(false)}
+        />
 
         {/* Distribuição por Origem (Pie) */}
         <Card>
