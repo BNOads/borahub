@@ -557,13 +557,13 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       </Card>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Reuniões do dia (Cal.com) */}
+        {/* Reuniões do dia (Cal.com + manuais) */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               Reuniões
-              <div className="flex gap-1 ml-auto">
+              <div className="flex gap-1 ml-auto items-center">
                 {(Object.keys(filterLabels) as MeetingFilter[]).map(f => (
                   <Badge
                     key={f}
@@ -574,6 +574,9 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
                     {filterLabels[f]}
                   </Badge>
                 ))}
+                <Button variant="outline" size="icon" className="h-7 w-7 ml-1" onClick={() => setIsEventModalOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </CardTitle>
           </CardHeader>
@@ -594,6 +597,8 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
                           <p className="text-sm font-medium">{event.title}</p>
                           <p className="text-xs text-muted-foreground">
                             {start.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} - {end.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            {event.source === "calcom" && <span className="ml-1 text-orange-500">· Cal.com</span>}
+                            {event.source === "manual" && <span className="ml-1 text-blue-500">· Manual</span>}
                           </p>
                         </div>
                       </div>
@@ -605,6 +610,13 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
             )}
           </CardContent>
         </Card>
+
+        {/* Event creation modal */}
+        <EventModal
+          open={isEventModalOpen}
+          onOpenChange={setIsEventModalOpen}
+          defaultEventType="reuniao"
+        />
 
         {/* Distribuição por Origem (Pie) */}
         <Card>
