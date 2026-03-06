@@ -10,6 +10,7 @@ import { useUTMAnalytics, StrategicSession, StrategicLead, useStrategicMeetings,
 import { computeLeadScore } from "@/lib/leadScoring";
 import { useCalComEvents, useCalComPastEvents, matchLeadsWithCalCom } from "@/hooks/useCalComEvents";
 import { CreateMeetingModal } from "@/components/strategic/CreateMeetingModal";
+import { DateRangePicker } from "@/components/strategic/DateRangePicker";
 
 interface Props {
   session: StrategicSession;
@@ -386,21 +387,12 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       {/* KPI Cards */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-sm font-medium text-muted-foreground">KPIs</h3>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
-            <Label className="text-xs text-muted-foreground">De</Label>
-            <Input type="date" value={kpiStartDate} onChange={e => setKpiStartDate(e.target.value)} className="h-7 text-xs w-[130px]" />
-          </div>
-          <div className="flex items-center gap-1">
-            <Label className="text-xs text-muted-foreground">Até</Label>
-            <Input type="date" value={kpiEndDate} onChange={e => setKpiEndDate(e.target.value)} className="h-7 text-xs w-[130px]" />
-          </div>
-          {(kpiStartDate || kpiEndDate) && (
-            <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => { setKpiStartDate(""); setKpiEndDate(""); }}>
-              Limpar
-            </Button>
-          )}
-        </div>
+        <DateRangePicker
+          startDate={kpiStartDate}
+          endDate={kpiEndDate}
+          onStartDateChange={setKpiStartDate}
+          onEndDateChange={setKpiEndDate}
+        />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {kpiCards.map(kpi => (
@@ -484,16 +476,12 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-sm">Leads por Dia</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <Label className="text-xs text-muted-foreground">De</Label>
-                <Input type="date" value={chartStartDate} onChange={e => setChartStartDate(e.target.value)} className="h-7 text-xs w-[130px]" />
-              </div>
-              <div className="flex items-center gap-1">
-                <Label className="text-xs text-muted-foreground">Até</Label>
-                <Input type="date" value={chartEndDate} onChange={e => setChartEndDate(e.target.value)} className="h-7 text-xs w-[130px]" />
-              </div>
-            </div>
+            <DateRangePicker
+              startDate={chartStartDate}
+              endDate={chartEndDate}
+              onStartDateChange={setChartStartDate}
+              onEndDateChange={setChartEndDate}
+            />
           </div>
         </CardHeader>
         <CardContent>
@@ -535,16 +523,12 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-sm">Reuniões por Dia</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <Label className="text-xs text-muted-foreground">De</Label>
-                <Input type="date" value={chartStartDate} onChange={e => setChartStartDate(e.target.value)} className="h-7 text-xs w-[130px]" />
-              </div>
-              <div className="flex items-center gap-1">
-                <Label className="text-xs text-muted-foreground">Até</Label>
-                <Input type="date" value={chartEndDate} onChange={e => setChartEndDate(e.target.value)} className="h-7 text-xs w-[130px]" />
-              </div>
-            </div>
+            <DateRangePicker
+              startDate={chartStartDate}
+              endDate={chartEndDate}
+              onStartDateChange={setChartStartDate}
+              onEndDateChange={setChartEndDate}
+            />
           </div>
         </CardHeader>
         <CardContent>
