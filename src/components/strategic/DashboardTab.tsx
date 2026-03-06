@@ -243,7 +243,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       }
     };
 
-    // Merge Cal.com events with local events (type=reuniao)
+    // Merge Cal.com events with strategic manual meetings
     const calFiltered = calComEvents.filter(filterByDate).map((e: any) => ({
       id: e.id,
       title: e.title,
@@ -254,8 +254,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       source: "calcom" as const,
     }));
 
-    const localFiltered = localEvents
-      .filter(e => e.event_type === "reuniao")
+    const manualFiltered = strategicMeetings
       .filter(filterByDate)
       .map(e => ({
         id: e.id,
