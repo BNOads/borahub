@@ -1,64 +1,47 @@
 
 
-## Plano: Reuniões Manuais de Sessão Estratégica (separadas da Agenda)
+## Plano: Testar Sistema de Ticket de Reembolso
 
-### Problema
+### Objetivo
 
-O botão "+" no card de Reuniões abre o modal genérico de eventos da Agenda (`EventModal`), que não tem relação com a sessão estratégica. O correto é permitir criar reuniões vinculadas à sessão estratégica.
+Adicionar uma ação temporária `test_refund_ticket` na edge function `hotmart-sync` para simular a criação de um ticket de reembolso usando dados de uma venda real.
 
-### Solução
+### Dados da venda para teste
 
-1. **Nova tabela `strategic_meetings`** para armazenar reuniões manuais vinculadas a uma sessão estratégica
-2. **Novo modal simplificado** com apenas os campos relevantes (título, data, horário, duração, link)
-3. **Atualizar DashboardTab** para usar a nova tabela ao invés de `events`
+- **Transação**: HP2455598889
+- **Cliente**: Lucas de Figueiredo Lopes
+- **E-mail**: lucas_lopes48@hotmail.com
+- **Produto**: Escola BORAnaOBRA
+- **Valor**: R$ 339,20
 
-### Mudanças
+### Mudança — `supabase/functions/hotmart-sync/index.ts`
 
-#### 1. Migração — `strategic_meetings`
+Adicionar um novo `case "test_refund_ticket"` antes do `default` no switch de ações:
 
-```sql
-CREATE TABLE public.strategic_meetings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id UUID NOT NULL REFERENCES public.strategic_sessions(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  event_date DATE NOT NULL,
-  event_time TIME NOT NULL DEFAULT '09:00',
-  duration_minutes INT DEFAULT 30,
-  meeting_link TEXT,
-  notes TEXT,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  created_by UUID REFERENCES auth.users(id)
-);
+1. Recebe `external_id` no body da requisição
+2. Busca a venda na tabela `sales` pelo `external_id`
+3. Monta um objeto `HotmartSale` mock com os dados da venda
+4. Chama `createRefundTicket(supabase, mockSale, "REFUNDED")`
+5. Retorna sucesso
 
-ALTER TABLE public.strategic_meetings ENABLE ROW LEVEL SECURITY;
--- RLS: authenticated users can CRUD
-CREATE POLICY "Authenticated users manage strategic meetings"
-  ON public.strategic_meetings FOR ALL TO authenticated USING (true) WITH CHECK (true);
+### Execução do teste
+
+Após deploy, invocar:
+```
+POST hotmart-sync { action: "test_refund_ticket", external_id: "HP2455598889" }
 ```
 
-#### 2. Novo componente — `src/components/strategic/CreateMeetingModal.tsx`
+Isso vai criar:
+- Um ticket com prioridade "critica" (SLA 2h) atribuído a Maria Rosa
+- Uma tarefa vinculada ao ticket
+- Notificação para Maria Rosa
+- Log de criação no ticket
 
-Modal simples com campos:
-- Título (obrigatório)
-- Data (obrigatório)
-- Horário (obrigatório)
-- Duração em minutos (padrão 30)
-- Link da reunião (opcional)
-- Notas (opcional)
+### Validação
 
-Recebe `sessionId` como prop e insere na tabela `strategic_meetings`.
+Após a chamada, verificar na tela de Tickets se o ticket apareceu corretamente com todos os dados preenchidos.
 
-#### 3. Hook em `useStrategicSession.ts`
+### Limpeza
 
-Adicionar:
-- `useStrategicMeetings(sessionId)` — query para buscar reuniões da sessão
-- `useCreateStrategicMeeting()` — mutation para criar
-
-#### 4. Atualizar `DashboardTab.tsx`
-
-- Remover import de `useEvents` e `EventModal`
-- Importar `useStrategicMeetings` e `CreateMeetingModal`
-- No `filteredEvents`, substituir `localEvents` por dados de `strategic_meetings`
-- Passar `session.id` ao modal de criação
-- Source "manual" agora vem de `strategic_meetings`
+A ação `test_refund_ticket` pode ser removida depois da validação, ou mantida para testes futuros.
 

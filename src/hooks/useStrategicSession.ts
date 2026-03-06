@@ -757,6 +757,78 @@ export function useGoogleCalendarEvents(calendarId: string | undefined | null, d
   });
 }
 
+// Strategic Meetings
+export interface StrategicMeeting {
+  id: string;
+  session_id: string;
+  title: string;
+  event_date: string;
+  event_time: string;
+  duration_minutes: number | null;
+  meeting_link: string | null;
+  notes: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
+export function useStrategicMeetings(sessionId: string | undefined) {
+  return useQuery({
+    queryKey: ["strategic-meetings", sessionId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("strategic_meetings" as any)
+        .select("*")
+        .eq("session_id", sessionId!)
+        .order("event_date", { ascending: true });
+      if (error) throw error;
+      return data as unknown as StrategicMeeting[];
+    },
+    enabled: !!sessionId,
+  });
+}
+
+export function useCreateStrategicMeeting() {
+  const qc = useQueryClient();
+  const { profile } = useAuth();
+  return useMutation({
+    mutationFn: async (values: {
+      session_id: string;
+      title: string;
+      event_date: string;
+      event_time: string;
+      duration_minutes?: number;
+      meeting_link?: string | null;
+      notes?: string | null;
+    }) => {
+      const { error } = await supabase.from("strategic_meetings" as any).insert({
+        ...values,
+        created_by: profile?.id || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-meetings"] });
+      toast.success("Reunião criada");
+    },
+    onError: () => toast.error("Erro ao criar reunião"),
+  });
+}
+
+export function useDeleteStrategicMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("strategic_meetings" as any).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategic-meetings"] });
+      toast.success("Reunião excluída");
+    },
+    onError: () => toast.error("Erro ao excluir reunião"),
+  });
+}
+
 // Public session by slug
 export function usePublicSession(slug: string | undefined) {
   return useQuery({

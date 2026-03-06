@@ -6,11 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, ComposedChart } from "recharts";
-import { useUTMAnalytics, StrategicSession, StrategicLead } from "@/hooks/useStrategicSession";
+import { useUTMAnalytics, StrategicSession, StrategicLead, useStrategicMeetings } from "@/hooks/useStrategicSession";
 import { computeLeadScore } from "@/lib/leadScoring";
 import { useCalComEvents, useCalComPastEvents, matchLeadsWithCalCom } from "@/hooks/useCalComEvents";
-import { useEvents, type Event as LocalEvent } from "@/hooks/useEvents";
-import { EventModal } from "@/components/events/EventModal";
+import { CreateMeetingModal } from "@/components/strategic/CreateMeetingModal";
 
 interface Props {
   session: StrategicSession;
@@ -188,9 +187,9 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const { data: analytics } = useUTMAnalytics(session.id);
   const { data: calComEvents = [] } = useCalComEvents();
   const { data: calComPastEvents = [] } = useCalComPastEvents();
-  const { data: localEvents = [] } = useEvents({ event_type: "reuniao" });
+  const { data: strategicMeetings = [] } = useStrategicMeetings(session.id);
   const [meetingFilter, setMeetingFilter] = useState<MeetingFilter>("hoje");
-  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isCreateMeetingOpen, setIsCreateMeetingOpen] = useState(false);
   const [kpiStartDate, setKpiStartDate] = useState("");
   const [kpiEndDate, setKpiEndDate] = useState("");
   const [chartStartDate, setChartStartDate] = useState(() => {
@@ -244,7 +243,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       }
     };
 
-    // Merge Cal.com events with local events (type=reuniao)
+    // Merge Cal.com events with strategic manual meetings
     const calFiltered = calComEvents.filter(filterByDate).map((e: any) => ({
       id: e.id,
       title: e.title,
@@ -255,8 +254,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       source: "calcom" as const,
     }));
 
-    const localFiltered = localEvents
-      .filter(e => e.event_type === "reuniao")
+    const manualFiltered = strategicMeetings
       .filter(filterByDate)
       .map(e => ({
         id: e.id,
@@ -269,8 +267,8 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       }));
 
     // Combine and sort by time
-    return [...calFiltered, ...localFiltered].sort((a, b) => a.event_time.localeCompare(b.event_time));
-  }, [calComEvents, localEvents, meetingFilter, todayStr]);
+    return [...calFiltered, ...manualFiltered].sort((a, b) => a.event_time.localeCompare(b.event_time));
+  }, [calComEvents, strategicMeetings, meetingFilter, todayStr]);
 
   // Filtered stage counts for KPIs
   const filteredStageCounts = useMemo(() => {
@@ -574,7 +572,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
                     {filterLabels[f]}
                   </Badge>
                 ))}
-                <Button variant="outline" size="icon" className="h-7 w-7 ml-1" onClick={() => setIsEventModalOpen(true)}>
+                <Button variant="outline" size="icon" className="h-7 w-7 ml-1" onClick={() => setIsCreateMeetingOpen(true)}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -611,10 +609,10 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
           </CardContent>
         </Card>
 
-        <EventModal
-          open={isEventModalOpen}
-          onOpenChange={setIsEventModalOpen}
-          onSuccess={() => setIsEventModalOpen(false)}
+        <CreateMeetingModal
+          open={isCreateMeetingOpen}
+          onOpenChange={setIsCreateMeetingOpen}
+          sessionId={session.id}
         />
 
         {/* Distribuição por Origem (Pie) */}
