@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, Calendar, Video, TrendingUp, Percent, BarChart3, CalendarClock, CalendarCheck2, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Users, UserCheck, CalendarCheck, CheckCircle2, DollarSign, Calendar, Video, TrendingUp, Percent, BarChart3, CalendarClock, CalendarCheck2, ChevronLeft, ChevronRight, Plus, Pencil, Trash2, UserX } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
