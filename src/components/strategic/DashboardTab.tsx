@@ -267,8 +267,8 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       }));
 
     // Combine and sort by time
-    return [...calFiltered, ...localFiltered].sort((a, b) => a.event_time.localeCompare(b.event_time));
-  }, [calComEvents, localEvents, meetingFilter, todayStr]);
+    return [...calFiltered, ...manualFiltered].sort((a, b) => a.event_time.localeCompare(b.event_time));
+  }, [calComEvents, strategicMeetings, meetingFilter, todayStr]);
 
   // Filtered stage counts for KPIs
   const filteredStageCounts = useMemo(() => {
