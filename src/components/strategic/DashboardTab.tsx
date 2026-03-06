@@ -241,12 +241,16 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
     });
   }, [calComEvents, meetingFilter, todayStr]);
 
-  const qualifiedByScoring = useMemo(() => leads.filter(l => computeLeadScore(l).isQualified).length, [leads]);
+  const qualifiedByScoring = useMemo(() => filteredLeads.filter(l => computeLeadScore(l).isQualified).length, [filteredLeads]);
 
-  // Conversion rates - use leads.length as base for scheduling rate
-  const totalLeads = leads.length;
+  // Conversion rates - use filteredLeads.length as base for scheduling rate
+  const totalLeads = filteredLeads.length;
   const qualifiedCount = qualifiedByScoring;
-  const vendasCount = utmData?.vendas || 0;
+  const vendasCount = useMemo(() => {
+    if (!kpiStartDate && !kpiEndDate) return utmData?.vendas || 0;
+    // Filter vendas stage leads by date
+    return filteredLeads.filter(l => l.stage === 'venda').length;
+  }, [filteredLeads, kpiStartDate, kpiEndDate, utmData]);
   const qualRate = totalLeads > 0 ? ((qualifiedCount / totalLeads) * 100).toFixed(1) : "0";
   const convRate = totalLeads > 0 ? ((vendasCount / totalLeads) * 100).toFixed(1) : "0";
   const scheduleRate = totalLeads > 0 ? ((agendadosByCalCom / totalLeads) * 100).toFixed(1) : "0";
