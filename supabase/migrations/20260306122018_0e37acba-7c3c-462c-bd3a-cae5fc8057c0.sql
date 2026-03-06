@@ -1,0 +1,1 @@
+ALTER TABLE public.strategic_meetings ADD COLUMN no_show BOOLEAN DEFAULT false;

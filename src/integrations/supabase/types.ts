@@ -3863,6 +3863,7 @@ export type Database = {
           event_time: string
           id: string
           meeting_link: string | null
+          no_show: boolean | null
           notes: string | null
           session_id: string
           title: string
@@ -3875,6 +3876,7 @@ export type Database = {
           event_time?: string
           id?: string
           meeting_link?: string | null
+          no_show?: boolean | null
           notes?: string | null
           session_id: string
           title: string
@@ -3887,6 +3889,7 @@ export type Database = {
           event_time?: string
           id?: string
           meeting_link?: string | null
+          no_show?: boolean | null
           notes?: string | null
           session_id?: string
           title?: string
