@@ -266,7 +266,9 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         event_time: e.event_time || "00:00:00",
         duration_minutes: e.duration_minutes || 30,
         meeting_link: e.meeting_link,
+        no_show: e.no_show || false,
         source: "manual" as const,
+        _raw: e,
       }));
 
     // Combine and sort by time
