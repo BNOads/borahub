@@ -241,6 +241,16 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
     });
   }, [calComEvents, meetingFilter, todayStr]);
 
+  // Filtered stage counts for KPIs
+  const filteredStageCounts = useMemo(() => {
+    if (!kpiStartDate && !kpiEndDate) return stageCounts;
+    const counts: Record<string, number> = {};
+    for (const l of filteredLeads) {
+      counts[l.stage] = (counts[l.stage] || 0) + 1;
+    }
+    return counts;
+  }, [filteredLeads, stageCounts, kpiStartDate, kpiEndDate]);
+
   const qualifiedByScoring = useMemo(() => filteredLeads.filter(l => computeLeadScore(l).isQualified).length, [filteredLeads]);
 
   // Conversion rates - use filteredLeads.length as base for scheduling rate
