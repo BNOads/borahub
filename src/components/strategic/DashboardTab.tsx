@@ -365,7 +365,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
                   {kpi.key === "qualificado" ? qualifiedByScoring
                     : kpi.key === "agendado" ? agendadosByCalCom
                     : kpi.key === "realizado" ? realizadosByCalCom
-                    : (stageCounts[kpi.key] || 0)}
+                    : (filteredStageCounts[kpi.key] || 0)}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
