@@ -188,7 +188,9 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const { data: analytics } = useUTMAnalytics(session.id);
   const { data: calComEvents = [] } = useCalComEvents();
   const { data: calComPastEvents = [] } = useCalComPastEvents();
+  const { data: localEvents = [] } = useEvents({ event_type: "reuniao" });
   const [meetingFilter, setMeetingFilter] = useState<MeetingFilter>("hoje");
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [kpiStartDate, setKpiStartDate] = useState("");
   const [kpiEndDate, setKpiEndDate] = useState("");
   const [chartStartDate, setChartStartDate] = useState(() => {
