@@ -85,16 +85,16 @@ export function DateRangePicker({ startDate, endDate, onStartDateChange, onEndDa
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="end" sideOffset={8}>
-        <div className="flex">
+        <div className="flex max-h-[420px]">
           {/* Presets sidebar */}
-          <div className="border-r p-3 space-y-1 min-w-[160px]">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Atalhos</p>
+          <div className="border-r p-2 space-y-0.5 min-w-[140px] overflow-y-auto">
+            <p className="text-[11px] font-medium text-muted-foreground mb-1 px-1.5">Atalhos</p>
             {presets.map(p => (
               <button
                 key={p.key}
                 onClick={() => handlePreset(p)}
                 className={cn(
-                  "w-full text-left text-sm px-2 py-1.5 rounded-md transition-colors hover:bg-accent",
+                  "w-full text-left text-xs px-1.5 py-1 rounded transition-colors hover:bg-accent",
                   selectedPreset === p.key && "bg-primary/10 text-primary font-medium"
                 )}
               >
@@ -104,14 +104,14 @@ export function DateRangePicker({ startDate, endDate, onStartDateChange, onEndDa
             {(startDate || endDate) && (
               <button
                 onClick={handleClear}
-                className="w-full text-left text-sm px-2 py-1.5 rounded-md text-destructive hover:bg-destructive/10 mt-2"
+                className="w-full text-left text-xs px-1.5 py-1 rounded text-destructive hover:bg-destructive/10 mt-1"
               >
                 Limpar
               </button>
             )}
           </div>
-          {/* Dual calendar */}
-          <div className="p-3">
+          {/* Calendar */}
+          <div className="p-2">
             <Calendar
               mode="range"
               selected={dateRange.from ? { from: dateRange.from, to: dateRange.to } : undefined}
@@ -120,16 +120,13 @@ export function DateRangePicker({ startDate, endDate, onStartDateChange, onEndDa
               locale={ptBR}
               defaultMonth={dateRange.from || subMonths(new Date(), 1)}
             />
-            <div className="flex items-center justify-between px-2 pt-2 border-t mt-2">
-              <span className="text-xs text-muted-foreground">Fuso horário: Horário de São Paulo</span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => setOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button size="sm" className="h-7 text-xs" onClick={() => setOpen(false)}>
-                  Atualizar
-                </Button>
-              </div>
+            <div className="flex items-center justify-end px-1 pt-1.5 border-t mt-1 gap-2">
+              <Button variant="outline" size="sm" className="h-6 text-[11px] px-2" onClick={() => setOpen(false)}>
+                Cancelar
+              </Button>
+              <Button size="sm" className="h-6 text-[11px] px-2" onClick={() => setOpen(false)}>
+                OK
+              </Button>
             </div>
           </div>
         </div>
