@@ -6,11 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, CartesianGrid, Legend, ComposedChart } from "recharts";
-import { useUTMAnalytics, StrategicSession, StrategicLead } from "@/hooks/useStrategicSession";
+import { useUTMAnalytics, StrategicSession, StrategicLead, useStrategicMeetings } from "@/hooks/useStrategicSession";
 import { computeLeadScore } from "@/lib/leadScoring";
 import { useCalComEvents, useCalComPastEvents, matchLeadsWithCalCom } from "@/hooks/useCalComEvents";
-import { useEvents, type Event as LocalEvent } from "@/hooks/useEvents";
-import { EventModal } from "@/components/events/EventModal";
+import { CreateMeetingModal } from "@/components/strategic/CreateMeetingModal";
 
 interface Props {
   session: StrategicSession;
