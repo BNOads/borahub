@@ -3854,6 +3854,53 @@ export type Database = {
           },
         ]
       }
+      strategic_meetings: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          duration_minutes: number | null
+          event_date: string
+          event_time: string
+          id: string
+          meeting_link: string | null
+          notes: string | null
+          session_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          duration_minutes?: number | null
+          event_date: string
+          event_time?: string
+          id?: string
+          meeting_link?: string | null
+          notes?: string | null
+          session_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          duration_minutes?: number | null
+          event_date?: string
+          event_time?: string
+          id?: string
+          meeting_link?: string | null
+          notes?: string | null
+          session_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strategic_meetings_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "strategic_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       strategic_qualification_criteria: {
         Row: {
           created_at: string
