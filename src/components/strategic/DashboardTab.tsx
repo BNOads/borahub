@@ -322,6 +322,19 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
       }
     }
 
+    // Include manual strategic meetings as agendados (by created_at date)
+    for (const ev of strategicMeetings) {
+      const createdDate = ev.created_at ? ev.created_at.substring(0, 10) : null;
+      if (createdDate && createdDate >= chartStartDate && createdDate <= chartEndDate) {
+        ensureEntry(createdDate).agendados++;
+      }
+      // If the meeting date is past and not no-show, count as realizado
+      const eventDate = ev.event_date?.substring(0, 10);
+      if (eventDate && eventDate < todayStr && !ev.no_show && eventDate >= chartStartDate && eventDate <= chartEndDate) {
+        ensureEntry(eventDate).realizados++;
+      }
+    }
+
     // Realizados = past meetings by their event_date (when the meeting actually happened)
     for (const ev of calComPastEvents) {
       if (ev.event_date >= chartStartDate && ev.event_date <= chartEndDate) {
@@ -337,7 +350,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         taxaRealizacao: d.agendados > 0 ? Math.round((d.realizados / d.agendados) * 100) : 0,
       };
     });
-  }, [calComEvents, calComPastEvents, chartStartDate, chartEndDate]);
+  }, [calComEvents, calComPastEvents, strategicMeetings, chartStartDate, chartEndDate, todayStr]);
 
   // Daily leads chart with qualified/unqualified
   const dailyLeadsData = useMemo(() => {
