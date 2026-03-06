@@ -85,16 +85,16 @@ export function DateRangePicker({ startDate, endDate, onStartDateChange, onEndDa
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="end" sideOffset={8}>
-        <div className="flex max-h-[420px]">
+        <div className="flex max-h-[380px]">
           {/* Presets sidebar */}
-          <div className="border-r p-2 space-y-0.5 min-w-[140px] overflow-y-auto">
-            <p className="text-[11px] font-medium text-muted-foreground mb-1 px-1.5">Atalhos</p>
+          <div className="border-r p-1.5 space-y-0 w-[120px] overflow-y-auto shrink-0">
+            <p className="text-[10px] font-medium text-muted-foreground mb-1 px-1">Atalhos</p>
             {presets.map(p => (
               <button
                 key={p.key}
                 onClick={() => handlePreset(p)}
                 className={cn(
-                  "w-full text-left text-xs px-1.5 py-1 rounded transition-colors hover:bg-accent",
+                  "w-full text-left text-[11px] px-1 py-0.5 rounded transition-colors hover:bg-accent whitespace-nowrap",
                   selectedPreset === p.key && "bg-primary/10 text-primary font-medium"
                 )}
               >
@@ -104,7 +104,7 @@ export function DateRangePicker({ startDate, endDate, onStartDateChange, onEndDa
             {(startDate || endDate) && (
               <button
                 onClick={handleClear}
-                className="w-full text-left text-xs px-1.5 py-1 rounded text-destructive hover:bg-destructive/10 mt-1"
+                className="w-full text-left text-[11px] px-1 py-0.5 rounded text-destructive hover:bg-destructive/10 mt-0.5"
               >
                 Limpar
               </button>
@@ -116,11 +116,11 @@ export function DateRangePicker({ startDate, endDate, onStartDateChange, onEndDa
               mode="range"
               selected={dateRange.from ? { from: dateRange.from, to: dateRange.to } : undefined}
               onSelect={handleCalendarSelect as any}
-              numberOfMonths={2}
+              numberOfMonths={1}
               locale={ptBR}
-              defaultMonth={dateRange.from || subMonths(new Date(), 1)}
+              defaultMonth={dateRange.from || new Date()}
             />
-            <div className="flex items-center justify-end px-1 pt-1.5 border-t mt-1 gap-2">
+            <div className="flex items-center justify-end px-1 pt-1 border-t mt-1 gap-1.5">
               <Button variant="outline" size="sm" className="h-6 text-[11px] px-2" onClick={() => setOpen(false)}>
                 Cancelar
               </Button>
