@@ -234,7 +234,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
     const in7days = new Date(today);
     in7days.setDate(in7days.getDate() + 7);
 
-    return calComEvents.filter((e: any) => {
+    const filterByDate = (e: { event_date: string }) => {
       const eventDate = new Date(e.event_date + "T00:00:00");
       switch (meetingFilter) {
         case "hoje": return e.event_date === todayStr;
@@ -242,8 +242,35 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         case "7dias": return eventDate >= today && eventDate < in7days;
         default: return false;
       }
-    });
-  }, [calComEvents, meetingFilter, todayStr]);
+    };
+
+    // Merge Cal.com events with local events (type=reuniao)
+    const calFiltered = calComEvents.filter(filterByDate).map((e: any) => ({
+      id: e.id,
+      title: e.title,
+      event_date: e.event_date,
+      event_time: e.event_time || "00:00:00",
+      duration_minutes: e.duration_minutes || 30,
+      meeting_link: e.meeting_link,
+      source: "calcom" as const,
+    }));
+
+    const localFiltered = localEvents
+      .filter(e => e.event_type === "reuniao")
+      .filter(filterByDate)
+      .map(e => ({
+        id: e.id,
+        title: e.title,
+        event_date: e.event_date,
+        event_time: e.event_time || "00:00:00",
+        duration_minutes: e.duration_minutes || 30,
+        meeting_link: e.meeting_link,
+        source: "manual" as const,
+      }));
+
+    // Combine and sort by time
+    return [...calFiltered, ...localFiltered].sort((a, b) => a.event_time.localeCompare(b.event_time));
+  }, [calComEvents, localEvents, meetingFilter, todayStr]);
 
   // Filtered stage counts for KPIs
   const filteredStageCounts = useMemo(() => {
