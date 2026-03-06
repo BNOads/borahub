@@ -609,10 +609,10 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
           </CardContent>
         </Card>
 
-        <EventModal
-          open={isEventModalOpen}
-          onOpenChange={setIsEventModalOpen}
-          onSuccess={() => setIsEventModalOpen(false)}
+        <CreateMeetingModal
+          open={isCreateMeetingOpen}
+          onOpenChange={setIsCreateMeetingOpen}
+          sessionId={session.id}
         />
 
         {/* Distribuição por Origem (Pie) */}

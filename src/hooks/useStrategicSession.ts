@@ -781,7 +781,7 @@ export function useStrategicMeetings(sessionId: string | undefined) {
         .eq("session_id", sessionId!)
         .order("event_date", { ascending: true });
       if (error) throw error;
-      return data as StrategicMeeting[];
+      return data as unknown as StrategicMeeting[];
     },
     enabled: !!sessionId,
   });
