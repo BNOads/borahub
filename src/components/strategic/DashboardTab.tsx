@@ -592,20 +592,57 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
                   const start = new Date(event.event_date + "T" + (event.event_time || "00:00:00"));
                   const end = new Date(start.getTime() + (event.duration_minutes || 30) * 60000);
                   const isNow = now >= start && now <= end;
+                  const isManual = event.source === "manual";
+                  const isNoShow = event.no_show;
                   return (
-                    <div key={event.id || i} className={`flex items-center justify-between p-2 rounded-md border ${isNow ? "border-primary bg-primary/5" : "border-border"}`}>
+                    <div key={event.id || i} className={`flex items-center justify-between p-2 rounded-md border ${isNoShow ? "border-destructive/40 bg-destructive/5" : isNow ? "border-primary bg-primary/5" : "border-border"}`}>
                       <div className="flex items-center gap-2">
-                        {isNow && <Video className="h-4 w-4 text-primary animate-pulse" />}
+                        {isNow && !isNoShow && <Video className="h-4 w-4 text-primary animate-pulse" />}
+                        {isNoShow && <UserX className="h-4 w-4 text-destructive" />}
                         <div>
-                          <p className="text-sm font-medium">{event.title}</p>
+                          <p className={`text-sm font-medium ${isNoShow ? "line-through text-muted-foreground" : ""}`}>{event.title}</p>
                           <p className="text-xs text-muted-foreground">
                             {start.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} - {end.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                             {event.source === "calcom" && <span className="ml-1 text-orange-500">· Cal.com</span>}
-                            {event.source === "manual" && <span className="ml-1 text-blue-500">· Manual</span>}
+                            {isManual && <span className="ml-1 text-blue-500">· Manual</span>}
+                            {isNoShow && <span className="ml-1 text-destructive">· No-show</span>}
                           </p>
                         </div>
                       </div>
-                      {isNow && <Badge className="bg-primary text-primary-foreground text-xs">Ao vivo</Badge>}
+                      <div className="flex items-center gap-1">
+                        {isNow && !isNoShow && <Badge className="bg-primary text-primary-foreground text-xs">Ao vivo</Badge>}
+                        {isManual && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title={isNoShow ? "Desfazer no-show" : "Marcar no-show"}
+                              onClick={() => updateMeeting.mutate({ id: event.id, no_show: !isNoShow })}
+                            >
+                              <UserX className={`h-3.5 w-3.5 ${isNoShow ? "text-destructive" : "text-muted-foreground"}`} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Editar"
+                              onClick={() => { setEditingMeeting(event._raw); setIsCreateMeetingOpen(true); }}
+                            >
+                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="Excluir"
+                              onClick={() => { if (confirm("Excluir esta reunião?")) deleteMeeting.mutate(event.id); }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -616,8 +653,9 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
 
         <CreateMeetingModal
           open={isCreateMeetingOpen}
-          onOpenChange={setIsCreateMeetingOpen}
+          onOpenChange={(open) => { setIsCreateMeetingOpen(open); if (!open) setEditingMeeting(null); }}
           sessionId={session.id}
+          editingMeeting={editingMeeting}
         />
 
         {/* Distribuição por Origem (Pie) */}
