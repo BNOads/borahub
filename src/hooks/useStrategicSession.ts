@@ -767,6 +767,7 @@ export interface StrategicMeeting {
   duration_minutes: number | null;
   meeting_link: string | null;
   notes: string | null;
+  no_show: boolean | null;
   created_at: string;
   created_by: string | null;
 }
