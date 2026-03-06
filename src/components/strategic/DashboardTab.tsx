@@ -244,17 +244,25 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const dailyMeetingData = useMemo(() => {
     const dateMap = new Map<string, { date: string; agendados: number; realizados: number }>();
 
-    for (const ev of calComEvents) {
-      if (ev.event_date >= chartStartDate && ev.event_date <= chartEndDate) {
-        if (!dateMap.has(ev.event_date)) dateMap.set(ev.event_date, { date: ev.event_date, agendados: 0, realizados: 0 });
-        dateMap.get(ev.event_date)!.agendados++;
+    const ensureEntry = (date: string) => {
+      if (!dateMap.has(date)) dateMap.set(date, { date, agendados: 0, realizados: 0 });
+      return dateMap.get(date)!;
+    };
+
+    // Agendados = bookings created on that day (using created_at from Cal.com API)
+    // Combine both upcoming and past events — all were "agendados" at some point
+    const allBookings = [...calComEvents, ...calComPastEvents];
+    for (const ev of allBookings) {
+      const createdDate = ev.created_at ? ev.created_at.substring(0, 10) : null;
+      if (createdDate && createdDate >= chartStartDate && createdDate <= chartEndDate) {
+        ensureEntry(createdDate).agendados++;
       }
     }
 
+    // Realizados = past meetings by their event_date (when the meeting actually happened)
     for (const ev of calComPastEvents) {
       if (ev.event_date >= chartStartDate && ev.event_date <= chartEndDate) {
-        if (!dateMap.has(ev.event_date)) dateMap.set(ev.event_date, { date: ev.event_date, agendados: 0, realizados: 0 });
-        dateMap.get(ev.event_date)!.realizados++;
+        ensureEntry(ev.event_date).realizados++;
       }
     }
 
