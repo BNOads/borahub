@@ -523,16 +523,12 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="text-sm">Reuniões por Dia</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <Label className="text-xs text-muted-foreground">De</Label>
-                <Input type="date" value={chartStartDate} onChange={e => setChartStartDate(e.target.value)} className="h-7 text-xs w-[130px]" />
-              </div>
-              <div className="flex items-center gap-1">
-                <Label className="text-xs text-muted-foreground">Até</Label>
-                <Input type="date" value={chartEndDate} onChange={e => setChartEndDate(e.target.value)} className="h-7 text-xs w-[130px]" />
-              </div>
-            </div>
+            <DateRangePicker
+              startDate={chartStartDate}
+              endDate={chartEndDate}
+              onStartDateChange={setChartStartDate}
+              onEndDateChange={setChartEndDate}
+            />
           </div>
         </CardHeader>
         <CardContent>
