@@ -572,7 +572,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
                     {filterLabels[f]}
                   </Badge>
                 ))}
-                <Button variant="outline" size="icon" className="h-7 w-7 ml-1" onClick={() => setIsEventModalOpen(true)}>
+                <Button variant="outline" size="icon" className="h-7 w-7 ml-1" onClick={() => setIsCreateMeetingOpen(true)}>
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               </div>
