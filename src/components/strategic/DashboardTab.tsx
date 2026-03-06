@@ -187,12 +187,27 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const { data: calComEvents = [] } = useCalComEvents();
   const { data: calComPastEvents = [] } = useCalComPastEvents();
   const [meetingFilter, setMeetingFilter] = useState<MeetingFilter>("hoje");
+  const [kpiStartDate, setKpiStartDate] = useState("");
+  const [kpiEndDate, setKpiEndDate] = useState("");
   const [chartStartDate, setChartStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split("T")[0];
   });
   const [chartEndDate, setChartEndDate] = useState(() => new Date().toISOString().split("T")[0]);
 
-  const calComMatches = useMemo(() => matchLeadsWithCalCom(leads, calComEvents, calComPastEvents), [leads, calComEvents, calComPastEvents]);
+  // Filter leads by KPI date range (using extra_data.data as capture date)
+  const filteredLeads = useMemo(() => {
+    if (!kpiStartDate && !kpiEndDate) return leads;
+    return leads.filter(l => {
+      const rawDate = (l.extra_data as Record<string, string> | null)?.data;
+      if (!rawDate) return false;
+      const date = rawDate.length >= 10 ? rawDate.substring(0, 10) : rawDate;
+      if (kpiStartDate && date < kpiStartDate) return false;
+      if (kpiEndDate && date > kpiEndDate) return false;
+      return true;
+    });
+  }, [leads, kpiStartDate, kpiEndDate]);
+
+  const calComMatches = useMemo(() => matchLeadsWithCalCom(filteredLeads, calComEvents, calComPastEvents), [filteredLeads, calComEvents, calComPastEvents]);
   // Agendados = leads that have ANY Cal.com match (upcoming or past)
   const agendadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasUpcoming || m.hasPast).length, [calComMatches]);
   const realizadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasPast).length, [calComMatches]);
