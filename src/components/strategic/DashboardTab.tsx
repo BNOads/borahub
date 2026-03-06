@@ -327,6 +327,24 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   return (
     <div className="space-y-6 mt-4">
       {/* KPI Cards */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h3 className="text-sm font-medium text-muted-foreground">KPIs</h3>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Label className="text-xs text-muted-foreground">De</Label>
+            <Input type="date" value={kpiStartDate} onChange={e => setKpiStartDate(e.target.value)} className="h-7 text-xs w-[130px]" />
+          </div>
+          <div className="flex items-center gap-1">
+            <Label className="text-xs text-muted-foreground">Até</Label>
+            <Input type="date" value={kpiEndDate} onChange={e => setKpiEndDate(e.target.value)} className="h-7 text-xs w-[130px]" />
+          </div>
+          {(kpiStartDate || kpiEndDate) && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => { setKpiStartDate(""); setKpiEndDate(""); }}>
+              Limpar
+            </Button>
+          )}
+        </div>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {kpiCards.map(kpi => (
           <Card key={kpi.key}>
