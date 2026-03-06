@@ -611,11 +611,10 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
           </CardContent>
         </Card>
 
-        {/* Event creation modal */}
         <EventModal
           open={isEventModalOpen}
           onOpenChange={setIsEventModalOpen}
-          defaultEventType="reuniao"
+          onSuccess={() => setIsEventModalOpen(false)}
         />
 
         {/* Distribuição por Origem (Pie) */}
