@@ -10,6 +10,7 @@ import { useUTMAnalytics, StrategicSession, StrategicLead, useStrategicMeetings,
 import { computeLeadScore } from "@/lib/leadScoring";
 import { useCalComEvents, useCalComPastEvents, matchLeadsWithCalCom } from "@/hooks/useCalComEvents";
 import { CreateMeetingModal } from "@/components/strategic/CreateMeetingModal";
+import { DateRangePicker } from "@/components/strategic/DateRangePicker";
 
 interface Props {
   session: StrategicSession;
