@@ -187,12 +187,27 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   const { data: calComEvents = [] } = useCalComEvents();
   const { data: calComPastEvents = [] } = useCalComPastEvents();
   const [meetingFilter, setMeetingFilter] = useState<MeetingFilter>("hoje");
+  const [kpiStartDate, setKpiStartDate] = useState("");
+  const [kpiEndDate, setKpiEndDate] = useState("");
   const [chartStartDate, setChartStartDate] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split("T")[0];
   });
   const [chartEndDate, setChartEndDate] = useState(() => new Date().toISOString().split("T")[0]);
 
-  const calComMatches = useMemo(() => matchLeadsWithCalCom(leads, calComEvents, calComPastEvents), [leads, calComEvents, calComPastEvents]);
+  // Filter leads by KPI date range (using extra_data.data as capture date)
+  const filteredLeads = useMemo(() => {
+    if (!kpiStartDate && !kpiEndDate) return leads;
+    return leads.filter(l => {
+      const rawDate = (l.extra_data as Record<string, string> | null)?.data;
+      if (!rawDate) return false;
+      const date = rawDate.length >= 10 ? rawDate.substring(0, 10) : rawDate;
+      if (kpiStartDate && date < kpiStartDate) return false;
+      if (kpiEndDate && date > kpiEndDate) return false;
+      return true;
+    });
+  }, [leads, kpiStartDate, kpiEndDate]);
+
+  const calComMatches = useMemo(() => matchLeadsWithCalCom(filteredLeads, calComEvents, calComPastEvents), [filteredLeads, calComEvents, calComPastEvents]);
   // Agendados = leads that have ANY Cal.com match (upcoming or past)
   const agendadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasUpcoming || m.hasPast).length, [calComMatches]);
   const realizadosByCalCom = useMemo(() => [...calComMatches.values()].filter(m => m.hasPast).length, [calComMatches]);
@@ -226,12 +241,26 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
     });
   }, [calComEvents, meetingFilter, todayStr]);
 
-  const qualifiedByScoring = useMemo(() => leads.filter(l => computeLeadScore(l).isQualified).length, [leads]);
+  // Filtered stage counts for KPIs
+  const filteredStageCounts = useMemo(() => {
+    if (!kpiStartDate && !kpiEndDate) return stageCounts;
+    const counts: Record<string, number> = {};
+    for (const l of filteredLeads) {
+      counts[l.stage] = (counts[l.stage] || 0) + 1;
+    }
+    return counts;
+  }, [filteredLeads, stageCounts, kpiStartDate, kpiEndDate]);
 
-  // Conversion rates - use leads.length as base for scheduling rate
-  const totalLeads = leads.length;
+  const qualifiedByScoring = useMemo(() => filteredLeads.filter(l => computeLeadScore(l).isQualified).length, [filteredLeads]);
+
+  // Conversion rates - use filteredLeads.length as base for scheduling rate
+  const totalLeads = filteredLeads.length;
   const qualifiedCount = qualifiedByScoring;
-  const vendasCount = utmData?.vendas || 0;
+  const vendasCount = useMemo(() => {
+    if (!kpiStartDate && !kpiEndDate) return utmData?.vendas || 0;
+    // Filter vendas stage leads by date
+    return filteredLeads.filter(l => l.stage === 'venda').length;
+  }, [filteredLeads, kpiStartDate, kpiEndDate, utmData]);
   const qualRate = totalLeads > 0 ? ((qualifiedCount / totalLeads) * 100).toFixed(1) : "0";
   const convRate = totalLeads > 0 ? ((vendasCount / totalLeads) * 100).toFixed(1) : "0";
   const scheduleRate = totalLeads > 0 ? ((agendadosByCalCom / totalLeads) * 100).toFixed(1) : "0";
@@ -308,6 +337,24 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
   return (
     <div className="space-y-6 mt-4">
       {/* KPI Cards */}
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h3 className="text-sm font-medium text-muted-foreground">KPIs</h3>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Label className="text-xs text-muted-foreground">De</Label>
+            <Input type="date" value={kpiStartDate} onChange={e => setKpiStartDate(e.target.value)} className="h-7 text-xs w-[130px]" />
+          </div>
+          <div className="flex items-center gap-1">
+            <Label className="text-xs text-muted-foreground">Até</Label>
+            <Input type="date" value={kpiEndDate} onChange={e => setKpiEndDate(e.target.value)} className="h-7 text-xs w-[130px]" />
+          </div>
+          {(kpiStartDate || kpiEndDate) && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => { setKpiStartDate(""); setKpiEndDate(""); }}>
+              Limpar
+            </Button>
+          )}
+        </div>
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {kpiCards.map(kpi => (
           <Card key={kpi.key}>
@@ -318,7 +365,7 @@ export function StrategicDashboardTab({ session, leads, stageCounts }: Props) {
                   {kpi.key === "qualificado" ? qualifiedByScoring
                     : kpi.key === "agendado" ? agendadosByCalCom
                     : kpi.key === "realizado" ? realizadosByCalCom
-                    : (stageCounts[kpi.key] || 0)}
+                    : (filteredStageCounts[kpi.key] || 0)}
                 </span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
