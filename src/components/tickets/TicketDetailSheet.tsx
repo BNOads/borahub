@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { useTicket, useTicketAnexos, useUpdateTicketStatus, useUpdateTicketSla, useReopenTicket, type Ticket } from "@/hooks/useTickets";
+import { useTicket, useTicketAnexos, useUpdateTicketStatus, useUpdateTicketSla, useReopenTicket, useDeleteTicketAnexo, type Ticket } from "@/hooks/useTickets";
 import { TicketLogTimeline } from "./TicketLogTimeline";
 import { TicketCommentForm } from "./TicketCommentForm";
 import { TicketTransferModal } from "./TicketTransferModal";
