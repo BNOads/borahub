@@ -6,14 +6,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { useTicket, useTicketAnexos, useUpdateTicketStatus, useUpdateTicketSla, useReopenTicket, type Ticket } from "@/hooks/useTickets";
+import { useTicket, useTicketAnexos, useUpdateTicketStatus, useUpdateTicketSla, useReopenTicket, useDeleteTicketAnexo, type Ticket } from "@/hooks/useTickets";
 import { TicketLogTimeline } from "./TicketLogTimeline";
 import { TicketCommentForm } from "./TicketCommentForm";
 import { TicketTransferModal } from "./TicketTransferModal";
 import { TicketCloseModal } from "./TicketCloseModal";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRightLeft, CalendarIcon, CheckCircle2, Clock, ExternalLink, Image, Paperclip, RotateCcw, X } from "lucide-react";
+import { ArrowRightLeft, CalendarIcon, CheckCircle2, Clock, ExternalLink, Image, Paperclip, RotateCcw, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -55,6 +55,7 @@ export function TicketDetailSheet({ ticketId, onClose }: Props) {
   const updateStatus = useUpdateTicketStatus();
   const updateSla = useUpdateTicketSla();
   const reopenTicket = useReopenTicket();
+  const deleteAnexo = useDeleteTicketAnexo();
   const [transferOpen, setTransferOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -196,28 +197,50 @@ export function TicketDetailSheet({ ticketId, onClose }: Props) {
               <h4 className="text-sm font-medium mb-2">Anexos ({anexos.length})</h4>
               <div className="space-y-2">
                 {anexos.map((a) => (
-                  <div key={a.id}>
+                  <div key={a.id} className="group">
                     {isImageFile(a.arquivo_nome) ? (
-                      <div
-                        className="cursor-pointer rounded-lg border overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all"
-                        onClick={() => setPreviewImage(a.arquivo_url)}
-                      >
-                        <img
-                          src={a.arquivo_url}
-                          alt={a.arquivo_nome}
-                          className="w-full max-h-48 object-cover"
-                        />
-                        <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground bg-muted/50">
-                          <Image className="h-3 w-3" />
-                          <span className="truncate">{a.arquivo_nome}</span>
-                          <span className="ml-auto text-[10px]">Clique para expandir</span>
+                      <div className="relative">
+                        <div
+                          className="cursor-pointer rounded-lg border overflow-hidden hover:ring-2 hover:ring-primary/50 transition-all"
+                          onClick={() => setPreviewImage(a.arquivo_url)}
+                        >
+                          <img
+                            src={a.arquivo_url}
+                            alt={a.arquivo_nome}
+                            className="w-full max-h-48 object-cover"
+                          />
+                          <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground bg-muted/50">
+                            <Image className="h-3 w-3" />
+                            <span className="truncate">{a.arquivo_nome}</span>
+                            <span className="ml-auto text-[10px]">Clique para expandir</span>
+                          </div>
                         </div>
+                        <Button
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => deleteAnexo.mutate({ anexo: a })}
+                          disabled={deleteAnexo.isPending}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     ) : (
-                      <a href={a.arquivo_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline">
-                        <Paperclip className="h-3.5 w-3.5" /> {a.arquivo_nome}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <a href={a.arquivo_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm text-primary hover:underline flex-1 min-w-0">
+                          <Paperclip className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{a.arquivo_nome}</span>
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                        </a>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                          onClick={() => deleteAnexo.mutate({ anexo: a })}
+                          disabled={deleteAnexo.isPending}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     )}
                   </div>
                 ))}
