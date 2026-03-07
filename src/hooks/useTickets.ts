@@ -533,6 +533,37 @@ export function useUploadTicketAnexo() {
   });
 }
 
+export function useDeleteTicketAnexo() {
+  const queryClient = useQueryClient();
+  const { user, profile } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ anexo }: { anexo: TicketAnexo }) => {
+      // Extract storage path from public URL
+      const urlParts = anexo.arquivo_url.split("/ticket-anexos/");
+      if (urlParts.length > 1) {
+        const storagePath = decodeURIComponent(urlParts[1]);
+        await supabase.storage.from("ticket-anexos").remove([storagePath]);
+      }
+
+      const { error } = await supabase.from("ticket_anexos").delete().eq("id", anexo.id);
+      if (error) throw error;
+
+      await supabase.from("ticket_logs").insert({
+        ticket_id: anexo.ticket_id,
+        usuario_id: user!.id,
+        usuario_nome: profile?.display_name || profile?.full_name || "",
+        acao: "anexo_removido",
+        descricao: `Arquivo removido: ${anexo.arquivo_nome}`,
+      });
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ticketKeys.anexos(vars.anexo.ticket_id) });
+      queryClient.invalidateQueries({ queryKey: ticketKeys.logs(vars.anexo.ticket_id) });
+    },
+  });
+}
+
 export function useQuickTransferTicket() {
   const queryClient = useQueryClient();
   const { user, profile } = useAuth();

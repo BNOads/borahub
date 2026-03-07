@@ -13,7 +13,7 @@ import { TicketTransferModal } from "./TicketTransferModal";
 import { TicketCloseModal } from "./TicketCloseModal";
 import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ArrowRightLeft, CalendarIcon, CheckCircle2, Clock, ExternalLink, Image, Paperclip, RotateCcw, X } from "lucide-react";
+import { ArrowRightLeft, CalendarIcon, CheckCircle2, Clock, ExternalLink, Image, Paperclip, RotateCcw, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
