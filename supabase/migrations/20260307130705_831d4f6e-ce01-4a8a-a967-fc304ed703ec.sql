@@ -1,0 +1,2 @@
+DROP POLICY "Only admins can delete ticket anexos" ON public.ticket_anexos;
+CREATE POLICY "Authenticated users can delete ticket anexos" ON public.ticket_anexos FOR DELETE TO authenticated USING (auth.uid() IS NOT NULL);
