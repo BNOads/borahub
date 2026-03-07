@@ -55,6 +55,7 @@ export function TicketDetailSheet({ ticketId, onClose }: Props) {
   const updateStatus = useUpdateTicketStatus();
   const updateSla = useUpdateTicketSla();
   const reopenTicket = useReopenTicket();
+  const deleteAnexo = useDeleteTicketAnexo();
   const [transferOpen, setTransferOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
